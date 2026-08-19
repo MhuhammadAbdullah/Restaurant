@@ -1,0 +1,50 @@
+node_modules/
+.pnpm-store/
+.turbo/
+dist/
+build/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+
+# env
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# generated
+packages/database/generated/
+packages/database/prisma/migrations/.tmp/
+
+# expo
+apps/mobile/.expo/
+apps/mobile/dist/
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# os
+.DS_Store
+Thumbs.db
+
+# editor
+.vscode/*
+!.vscode/extensions.json
+
+# vercel
+.vercel
+
+# claude code — personal/local settings only, not project-shared skills/config
+.claude/settings.local.json
+
+# internal architecture / business-logic docs — not meant for the public GitHub repo
+CLAUDE.md
+apps/web/CLAUDE.md
+apps/web/AGENTS.md
+apps/admin/CLAUDE.md
+apps/admin/AGENTS.md
+docs/

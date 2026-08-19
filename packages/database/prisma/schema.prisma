@@ -1,0 +1,1441 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/client"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum BranchStatus {
+  ACTIVE
+  INACTIVE
+  TEMPORARILY_CLOSED
+}
+
+enum RecordStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ProductImageFallbackSource {
+  HEADER
+  FOOTER
+}
+
+enum SelectionType {
+  SINGLE
+  MULTIPLE
+}
+
+enum TableStatus {
+  AVAILABLE
+  OCCUPIED
+  RESERVED
+  CLEANING
+}
+
+enum OrderType {
+  ONLINE_DELIVERY
+  ONLINE_PICKUP
+  DINE_IN
+  WALK_IN
+  TAKEAWAY
+  DELIVERY // POS-initiated (phone/counter) delivery order, distinct from ONLINE_DELIVERY
+}
+
+enum OrderSource {
+  ONLINE
+  POS
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  READY
+  OUT_FOR_DELIVERY
+  DELIVERED
+  COMPLETED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  COD
+  ONLINE
+  CASH
+  CARD
+  QR
+}
+
+enum PaymentStatus {
+  PENDING
+  PARTIALLY_PAID
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum CouponDiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+enum PrintEventType {
+  CUSTOMER
+  KITCHEN
+  KITCHEN_ADDITIONAL
+}
+
+enum PrintEventStatus {
+  PENDING
+  PRINTED
+  FAILED
+}
+
+enum LoyaltyTransactionType {
+  EARNED
+  REDEEMED
+  EXPIRED
+  ADJUSTMENT
+}
+
+enum ComplaintCategory {
+  FOOD_QUALITY
+  WRONG_ITEM
+  MISSING_ITEM
+  LATE_DELIVERY
+  BRANCH_ISSUE
+  STAFF_BEHAVIOUR
+  PAYMENT_ISSUE
+  ORDER_ISSUE
+  PACKAGING_ISSUE
+  OTHER
+}
+
+// A simplified, customer-facing description of what kind of order the complaint concerns —
+// deliberately not the internal OrderType enum (ONLINE_DELIVERY vs DELIVERY vs WALK_IN etc. is
+// an implementation detail the customer has no way to know when filing a complaint).
+enum ComplaintOrderType {
+  DELIVERY
+  PICKUP
+  TAKEAWAY
+  DINE_IN
+}
+
+enum ComplaintStatus {
+  OPEN
+  UNDER_REVIEW
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+  REJECTED
+}
+
+enum ComplaintPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum ComplaintSenderType {
+  STAFF
+  CUSTOMER
+}
+
+enum WebsiteSectionType {
+  HERO
+  CATEGORY_GRID
+  PRODUCT_GRID
+  CTA
+  BANNER_STRIP
+}
+
+enum NotificationRecipientType {
+  STAFF
+  CUSTOMER
+}
+
+enum RecommendationType {
+  MOST_ORDERED
+  FREQUENTLY_BOUGHT
+  POPULAR
+  MANUAL
+}
+
+// ============================================================
+// IDENTITY & ACCESS
+// ============================================================
+
+model Restaurant {
+  id            String   @id @default(cuid())
+  name          String
+  logoUrl       String?
+  footerLogoUrl String?
+  currency      String   @default("PKR")
+  defaultTaxPct Decimal  @default(0) @db.Decimal(5, 2)
+  contactPhone  String?
+  contactEmail  String?
+  socialLinks   Json?
+  settings      Json?
+
+  // Which logo (if either) stands in for a product's image when it has none uploaded yet.
+  // Null = no logo fallback configured (website falls back to a generic placeholder).
+  productImageFallbackSource ProductImageFallbackSource?
+
+  // Receipt branding — restaurant name/address/phone/email/social above are reused as-is.
+  // receiptLogoUrl is optional and falls back to the main logoUrl — lets an admin swap in a
+  // simplified black & white mark that prints cleaner on a thermal receipt printer.
+  receiptLogoUrl           String?
+  receiptTaxNumber         String?
+  receiptFooterText        String?
+  receiptThankYouMessage   String?
+  kitchenReceiptHeaderText String?
+  kitchenReceiptFooterText String?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  branches        Branch[]
+  staffUsers      StaffUser[]
+  roles           Role[]
+  categories      Category[]
+  products        Product[]
+  choiceGroups    ChoiceGroup[]
+  addonGroups     AddonGroup[]
+  deals           Deal[]
+  customers       Customer[]
+  complaints      Complaint[]
+  websiteSections WebsiteSection[]
+  banners         Banner[]
+  notifications   Notification[]
+  auditLogs           AuditLog[]
+  recommendations     Recommendation[]
+  deliveryAreaCatalog DeliveryAreaCatalog[]
+  emailOtps           EmailOtp[]
+
+  @@map("restaurants")
+}
+
+model StaffUser {
+  id               String       @id @default(cuid())
+  restaurantId     String
+  restaurant       Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  roleId           String
+  role             Role         @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  name             String
+  email            String
+  phone            String?
+  passwordHash     String
+  status           RecordStatus @default(ACTIVE)
+  // Explicit "All Branches" grant — bypasses branch scope like Owner does, without being Owner.
+  // Kept as a real flag rather than inferred from an empty branchAssignments list, since an empty
+  // list for a non-Owner, non-all-branches user actually means zero branch access.
+  allBranchesAccess Boolean     @default(false)
+  refreshTokenHash String?
+  lastLoginAt      DateTime?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  branchAssignments       StaffUserBranch[]
+  permissionOverrides     StaffUserPermission[]
+  posOrders               Order[]                @relation("OrderCreatedByStaff")
+  updatedOrders           Order[]                @relation("OrderUpdatedByStaff")
+  assignedDeliveryOrders  Order[]                @relation("OrderAssignedRider")
+  orderRevisions          OrderRevision[]
+  orderBranchTransfers    OrderBranchTransfer[]
+  collectionSubmissions   RiderCollectionSubmission[]
+  printEvents             PrintEvent[]
+  recordedPayments        Payment[]
+  auditLogs               AuditLog[]
+  assignedComplaints      Complaint[]            @relation("ComplaintAssignee")
+  complaintMessages       ComplaintMessage[]
+  notifications           Notification[]
+
+  @@unique([restaurantId, email])
+  @@map("staff_users")
+}
+
+model Role {
+  id           String     @id @default(cuid())
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  name         String
+  isSystem     Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+
+  staffUsers  StaffUser[]
+  permissions RolePermission[]
+
+  @@unique([restaurantId, name])
+  @@map("roles")
+}
+
+model Permission {
+  id          String  @id @default(cuid())
+  key         String  @unique
+  module      String
+  action      String
+  description String?
+
+  roles          RolePermission[]
+  staffOverrides StaffUserPermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permissionId String
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model StaffUserPermission {
+  staffUserId  String
+  staffUser    StaffUser  @relation(fields: [staffUserId], references: [id], onDelete: Cascade)
+  permissionId String
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  granted      Boolean
+
+  @@id([staffUserId, permissionId])
+  @@map("staff_user_permissions")
+}
+
+model StaffUserBranch {
+  staffUserId String
+  staffUser   StaffUser @relation(fields: [staffUserId], references: [id], onDelete: Cascade)
+  branchId    String
+  branch      Branch    @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@id([staffUserId, branchId])
+  @@map("staff_user_branches")
+}
+
+// ============================================================
+// BRANCH
+// ============================================================
+
+model Branch {
+  id                    String       @id @default(cuid())
+  restaurantId          String
+  restaurant            Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  name                  String
+  code                  String
+  phone                 String?
+  email                 String?
+  address               String?
+  city                  String
+  area                  String
+  // Admin pastes a single Google Maps link — latitude/longitude below are parsed from it
+  // server-side (best-effort) and kept only to power "nearest branch" geolocation matching and
+  // as a directions-link fallback; the raw URL is what "Get Directions" opens when present.
+  mapUrl                String?
+  latitude              Decimal?     @db.Decimal(9, 6)
+  longitude             Decimal?     @db.Decimal(9, 6)
+  openingTime           String // "10:00"
+  closingTime           String // "23:30"
+  breakStart            String?
+  breakEnd              String?
+  deliveryRadiusKm      Decimal      @default(5) @db.Decimal(5, 2)
+  deliveryFee           Int          @default(0) // paisa
+  minimumOrder          Int          @default(0) // paisa
+  estimatedDeliveryMins Int          @default(45)
+  status                BranchStatus @default(ACTIVE)
+  deliveryEnabled       Boolean      @default(true)
+  pickupEnabled         Boolean      @default(true)
+  dineInEnabled         Boolean      @default(true)
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+
+  staffAssignments     StaffUserBranch[]
+  tables               RestaurantTable[]
+  deliveryAreas        DeliveryArea[]
+  productAvailability  ProductBranchAvailability[]
+  categoryAvailability CategoryBranchAvailability[]
+  dealAvailability     DealBranchAvailability[]
+  orders               Order[]
+  complaints           Complaint[]
+  recommendations      Recommendation[]
+  orderTransfersFrom   OrderBranchTransfer[]        @relation("OrderTransferFromBranch")
+  orderTransfersTo     OrderBranchTransfer[]        @relation("OrderTransferToBranch")
+  loyaltyTransactions  LoyaltyTransaction[]
+  collectionSubmissions RiderCollectionSubmission[]
+
+  @@unique([restaurantId, code])
+  @@map("branches")
+}
+
+model RestaurantTable {
+  id        String      @id @default(cuid())
+  branchId  String
+  branch    Branch      @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  number    String
+  name      String?
+  capacity  Int         @default(2)
+  section   String?
+  status    TableStatus @default(AVAILABLE)
+  createdAt DateTime    @default(now())
+
+  orders Order[]
+
+  @@unique([branchId, number])
+  @@map("restaurant_tables")
+}
+
+// Restaurant-wide catalog of named delivery neighbourhoods (managed once, in one place — the
+// admin "Delivery Areas" tab). A branch becomes eligible for a given area only once it has an
+// active DeliveryArea link to it (see below) — adding a catalog entry alone doesn't serve it
+// from any branch yet.
+model DeliveryAreaCatalog {
+  id           String     @id @default(cuid())
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  city         String
+  name         String
+  isActive     Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+
+  branchLinks DeliveryArea[]
+
+  @@unique([restaurantId, city, name])
+  @@map("delivery_area_catalog")
+}
+
+// Per-branch assignment of a catalog area — this is what "each branch adds separately" means.
+model DeliveryArea {
+  id        String              @id @default(cuid())
+  branchId  String
+  branch    Branch              @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  areaId    String
+  area      DeliveryAreaCatalog @relation(fields: [areaId], references: [id], onDelete: Cascade)
+  isActive  Boolean             @default(true)
+  createdAt DateTime            @default(now())
+
+  @@unique([branchId, areaId])
+  @@map("delivery_areas")
+}
+
+// ============================================================
+// CATALOG
+// ============================================================
+
+model Category {
+  id            String       @id @default(cuid())
+  restaurantId  String
+  restaurant    Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  name          String
+  description   String?
+  image         String?
+  banner        String?
+  sortOrder     Int          @default(0)
+  status        RecordStatus @default(ACTIVE)
+  mainPageLimit Int? // null = no limit on how many showOnMainPage products from this category appear on the homepage
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  products           Product[]
+  deals              Deal[]
+  branchAvailability CategoryBranchAvailability[]
+  websiteSections    WebsiteSection[]
+  couponRestrictions CouponCategory[]
+
+  @@unique([restaurantId, name])
+  @@map("categories")
+}
+
+model CategoryBranchAvailability {
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  branchId    String
+  branch      Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  isAvailable Boolean  @default(true)
+
+  @@id([categoryId, branchId])
+  @@map("category_branch_availability")
+}
+
+model Product {
+  id                 String            @id @default(cuid())
+  restaurantId       String
+  restaurant         Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  categoryId         String
+  category           Category          @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  name               String
+  sku                String?
+  description        String?
+  shortDescription   String?
+  basePrice          Int // paisa
+  discountPrice      Int?
+  taxPct             Decimal?          @db.Decimal(5, 2)
+  status             RecordStatus      @default(ACTIVE)
+  isFeatured         Boolean           @default(false)
+  isPopular          Boolean           @default(false)
+  // Admin-curated opt-in: only products with this on are eligible to appear in the cart drawer's
+  // "Popular with your order" section — see RecommendationsService.getForCart.
+  isCartRecommendable Boolean          @default(false)
+  showOnMainPage     Boolean           @default(false)
+  mainPageSortOrder  Int               @default(0)
+  prepTimeMinutes    Int?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  images              ProductImage[]
+  branchAvailability  ProductBranchAvailability[]
+  choiceGroups        ProductChoiceGroup[]
+  addons              ProductAddon[]
+  addonListings       Addon[]
+  favourites          CustomerFavourite[]
+  dealSlotOptions     DealSlotProductOption[]
+  orderItems          OrderItem[]
+  orderItemDealSlots  OrderItemDealSlot[]
+  complaints          Complaint[]
+  recommendationsFrom Recommendation[]            @relation("RecommendationSource")
+  recommendationsTo   Recommendation[]            @relation("RecommendationTarget")
+  couponRestrictions  CouponProduct[]
+
+  @@map("products")
+}
+
+model ProductImage {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String
+  sortOrder Int      @default(0)
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("product_images")
+}
+
+model ProductBranchAvailability {
+  productId   String
+  product     Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  branchId    String
+  branch      Branch  @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  isAvailable Boolean @default(true)
+
+  @@id([productId, branchId])
+  @@map("product_branch_availability")
+}
+
+model ChoiceGroup {
+  id            String        @id @default(cuid())
+  restaurantId  String
+  restaurant    Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  name          String
+  description   String?
+  isRequired    Boolean       @default(true)
+  selectionType SelectionType @default(SINGLE)
+  minSelect     Int           @default(1)
+  maxSelect     Int           @default(1)
+  status        RecordStatus  @default(ACTIVE)
+  sortOrder     Int           @default(0)
+  createdAt     DateTime      @default(now())
+
+  options             ChoiceOption[]
+  productAssignments  ProductChoiceGroup[]
+  dealSlotAssignments DealSlotChoiceGroup[]
+
+  @@map("choice_groups")
+}
+
+model ChoiceOption {
+  id                      String       @id @default(cuid())
+  choiceGroupId           String
+  choiceGroup             ChoiceGroup  @relation(fields: [choiceGroupId], references: [id], onDelete: Cascade)
+  name                    String
+  image                   String?
+  priceAdjustment         Int          @default(0) // paisa
+  discountPriceAdjustment Int? // paisa, optional discounted additional price
+  sortOrder               Int          @default(0)
+  status                  RecordStatus @default(ACTIVE)
+
+  orderItemChoices         OrderItemChoice[]
+  orderItemDealSlotChoices OrderItemDealSlotChoice[]
+  defaultForProductChoices ProductChoiceGroup[]      @relation("ProductChoiceGroupDefault")
+
+  @@map("choice_options")
+}
+
+model ProductChoiceGroup {
+  productId             String
+  product               Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  choiceGroupId         String
+  choiceGroup           ChoiceGroup   @relation(fields: [choiceGroupId], references: [id], onDelete: Cascade)
+  sortOrder             Int           @default(0)
+  isRequiredOverride    Boolean?
+  minSelectOverride     Int?
+  maxSelectOverride     Int?
+  defaultChoiceOptionId String?
+  defaultChoiceOption   ChoiceOption? @relation("ProductChoiceGroupDefault", fields: [defaultChoiceOptionId], references: [id], onDelete: SetNull)
+
+  @@id([productId, choiceGroupId])
+  @@map("product_choice_groups")
+}
+
+model AddonGroup {
+  id            String        @id @default(cuid())
+  restaurantId  String
+  restaurant    Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  name          String
+  isRequired    Boolean       @default(false)
+  selectionType SelectionType @default(MULTIPLE)
+  minSelect     Int           @default(0)
+  maxSelect     Int           @default(5)
+  createdAt     DateTime      @default(now())
+
+  addons Addon[]
+
+  @@map("addon_groups")
+}
+
+// An Addon is always a presentation of an existing catalog Product within an Addon Group —
+// `name` is that group's custom display name for the product (defaults to the product's own
+// name in the admin UI, independently editable) and price/discountPrice are independent of the
+// underlying product's own basePrice/discountPrice (never mutate the product's own pricing).
+model Addon {
+  id            String       @id @default(cuid())
+  addonGroupId  String
+  addonGroup    AddonGroup   @relation(fields: [addonGroupId], references: [id], onDelete: Cascade)
+  productId     String
+  product       Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name          String
+  description   String?
+  price         Int          @default(0) // paisa
+  discountPrice Int? // paisa, optional discounted price
+  image         String?
+  maxQuantity   Int          @default(1)
+  status        RecordStatus @default(ACTIVE)
+  sortOrder     Int          @default(0)
+
+  orderItemAddons         OrderItemAddon[]
+  orderItemDealSlotAddons OrderItemDealSlotAddon[]
+  productAssignments      ProductAddon[]
+  dealSlotAssignments     DealSlotAddon[]
+
+  @@unique([addonGroupId, productId])
+  @@map("addons")
+}
+
+model ProductAddon {
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  addonId   String
+  addon     Addon   @relation(fields: [addonId], references: [id], onDelete: Cascade)
+  sortOrder Int     @default(0)
+
+  @@id([productId, addonId])
+  @@map("product_addons")
+}
+
+// ============================================================
+// DEALS (independent per-slot configuration)
+// ============================================================
+
+model Deal {
+  id            String       @id @default(cuid())
+  restaurantId  String
+  restaurant    Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  categoryId    String?
+  category      Category?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  name          String
+  description   String?
+  image         String?
+  dealPrice     Int // paisa, server-authoritative
+  originalPrice Int? // paisa, admin-entered "regular/strikethrough" price — display only, never auto-computed
+  isFeatured    Boolean      @default(false)
+  sortOrder     Int          @default(0)
+  startDate     DateTime?
+  endDate       DateTime?
+  status        RecordStatus @default(ACTIVE)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  slots              DealSlot[]
+  branchAvailability DealBranchAvailability[]
+  orderItems         OrderItem[]
+
+  @@map("deals")
+}
+
+model DealBranchAvailability {
+  dealId      String
+  deal        Deal    @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  branchId    String
+  branch      Branch  @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  isAvailable Boolean @default(true)
+
+  @@id([dealId, branchId])
+  @@map("deal_branch_availability")
+}
+
+model DealSlot {
+  id        String @id @default(cuid())
+  dealId    String
+  deal      Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  label     String // e.g. "Pizza 1", "Drink 2"
+  quantity  Int    @default(1)
+  sortOrder Int    @default(0)
+
+  productOptions     DealSlotProductOption[]
+  choiceGroups       DealSlotChoiceGroup[]
+  addons             DealSlotAddon[]
+  orderItemDealSlots OrderItemDealSlot[]
+
+  @@map("deal_slots")
+}
+
+model DealSlotProductOption {
+  dealSlotId String
+  dealSlot   DealSlot @relation(fields: [dealSlotId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([dealSlotId, productId])
+  @@map("deal_slot_product_options")
+}
+
+model DealSlotChoiceGroup {
+  dealSlotId    String
+  dealSlot      DealSlot    @relation(fields: [dealSlotId], references: [id], onDelete: Cascade)
+  choiceGroupId String
+  choiceGroup   ChoiceGroup @relation(fields: [choiceGroupId], references: [id], onDelete: Cascade)
+
+  @@id([dealSlotId, choiceGroupId])
+  @@map("deal_slot_choice_groups")
+}
+
+model DealSlotAddon {
+  dealSlotId String
+  dealSlot   DealSlot @relation(fields: [dealSlotId], references: [id], onDelete: Cascade)
+  addonId    String
+  addon      Addon    @relation(fields: [addonId], references: [id], onDelete: Cascade)
+  sortOrder  Int      @default(0)
+
+  @@id([dealSlotId, addonId])
+  @@map("deal_slot_addons")
+}
+
+// ============================================================
+// CUSTOMERS
+// ============================================================
+
+model Customer {
+  id               String       @id @default(cuid())
+  restaurantId     String
+  restaurant       Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  name             String
+  email            String
+  phone            String
+  // Customer auth is email+OTP only now (see EmailOtp) — password stays as a nullable legacy
+  // column so existing password-based rows keep working without a backfill; new customers never
+  // get one set.
+  passwordHash     String?
+  gender           String?
+  dob              DateTime?
+  profileImage     String?
+  // True for a profile that only exists because a staff member typed a phone+name during a POS
+  // walk-in order (see resolveOrCreateCustomer) — the customer never actually completed the
+  // email+OTP signup themselves. Explicitly set false only by the real registration flows
+  // (customer-otp.service.ts / the legacy password register()). Loyalty is only ever earned or
+  // manually granted for isGuest: false customers.
+  isGuest          Boolean      @default(true)
+  status           RecordStatus @default(ACTIVE)
+  refreshTokenHash String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  addresses         CustomerAddress[]
+  favourites        CustomerFavourite[]
+  loyaltyAccount    LoyaltyAccount?
+  orders            Order[]
+  complaints        Complaint[]
+  complaintMessages ComplaintMessage[]
+  notifications     Notification[]
+  couponRedemptions CouponRedemption[]
+
+  @@unique([restaurantId, phone])
+  @@unique([restaurantId, email])
+  @@map("customers")
+}
+
+model CustomerAddress {
+  id            String   @id @default(cuid())
+  customerId    String
+  customer      Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  label         String   @default("Home")
+  city          String
+  area          String
+  addressLine   String
+  landmark      String?
+  contactNumber String?
+  latitude      Decimal? @db.Decimal(9, 6)
+  longitude     Decimal? @db.Decimal(9, 6)
+  isDefault     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  orders Order[]
+
+  @@map("customer_addresses")
+}
+
+/// Short-lived email verification codes for customer login/registration. Append-only-ish: a row
+/// is consumed (consumedAt set) rather than deleted, so a replayed/expired code can be told apart
+/// from one that never existed. `purpose` keeps a login OTP from being usable to complete a
+/// different in-flight registration for the same email, and vice versa.
+model EmailOtp {
+  id           String    @id @default(cuid())
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  email        String
+  codeHash     String
+  purpose      OtpPurpose
+  attempts     Int       @default(0)
+  expiresAt    DateTime
+  consumedAt   DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([restaurantId, email, purpose])
+  @@map("email_otps")
+}
+
+enum OtpPurpose {
+  LOGIN
+  REGISTER
+}
+
+model CustomerFavourite {
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@id([customerId, productId])
+  @@map("customer_favourites")
+}
+
+// ============================================================
+// LOYALTY (append-only ledger)
+// ============================================================
+
+model LoyaltyAccount {
+  id            String   @id @default(cuid())
+  customerId    String   @unique
+  customer      Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  pointsBalance Int      @default(0)
+  updatedAt     DateTime @updatedAt
+
+  transactions LoyaltyTransaction[]
+
+  @@map("loyalty_accounts")
+}
+
+model LoyaltyTransaction {
+  id               String                 @id @default(cuid())
+  loyaltyAccountId String
+  loyaltyAccount   LoyaltyAccount         @relation(fields: [loyaltyAccountId], references: [id], onDelete: Cascade)
+  type             LoyaltyTransactionType
+  points           Int // signed
+  orderId          String?
+  order            Order?                 @relation(fields: [orderId], references: [id])
+  // Denormalized from order.branchId at earn/redeem time — powers branch-scoped loyalty
+  // reporting/visibility (CLAUDE.md §15) without fragmenting the customer's balance itself, which
+  // stays restaurant-wide (see LoyaltyAccount.pointsBalance). Null for manual adjustments made
+  // outside any order/branch context.
+  branchId         String?
+  branch           Branch?                @relation(fields: [branchId], references: [id])
+  note             String?
+  expiresAt        DateTime?
+  // Set by the expiry sweep once this EARNED lot has been processed (its remaining points
+  // debited via a paired EXPIRED transaction) — distinct from expiresAt ("when it WILL expire")
+  // so the sweep never double-processes the same lot.
+  expiredAt        DateTime?
+  createdAt        DateTime               @default(now())
+
+  @@index([type, expiresAt, expiredAt])
+  @@map("loyalty_transactions")
+}
+
+// ============================================================
+// ORDERS
+// ============================================================
+
+model Order {
+  id               String           @id @default(cuid())
+  orderNumber      String           @unique
+  restaurantId     String
+  branchId         String
+  branch           Branch           @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  customerId       String?
+  customer         Customer?        @relation(fields: [customerId], references: [id])
+  createdByStaffId String?
+  createdByStaff   StaffUser?       @relation("OrderCreatedByStaff", fields: [createdByStaffId], references: [id])
+  updatedByStaffId String?
+  updatedByStaff   StaffUser?       @relation("OrderUpdatedByStaff", fields: [updatedByStaffId], references: [id])
+  tableId          String?
+  table            RestaurantTable? @relation(fields: [tableId], references: [id])
+  addressId        String?
+  address          CustomerAddress? @relation(fields: [addressId], references: [id])
+  assignedRiderId  String?
+  assignedRider    StaffUser?       @relation("OrderAssignedRider", fields: [assignedRiderId], references: [id])
+  riderAssignedAt  DateTime?
+  // Set once this order's COD cash has been handed over as part of a rider's end-of-day
+  // submission — null means "not yet submitted" (still sitting in the rider's pocket, or not a
+  // COD order at all). See RiderCollectionSubmission.
+  collectionSubmissionId String?
+  collectionSubmission   RiderCollectionSubmission? @relation(fields: [collectionSubmissionId], references: [id])
+
+  type   OrderType
+  source OrderSource @default(ONLINE)
+  status OrderStatus @default(PENDING)
+
+  paymentMethod PaymentMethod
+  paymentStatus PaymentStatus @default(PENDING)
+
+  // Client-generated per checkout-attempt; a repeat submission with the same key returns the
+  // original order instead of creating a duplicate (double-click / flaky-network safe).
+  idempotencyKey String? @unique
+
+  isGift                Boolean @default(false)
+  giftRecipientName     String?
+  giftRecipientPhone    String?
+  giftRecipientAddress  String?
+  giftRecipientCity     String?
+  giftRecipientArea     String?
+  giftRecipientLandmark String?
+  giftMessage           String?
+
+  deliveryAddressSnapshot String?
+  deliveryCity            String?
+  deliveryArea            String?
+  deliveryLandmark        String?
+  contactName             String?
+  contactPhone            String?
+  contactAlternatePhone   String?
+  contactEmail            String?
+
+  subtotal              Int
+  taxAmount             Int @default(0)
+  deliveryFee           Int @default(0)
+  discountAmount        Int @default(0)
+  loyaltyPointsRedeemed Int @default(0)
+  loyaltyDiscountAmount Int @default(0)
+  couponCode            String? // snapshot — coupon may be edited/deleted later, historical orders must not change
+  couponDiscountAmount  Int     @default(0)
+  grandTotal            Int
+
+  changeRequestAmount Int?
+  specialInstructions String?
+  internalNotes       String?
+
+  estimatedDeliveryAt DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  items                 OrderItem[]
+  payments              Payment[]
+  receipt               Receipt?
+  revisions             OrderRevision[]
+  branchTransfers       OrderBranchTransfer[]
+  pushSubscriptions     PushSubscription[]
+  printEvents           PrintEvent[]
+  couponRedemption      CouponRedemption?
+  loyaltyTransactions   LoyaltyTransaction[]
+  complaints            Complaint[]
+  notifications         Notification[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id                  String   @id @default(cuid())
+  orderId             String
+  order               Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId           String?
+  product             Product? @relation(fields: [productId], references: [id])
+  dealId              String?
+  deal                Deal?    @relation(fields: [dealId], references: [id])
+  nameSnapshot        String
+  quantity            Int      @default(1)
+  unitPrice           Int
+  regularUnitPrice    Int? // pre-discount price at order time, for "you saved" display — null if no discount was active
+  lineTotal           Int
+  specialInstructions String?
+
+  // null = part of the original order; set = added later via an "Add Items" amendment,
+  // so kitchen tickets can print just the additional items instead of the whole order again.
+  orderRevisionId String?
+  orderRevision   OrderRevision? @relation(fields: [orderRevisionId], references: [id], onDelete: SetNull)
+
+  choices   OrderItemChoice[]
+  addons    OrderItemAddon[]
+  dealSlots OrderItemDealSlot[]
+
+  @@map("order_items")
+}
+
+model OrderItemChoice {
+  id                             String       @id @default(cuid())
+  orderItemId                    String
+  orderItem                      OrderItem    @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  choiceOptionId                 String
+  choiceOption                   ChoiceOption @relation(fields: [choiceOptionId], references: [id], onDelete: Cascade)
+  nameSnapshot                   String
+  priceAdjustmentSnapshot        Int          @default(0)
+  regularPriceAdjustmentSnapshot Int?
+
+  @@map("order_item_choices")
+}
+
+model OrderItemAddon {
+  id                   String    @id @default(cuid())
+  orderItemId          String
+  orderItem            OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  addonId              String
+  addon                Addon     @relation(fields: [addonId], references: [id], onDelete: Cascade)
+  nameSnapshot         String
+  priceSnapshot        Int
+  regularPriceSnapshot Int?
+  quantity             Int       @default(1)
+
+  @@map("order_item_addons")
+}
+
+model OrderItemDealSlot {
+  id           String    @id @default(cuid())
+  orderItemId  String
+  orderItem    OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  dealSlotId   String
+  dealSlot     DealSlot  @relation(fields: [dealSlotId], references: [id], onDelete: Cascade)
+  productId    String
+  product      Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  nameSnapshot String
+
+  choices OrderItemDealSlotChoice[]
+  addons  OrderItemDealSlotAddon[]
+
+  @@map("order_item_deal_slots")
+}
+
+model OrderItemDealSlotChoice {
+  id                             String            @id @default(cuid())
+  orderItemDealSlotId            String
+  orderItemDealSlot              OrderItemDealSlot @relation(fields: [orderItemDealSlotId], references: [id], onDelete: Cascade)
+  choiceOptionId                 String
+  choiceOption                   ChoiceOption      @relation(fields: [choiceOptionId], references: [id], onDelete: Cascade)
+  nameSnapshot                   String
+  priceAdjustmentSnapshot        Int               @default(0)
+  regularPriceAdjustmentSnapshot Int?
+
+  @@map("order_item_deal_slot_choices")
+}
+
+model OrderItemDealSlotAddon {
+  id                   String            @id @default(cuid())
+  orderItemDealSlotId  String
+  orderItemDealSlot    OrderItemDealSlot @relation(fields: [orderItemDealSlotId], references: [id], onDelete: Cascade)
+  addonId              String
+  addon                Addon             @relation(fields: [addonId], references: [id], onDelete: Cascade)
+  nameSnapshot         String
+  priceSnapshot        Int
+  regularPriceSnapshot Int?
+  quantity             Int               @default(1)
+
+  @@map("order_item_deal_slot_addons")
+}
+
+model Payment {
+  id             String        @id @default(cuid())
+  orderId        String
+  order          Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  method         PaymentMethod
+  provider       String? // e.g. "payfast", "mock", "pos"
+  status         PaymentStatus @default(PENDING)
+  amount         Int
+  amountTendered Int? // cash only — change = amountTendered - amount
+  transactionRef String?
+  webhookPayload Json?
+  paidAt         DateTime?
+
+  // who collected/confirmed this payment at the POS (null for gateway-driven online payments)
+  recordedByStaffId String?
+  recordedByStaff    StaffUser? @relation(fields: [recordedByStaffId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("payments")
+}
+
+model Receipt {
+  id          String   @id @default(cuid())
+  orderId     String   @unique
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  pdfUrl      String?
+  generatedAt DateTime @default(now())
+
+  @@map("receipts")
+}
+
+// ============================================================
+// ORDER AMENDMENTS & PRINT AUDIT
+// ============================================================
+
+model OrderRevision {
+  id                 String   @id @default(cuid())
+  orderId            String
+  order              Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  staffId            String?
+  staff              StaffUser? @relation(fields: [staffId], references: [id])
+  previousGrandTotal Int
+  newGrandTotal      Int
+  note               String?
+  createdAt          DateTime @default(now())
+
+  items       OrderItem[]
+  printEvents PrintEvent[]
+
+  @@map("order_revisions")
+}
+
+// Append-only audit trail for cross-branch order moves (CLAUDE.md's "no silent branch change"
+// requirement) — mirrors OrderRevision's shape exactly. order.branchId is the live/current value;
+// this table is the history of how it got there. The earliest row's fromBranchId is the order's
+// original branch.
+model OrderBranchTransfer {
+  id                   String     @id @default(cuid())
+  orderId              String
+  order                Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  fromBranchId         String
+  fromBranch           Branch     @relation("OrderTransferFromBranch", fields: [fromBranchId], references: [id])
+  toBranchId           String
+  toBranch             Branch     @relation("OrderTransferToBranch", fields: [toBranchId], references: [id])
+  transferredByStaffId String?
+  transferredByStaff   StaffUser? @relation(fields: [transferredByStaffId], references: [id])
+  note                 String?
+  createdAt            DateTime   @default(now())
+
+  @@map("order_branch_transfers")
+}
+
+model PrintEvent {
+  id         String            @id @default(cuid())
+  orderId    String
+  order      Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  type       PrintEventType
+  status     PrintEventStatus  @default(PENDING)
+  revisionId String?
+  revision   OrderRevision?    @relation(fields: [revisionId], references: [id], onDelete: SetNull)
+  staffId    String?
+  staff      StaffUser?        @relation(fields: [staffId], references: [id])
+  createdAt  DateTime          @default(now())
+
+  @@map("print_events")
+}
+
+// Per-restaurant atomic counter backing sequential order numbers (ORD-YYYYMMDD-####), shared
+// across every source (online + POS) — one global sequence, not split per channel.
+model RestaurantOrderSequence {
+  restaurantId String @id
+  nextValue    Int    @default(1)
+
+  @@map("restaurant_order_sequences")
+}
+
+model RestaurantComplaintSequence {
+  restaurantId String @id
+  nextValue    Int    @default(1)
+
+  @@map("restaurant_complaint_sequences")
+}
+
+// ============================================================
+// COUPONS
+// ============================================================
+
+model Coupon {
+  id                String             @id @default(cuid())
+  restaurantId      String
+  code              String
+  description       String?
+  discountType      CouponDiscountType
+  discountValue     Int // percent (0-100) for PERCENTAGE, paisa for FIXED_AMOUNT
+  maxDiscountAmount Int? // cap for PERCENTAGE type, paisa
+  minOrderValue     Int? // paisa
+  startDate         DateTime?
+  endDate           DateTime?
+  usageLimit        Int? // total redemptions across all customers, null = unlimited
+  perCustomerLimit  Int?         @default(1)
+  status            RecordStatus @default(ACTIVE)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  restrictedProducts   CouponProduct[]
+  restrictedCategories CouponCategory[]
+  redemptions          CouponRedemption[]
+
+  @@unique([restaurantId, code])
+  @@map("coupons")
+}
+
+model CouponProduct {
+  couponId  String
+  coupon    Coupon  @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([couponId, productId])
+  @@map("coupon_products")
+}
+
+model CouponCategory {
+  couponId   String
+  coupon     Coupon   @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([couponId, categoryId])
+  @@map("coupon_categories")
+}
+
+model CouponRedemption {
+  id             String    @id @default(cuid())
+  couponId       String
+  coupon         Coupon    @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  orderId        String    @unique
+  order          Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  customerId     String?
+  customer       Customer? @relation(fields: [customerId], references: [id])
+  discountAmount Int
+  createdAt      DateTime  @default(now())
+
+  @@map("coupon_redemptions")
+}
+
+// ============================================================
+// COMPLAINTS
+// ============================================================
+
+model Complaint {
+  id                String             @id @default(cuid())
+  // Human-facing sequential id (CMP-00001) — shown to the customer on submission and used
+  // for staff search, distinct from the internal cuid. Mirrors Order.orderNumber.
+  complaintNumber   String             @unique
+  restaurantId      String
+  restaurant        Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  customerId        String?
+  customer          Customer?          @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  branchId          String?
+  branch            Branch?            @relation(fields: [branchId], references: [id])
+  // Verified link, set only when orderNumberInput resolves to a real order in this branch —
+  // never trust a client-supplied id directly (see ComplaintsService.createComplaint).
+  orderId           String?
+  order             Order?             @relation(fields: [orderId], references: [id])
+  // Raw order number as typed by the customer, kept even when it didn't resolve to `orderId`
+  // (typo, order from before this feature, etc.) so staff still have it for manual lookup.
+  orderNumberInput  String?
+  orderType         ComplaintOrderType?
+  productId         String?
+  product           Product?           @relation(fields: [productId], references: [id])
+  // Typed directly on the complaint (not derived from the account) so staff always have a
+  // contact point to follow up on — covers guest submissions and lets any submitter's contact
+  // info differ from what's on file for their account.
+  contactName       String?
+  contactPhone      String?
+  contactEmail      String?
+  category          ComplaintCategory
+  subject           String
+  description       String
+  priority          ComplaintPriority  @default(MEDIUM)
+  status            ComplaintStatus    @default(OPEN)
+  assignedToStaffId String?
+  assignedToStaff   StaffUser?        @relation("ComplaintAssignee", fields: [assignedToStaffId], references: [id])
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  messages    ComplaintMessage[]
+  attachments ComplaintAttachment[]
+
+  @@map("complaints")
+}
+
+model ComplaintMessage {
+  id               String              @id @default(cuid())
+  complaintId      String
+  complaint        Complaint           @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  senderType       ComplaintSenderType
+  senderStaffId    String?
+  senderStaff      StaffUser?          @relation(fields: [senderStaffId], references: [id])
+  senderCustomerId String?
+  senderCustomer   Customer?           @relation(fields: [senderCustomerId], references: [id])
+  message          String
+  isInternalNote   Boolean             @default(false)
+  createdAt        DateTime            @default(now())
+
+  attachments ComplaintAttachment[]
+
+  @@map("complaint_messages")
+}
+
+model ComplaintAttachment {
+  id                 String            @id @default(cuid())
+  complaintId        String
+  complaint          Complaint         @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  complaintMessageId String?
+  complaintMessage   ComplaintMessage? @relation(fields: [complaintMessageId], references: [id])
+  url                String
+  type               String?
+  createdAt          DateTime          @default(now())
+
+  @@map("complaint_attachments")
+}
+
+// ============================================================
+// CMS & OPS
+// ============================================================
+
+model WebsiteSection {
+  id           String             @id @default(cuid())
+  restaurantId String
+  restaurant   Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  type         WebsiteSectionType
+  heading      String?
+  description  String?
+  categoryId   String?
+  category     Category?          @relation(fields: [categoryId], references: [id])
+  sortOrder    Int                @default(0)
+  status       RecordStatus       @default(ACTIVE)
+  config       Json?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@map("website_sections")
+}
+
+model Banner {
+  id           String       @id @default(cuid())
+  restaurantId String
+  restaurant   Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  image        String
+  heading      String?
+  description  String?
+  ctaText      String?
+  ctaLink      String?
+  startDate    DateTime?
+  endDate      DateTime?
+  status       RecordStatus @default(ACTIVE)
+  sortOrder    Int          @default(0)
+  createdAt    DateTime     @default(now())
+
+  @@map("banners")
+}
+
+model Notification {
+  id                  String                    @id @default(cuid())
+  restaurantId        String
+  restaurant          Restaurant                @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  recipientType       NotificationRecipientType
+  recipientStaffId    String?
+  recipientStaff      StaffUser?                @relation(fields: [recipientStaffId], references: [id])
+  recipientCustomerId String?
+  recipientCustomer   Customer?                 @relation(fields: [recipientCustomerId], references: [id])
+  type                String
+  title               String
+  message             String
+  data                Json?
+  orderId             String?
+  order               Order?                    @relation(fields: [orderId], references: [id])
+  isRead              Boolean                   @default(false)
+  createdAt           DateTime                  @default(now())
+
+  @@map("notifications")
+}
+
+// Browser Web Push subscriptions — scoped per order (not per customer account) so a guest
+// checkout can opt in too: the order-tracking page is where the permission prompt happens, and
+// that's the only context a push notification is ever sent for (order status/ETA changes).
+model PushSubscription {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  @@map("push_subscriptions")
+}
+
+// A rider's end-of-day cash reconciliation (CLAUDE.md ledger philosophy — append-only, never
+// edited). Created when a rider taps "Submit Collection"; every COD order delivered since their
+// last submission gets its `collectionSubmissionId` set to this row so it's never double-counted
+// in a later summary. expectedAmount/collectedAmount/pendingAmount are a snapshot at submission
+// time, not live-recomputed — the historical record of what was owed/handed over on that specific
+// submission, which must stay stable even as new orders arrive afterward.
+model RiderCollectionSubmission {
+  id              String   @id @default(cuid())
+  riderId         String
+  rider           StaffUser @relation(fields: [riderId], references: [id])
+  branchId        String
+  branch          Branch    @relation(fields: [branchId], references: [id])
+  codOrderCount   Int
+  expectedAmount  Int // paisa — all COD orders in scope (delivered + still-pending at submission time)
+  collectedAmount Int // paisa — delivered COD orders' total (cash actually in the rider's hand)
+  pendingAmount   Int // paisa — expectedAmount - collectedAmount (not yet delivered)
+  submittedAmount Int // paisa — what the rider actually handed over (defaults to collectedAmount)
+  status          String   @default("SUBMITTED")
+  createdAt       DateTime @default(now())
+
+  orders Order[]
+
+  @@map("rider_collection_submissions")
+}
+
+model AuditLog {
+  id           String     @id @default(cuid())
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  staffUserId  String?
+  staffUser    StaffUser? @relation(fields: [staffUserId], references: [id])
+  action       String
+  entityType   String
+  entityId     String
+  oldValue     Json?
+  newValue     Json?
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime   @default(now())
+
+  @@map("audit_logs")
+}
+
+model Recommendation {
+  id                   String             @id @default(cuid())
+  restaurantId         String
+  restaurant           Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  branchId             String?
+  branch               Branch?            @relation(fields: [branchId], references: [id])
+  sourceProductId      String?
+  sourceProduct        Product?           @relation("RecommendationSource", fields: [sourceProductId], references: [id])
+  recommendedProductId String
+  recommendedProduct   Product            @relation("RecommendationTarget", fields: [recommendedProductId], references: [id], onDelete: Cascade)
+  score                Float              @default(0)
+  type                 RecommendationType
+  createdAt            DateTime           @default(now())
+
+  @@map("recommendations")
+}
