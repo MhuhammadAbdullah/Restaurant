@@ -25,10 +25,16 @@ export const envSchema = z.object({
   // PayFast's Hosted Checkout Transaction API base — defaults to their UAT/sandbox host; swap for
   // the production host once PayFast provides it.
   PAYFAST_LIVE_API_BASE_URL: z.string().url().optional(),
-  // Our own public base URL PayFast's servers redirect/notify back to (SUCCESS_URL/FAILURE_URL/
-  // CHECKOUT_URL). Must be internet-reachable for PAYFAST_MODE=live to work at all — localhost
-  // needs a tunnel (e.g. ngrok) pointed at this API for sandbox testing.
+  // Our own public base URL for the server-to-server IPN (CHECKOUT_URL) — PayFast's servers call
+  // this directly, so it must be internet-reachable. Localhost needs a tunnel (e.g. ngrok) for
+  // local sandbox testing; in a real deployment this is just this API's real public URL.
   PAYFAST_LIVE_BRIDGE_BASE_URL: z.string().url().optional(),
+  // Base URL for the two browser-facing bridge routes (SUCCESS_URL/FAILURE_URL) — the CUSTOMER'S
+  // browser navigates here, not PayFast's servers. Left unset during local dev (defaults to
+  // localhost, since the browser testing it is on the same machine as this API and a tunnel would
+  // otherwise trip ngrok's browser-warning interstitial) — MUST be set to this API's real public
+  // URL in any real deployment, where there's no "same machine" shortcut.
+  PAYFAST_LIVE_BROWSER_BRIDGE_BASE_URL: z.string().url().optional(),
 
   // Minutes an ONLINE order's payment can sit PENDING before the sweep (PaymentsService.expirePendingPayments)
   // flips it to EXPIRED and hides it from operational Orders/Kitchen/dashboard views.

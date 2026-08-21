@@ -29,10 +29,12 @@ export class PaymentsService {
       // PayFast's servers call this directly (the CHECKOUT_URL IPN) — must be internet-reachable
       // (a tunnel, in local sandbox testing) even though the browser-facing routes below don't need one.
       liveBridgeBaseUrl: this.config.get("PAYFAST_LIVE_BRIDGE_BASE_URL", { infer: true }) ?? `http://localhost:${port}/api/v1/payments/payfast-live`,
-      // The customer's own browser hits these two (redirect + return) — same machine as this dev
-      // server during local testing, so plain localhost is correct and deliberately avoids
-      // routing real page-loads through a tunnel (see PayFastConfig's doc comment).
-      liveBrowserBridgeBaseUrl: `http://localhost:${port}/api/v1/payments/payfast-live`,
+      // The customer's own browser hits these two (redirect + return). Defaults to localhost for
+      // local dev (same machine as this API, no tunnel-warning issue) — set
+      // PAYFAST_LIVE_BROWSER_BRIDGE_BASE_URL explicitly to this API's real public URL in any
+      // actual deployment, where "same machine as the browser" no longer applies.
+      liveBrowserBridgeBaseUrl:
+        this.config.get("PAYFAST_LIVE_BROWSER_BRIDGE_BASE_URL", { infer: true }) ?? `http://localhost:${port}/api/v1/payments/payfast-live`,
       checkoutBaseUrl: `http://localhost:${port}/api/v1/payments/mock-payfast/checkout`,
     });
   }
