@@ -309,7 +309,7 @@ export function LocationModal() {
 
         <div className="mt-5">
           <p className="mb-2 text-center text-sm font-semibold text-muted">{copy?.cityStepLabel ?? "Please Select City"}</p>
-          <div className="grid grid-cols-4 justify-items-center gap-x-2 gap-y-4 sm:grid-cols-5">
+          <div className="grid grid-cols-4 justify-items-center gap-x-3 gap-y-4 sm:gap-x-2 sm:grid-cols-5">
             {(cities.length > 0 ? cities : ["Karachi"]).map((c) => {
               const isSelected = c === city;
               const cityKey = c.trim().toLowerCase();
@@ -318,19 +318,20 @@ export function LocationModal() {
               return (
                 <button key={c} onClick={() => selectCity(c)} className="flex flex-col items-center gap-1.5 text-center">
                   {/* Fixed size (not aspect-square/w-full derived from the grid column) so every
-                      tile is identically sized regardless of row height or icon content. */}
+                      tile is identically sized regardless of row height or icon content. Smaller
+                      on mobile so 4 columns don't crowd together — sized back up from sm: up. */}
                   <span
-                    className={`flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-dashed transition ${
+                    className={`flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-dashed transition sm:h-20 sm:w-20 ${
                       isSelected ? "border-solid border-brand-red bg-red-50" : "border-line bg-surface hover:border-brand-red/50"
                     }`}
                   >
                     {iconUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={iconUrl} alt="" className="h-11 w-11 object-contain" />
+                      <img src={iconUrl} alt="" className="h-9 w-9 object-contain sm:h-11 sm:w-11" />
                     ) : BuiltInIcon ? (
-                      <BuiltInIcon size={40} className={isSelected ? "text-brand-red" : "text-muted"} />
+                      <BuiltInIcon size={32} className={isSelected ? "text-brand-red" : "text-muted"} />
                     ) : (
-                      <BuildingIcon size={36} className={isSelected ? "text-brand-red" : "text-muted"} />
+                      <BuildingIcon size={30} className={isSelected ? "text-brand-red" : "text-muted"} />
                     )}
                   </span>
                   <span className={`text-xs font-medium leading-tight ${isSelected ? "text-brand-red" : "text-ink"}`}>{c}</span>
