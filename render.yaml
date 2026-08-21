@@ -5,7 +5,7 @@ services:
     plan: starter
     region: singapore
     rootDir: .
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @restaurant/database run generate && pnpm turbo run build --filter=@restaurant/api...
+    buildCommand: npm install -g pnpm@11.22.0 && pnpm install --frozen-lockfile && pnpm --filter @restaurant/database run generate && pnpm turbo run build --filter=@restaurant/api...
     startCommand: node services/api/dist/main.js
     healthCheckPath: /api/v1/health
     envVars:
