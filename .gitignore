@@ -19,6 +19,7 @@ packages/database/generated/
 packages/database/prisma/migrations/.tmp/
 
 # expo
+.expo/
 apps/mobile/.expo/
 apps/mobile/dist/
 
