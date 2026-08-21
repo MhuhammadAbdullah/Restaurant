@@ -43,6 +43,14 @@ export default function CheckoutPage() {
   const { items, clear, hasHydrated } = useCartStore();
   const { branch, orderType, city, area, isBranchOpen } = useLocationStore();
 
+  useEffect(() => {
+    // Warm up the order-confirmation route's JS bundle while the customer is still filling in
+    // the form, so the redirect after placing the order doesn't stall on a cold compile — the
+    // exact order number isn't known yet, but any value under the dynamic segment triggers the
+    // same route module to load.
+    router.prefetch("/order-confirmation/prefetch");
+  }, [router]);
+
   const [title, setTitle] = useState(TITLES[0]!);
   const [addressId, setAddressId] = useState<string>("");
   const [guestAddress, setGuestAddress] = useState({ addressLine: "", landmark: "" });
@@ -245,7 +253,7 @@ export default function CheckoutPage() {
             <button
               type="button"
               onClick={() => setIsGift((g) => !g)}
-              className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-semibold transition ${
+              className={`flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold transition ${
                 isGift ? "border-green-600 bg-green-50 text-green-700" : "border-line text-ink hover:border-green-600 hover:text-green-700"
               }`}
             >
@@ -445,11 +453,11 @@ export default function CheckoutPage() {
         <div className="h-fit rounded-2xl border border-line bg-surface p-5 lg:sticky lg:top-6">
           <div className="space-y-2 text-sm">
             {items.map((i) => (
-              <div key={i.cartItemId} className="flex justify-between text-muted">
+              <div key={i.cartItemId} className="flex justify-between font-medium text-muted">
                 <span>
                   {i.quantity} x {i.name}
                 </span>
-                <span className="text-ink">{formatPaisa(i.kind === "product" ? i.unitPrice * i.quantity : i.dealPrice * i.quantity)}</span>
+                <span className="font-semibold text-ink">{formatPaisa(i.kind === "product" ? i.unitPrice * i.quantity : i.dealPrice * i.quantity)}</span>
               </div>
             ))}
           </div>
@@ -490,29 +498,29 @@ export default function CheckoutPage() {
           <div className="mt-4 border-t border-line pt-4">
             <p className="font-semibold text-ink">Your Order</p>
             <div className="mt-2 space-y-1.5 text-sm">
-              <div className="flex justify-between text-muted">
+              <div className="flex justify-between font-medium text-muted">
                 <span>Total</span>
-                <span>{formatPaisa(subtotal)}</span>
+                <span className="font-semibold text-ink">{formatPaisa(subtotal)}</span>
               </div>
-              <div className="flex justify-between text-muted">
+              <div className="flex justify-between font-medium text-muted">
                 <span>Tax 15%</span>
-                <span>{formatPaisa(estimatedTax)}</span>
+                <span className="font-semibold text-ink">{formatPaisa(estimatedTax)}</span>
               </div>
               {orderType === "DELIVERY" && (
-                <div className="flex justify-between text-muted">
+                <div className="flex justify-between font-medium text-muted">
                   <span>Delivery Fee</span>
-                  <span>{formatPaisa(deliveryFee)}</span>
+                  <span className="font-semibold text-ink">{formatPaisa(deliveryFee)}</span>
                 </div>
               )}
               {appliedCoupon && (
-                <div className="flex justify-between text-green-700">
+                <div className="flex justify-between font-medium text-green-700">
                   <span>Discount ({appliedCoupon.code})</span>
                   <span>-{formatPaisa(couponDiscount)}</span>
                 </div>
               )}
-              <div className="flex justify-between border-t border-line pt-1.5 font-semibold text-ink">
+              <div className="flex justify-between border-t border-line pt-1.5 text-base font-bold text-ink">
                 <span>Grand Total</span>
-                <span>{formatPaisa(estimatedGrandTotal)}</span>
+                <span className="text-brand-red">{formatPaisa(estimatedGrandTotal)}</span>
               </div>
             </div>
             <p className="mt-2 text-[11px] text-muted">Final total incl. any discounts is calculated when you place the order.</p>
@@ -521,7 +529,7 @@ export default function CheckoutPage() {
           <button
             onClick={placeOrder}
             disabled={submitting || (orderType === "DELIVERY" && (needsCustomAddress || guestAddressIncomplete))}
-            className="mt-4 w-full rounded-full bg-brand-red py-3.5 font-semibold text-white disabled:opacity-60"
+            className="mt-4 w-full rounded-xl bg-brand-red py-3.5 font-semibold text-white disabled:opacity-60"
           >
             {submitting ? "Placing Order..." : "Place Order"}
           </button>

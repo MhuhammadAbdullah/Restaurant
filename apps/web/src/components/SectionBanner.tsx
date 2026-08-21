@@ -4,7 +4,7 @@ export function SectionBanner({ heading, image, onClick }: { heading: string; im
     <Tag
       onClick={onClick}
       aria-label={heading}
-      className={`relative my-[50px] block h-48 w-full overflow-hidden rounded-2xl bg-transparent sm:h-64 ${
+      className={`relative my-[50px] block aspect-[21/9] w-full overflow-hidden rounded-2xl bg-transparent ${
         onClick ? "cursor-pointer" : ""
       }`}
     >

@@ -29,7 +29,7 @@ export function ContactPopover({ triggerClassName }: { triggerClassName: string 
         <FaHeadset size={17} className="text-brand-red" />
         <span className="hidden flex-col items-start leading-tight sm:flex">
           <span className="font-semibold">{data?.header?.contactButtonLabel ?? "Contact"}</span>
-          {data?.contactPhone && <span className="text-[10px] font-normal opacity-90">{data.contactPhone}</span>}
+          {data?.contactPhone && <span className="text-[12px] font-normal opacity-90">{data.contactPhone}</span>}
         </span>
       </button>
 

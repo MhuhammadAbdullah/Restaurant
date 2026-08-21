@@ -55,11 +55,11 @@ export function SkeletonCartRecommendationCard() {
   );
 }
 
-/** Mirrors HeroBanner.tsx's rounded box at every breakpoint's fixed height. */
+/** Mirrors HeroBanner.tsx's rounded, landscape-ratio box. */
 export function SkeletonBanner() {
   return (
     <section className="px-4 py-6 sm:px-8">
-      <Skeleton className="mx-auto h-[320px] max-w-[90rem] rounded-3xl sm:h-[460px] lg:h-[600px]" />
+      <Skeleton className="mx-auto aspect-[21/9] max-w-[90rem] rounded-3xl" />
     </section>
   );
 }
@@ -92,7 +92,7 @@ export function SkeletonSectionHeading() {
 
 /** Mirrors SectionBanner.tsx's rounded promo-banner strip used above category product sections. */
 export function SkeletonSectionBanner() {
-  return <Skeleton className="my-[50px] h-48 w-full rounded-2xl sm:h-64" />;
+  return <Skeleton className="my-[50px] aspect-[21/9] w-full rounded-2xl" />;
 }
 
 /** A full category-style section: banner + a grid of product cards. */

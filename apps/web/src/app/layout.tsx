@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Poppins } from "next/font/google";
 import "./globals.css";
 import { Providers } from "../components/Providers";
 import { Header } from "../components/Header";
@@ -9,6 +10,13 @@ import { CartDrawer } from "../components/CartDrawer";
 import { Footer } from "../components/Footer";
 import { Toaster } from "../components/Toaster";
 import { GlobalLoadingScreen } from "../components/GlobalLoadingScreen";
+
+const poppins = Poppins({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-poppins",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Demo Restaurant",
@@ -27,7 +35,7 @@ const NO_FLASH_THEME_SCRIPT = `
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning className={poppins.variable}>
       <head>
         <script dangerouslySetInnerHTML={{ __html: NO_FLASH_THEME_SCRIPT }} />
       </head>

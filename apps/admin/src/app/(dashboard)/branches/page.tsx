@@ -9,6 +9,16 @@ import { StatusToggle } from "../../../components/StatusToggle";
 import { EditIcon, TrashIcon, PinIcon, SearchIcon, CloseIcon } from "../../../components/icons";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select";
 
+/** Surfaces the specific field that failed Zod validation instead of the generic "Request validation failed". */
+function describeApiError(e: ApiError): string {
+  const fieldErrors = (e.details as { fieldErrors?: Record<string, string[]> } | undefined)?.fieldErrors;
+  if (fieldErrors) {
+    const first = Object.entries(fieldErrors).find(([, msgs]) => msgs.length > 0);
+    if (first) return `${first[0]}: ${first[1][0]}`;
+  }
+  return e.message;
+}
+
 type Branch = {
   id: string;
   name: string;
@@ -258,6 +268,10 @@ function BranchFormModal({ branch, onClose }: { branch: Branch | null; onClose: 
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (!form.openingTime || !form.closingTime) {
+      toast.error("Opening and closing time are required.");
+      return;
+    }
     setSaving(true);
     try {
       const payload = {
@@ -292,7 +306,7 @@ function BranchFormModal({ branch, onClose }: { branch: Branch | null; onClose: 
       toast.success(isEdit ? "Branch updated." : "Branch created.");
       onClose();
     } catch (e) {
-      toast.error(e instanceof ApiError ? e.message : "Could not save branch");
+      toast.error(e instanceof ApiError ? describeApiError(e) : "Could not save branch");
     } finally {
       setSaving(false);
     }
@@ -315,8 +329,14 @@ function BranchFormModal({ branch, onClose }: { branch: Branch | null; onClose: 
                 <input placeholder="Code (e.g. DHA)" value={form.code} onChange={(e) => set("code", e.target.value)} className="input" required />
                 <input placeholder="City" value={form.city} onChange={(e) => set("city", e.target.value)} className="input" required />
                 <input placeholder="Area" value={form.area} onChange={(e) => set("area", e.target.value)} className="input" required />
-                <input placeholder="Opening Time (HH:MM)" value={form.openingTime} onChange={(e) => set("openingTime", e.target.value)} className="input" required />
-                <input placeholder="Closing Time (HH:MM)" value={form.closingTime} onChange={(e) => set("closingTime", e.target.value)} className="input" required />
+                <label className="text-xs text-neutral-500">
+                  Opening Time
+                  <input type="time" value={form.openingTime} onChange={(e) => set("openingTime", e.target.value)} className="input mt-1 w-full" required />
+                </label>
+                <label className="text-xs text-neutral-500">
+                  Closing Time
+                  <input type="time" value={form.closingTime} onChange={(e) => set("closingTime", e.target.value)} className="input mt-1 w-full" required />
+                </label>
               </div>
             </div>
 
@@ -359,8 +379,14 @@ function BranchFormModal({ branch, onClose }: { branch: Branch | null; onClose: 
             <div>
               <p className="mb-2 text-xs font-semibold uppercase text-neutral-500">Hours & Break</p>
               <div className="grid grid-cols-2 gap-3">
-                <input placeholder="Break Start (HH:MM, optional)" value={form.breakStart} onChange={(e) => set("breakStart", e.target.value)} className="input" />
-                <input placeholder="Break End (HH:MM, optional)" value={form.breakEnd} onChange={(e) => set("breakEnd", e.target.value)} className="input" />
+                <label className="text-xs text-neutral-500">
+                  Break Start (optional)
+                  <input type="time" value={form.breakStart} onChange={(e) => set("breakStart", e.target.value)} className="input mt-1 w-full" />
+                </label>
+                <label className="text-xs text-neutral-500">
+                  Break End (optional)
+                  <input type="time" value={form.breakEnd} onChange={(e) => set("breakEnd", e.target.value)} className="input mt-1 w-full" />
+                </label>
               </div>
             </div>
 

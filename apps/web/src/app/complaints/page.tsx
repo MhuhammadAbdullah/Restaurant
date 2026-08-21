@@ -132,7 +132,7 @@ export default function ComplaintsPage() {
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
-      <h1 className="font-display text-3xl text-brand-red">Submit a Complaint</h1>
+      <h1 className="font-poppins text-3xl font-bold text-brand-black">Submit a Complaint</h1>
       <p className="mt-1 text-sm text-muted">Tell us what went wrong, and we&apos;ll contact you by phone or email.</p>
 
       <form onSubmit={submit} className="mt-6 space-y-3 rounded-2xl border border-line bg-surface p-5">
@@ -253,7 +253,7 @@ export default function ComplaintsPage() {
             Complaint submitted. Your Complaint ID is <span className="font-semibold">{submittedNumber}</span>. We&apos;ll be in touch.
           </p>
         )}
-        <button disabled={submitting} className="w-full rounded-full bg-brand-red py-3 text-sm font-semibold text-white disabled:opacity-60">
+        <button disabled={submitting} className="w-full rounded-lg bg-brand-red py-3 text-sm font-semibold text-white disabled:opacity-60">
           {submitting ? "Submitting..." : "Submit Complaint"}
         </button>
       </form>

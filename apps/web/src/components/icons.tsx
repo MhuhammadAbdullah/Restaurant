@@ -9,16 +9,20 @@ import {
   FaChevronDown,
   FaChevronLeft,
   FaChevronRight,
+  FaCreditCard,
   FaDollarSign,
   FaFileLines,
   FaFire,
+  FaGift,
   FaHourglassHalf,
   FaLocationDot,
   FaMagnifyingGlass,
   FaMinus,
+  FaMoneyBillWave,
   FaPhone,
   FaPlus,
   FaTrashCan,
+  FaTruck,
   FaXmark,
 } from "react-icons/fa6";
 
@@ -132,6 +136,22 @@ export function TrashIcon({ className = "", size = 20 }: IconProps = {}) {
 
 export function ExternalLinkIcon({ className = "", size = 20 }: IconProps = {}) {
   return <FaArrowUpRightFromSquare className={className} size={size} />;
+}
+
+export function TruckIcon({ className = "", size = 20 }: IconProps = {}) {
+  return <FaTruck className={className} size={size} />;
+}
+
+export function GiftIcon({ className = "", size = 20 }: IconProps = {}) {
+  return <FaGift className={className} size={size} />;
+}
+
+export function CardIcon({ className = "", size = 20 }: IconProps = {}) {
+  return <FaCreditCard className={className} size={size} />;
+}
+
+export function CashIcon({ className = "", size = 20 }: IconProps = {}) {
+  return <FaMoneyBillWave className={className} size={size} />;
 }
 
 // ---------- Hand-drawn icons kept as-is (out of scope for the icon-library migration) ----------
@@ -253,49 +273,6 @@ export function UserIcon(props: IconProps) {
     <>
       <circle cx="12" cy="8" r="3.5" />
       <path d="M4.5 20a7.5 7.5 0 0 1 15 0" />
-    </>,
-    props,
-  );
-}
-
-export function GiftIcon(props: IconProps) {
-  return base(
-    <>
-      <rect x="3" y="8" width="18" height="4" rx="1" />
-      <path d="M12 8v13M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7" />
-      <path d="M12 8c-1.5 0-3-1-3-2.8A2.2 2.2 0 0 1 11.2 3c1.7 0 2.8 2.2 2.8 5-1.7 0-2 0-2 0zM12 8c1.5 0 3-1 3-2.8A2.2 2.2 0 0 0 12.8 3c-1.7 0-2.8 2.2-2.8 5 1.7 0 2 0 2 0z" />
-    </>,
-    props,
-  );
-}
-
-export function TruckIcon(props: IconProps) {
-  return base(
-    <>
-      <path d="M2 7h11v9H2z" />
-      <path d="M13 10h4l3 3v3h-7z" />
-      <circle cx="6.5" cy="18" r="1.5" />
-      <circle cx="16.5" cy="18" r="1.5" />
-    </>,
-    props,
-  );
-}
-
-export function CardIcon(props: IconProps) {
-  return base(
-    <>
-      <rect x="2.5" y="5" width="19" height="14" rx="2" />
-      <path d="M2.5 10h19" />
-    </>,
-    props,
-  );
-}
-
-export function CashIcon(props: IconProps) {
-  return base(
-    <>
-      <rect x="2.5" y="6" width="19" height="12" rx="2" />
-      <circle cx="12" cy="12" r="2.5" />
     </>,
     props,
   );

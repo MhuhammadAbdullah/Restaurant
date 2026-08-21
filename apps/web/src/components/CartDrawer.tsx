@@ -128,7 +128,7 @@ export function CartDrawer() {
               <button
                 onClick={goToCheckout}
                 disabled={!isBranchOpen}
-                className="mt-4 w-full rounded-full bg-brand-red py-3.5 font-semibold text-white disabled:opacity-50"
+                className="mt-4 w-full rounded-xl bg-brand-red py-3.5 font-semibold text-white disabled:opacity-50"
               >
                 {isBranchOpen ? "Proceed to Checkout" : "Branch Closed"}
               </button>
@@ -152,7 +152,7 @@ function Row({
   icon?: (props: { size?: number; className?: string }) => React.ReactElement;
 }) {
   return (
-    <div className={`flex items-center justify-between ${bold ? "font-semibold text-ink" : "text-muted"}`}>
+    <div className={`flex items-center justify-between ${bold ? "text-base font-bold text-ink" : "font-medium text-muted"}`}>
       <span className="flex items-center gap-2">
         {Icon && (
           <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-brand-red/10 text-brand-red">
@@ -161,7 +161,7 @@ function Row({
         )}
         {label}
       </span>
-      <span className={bold ? "text-brand-red" : ""}>{value}</span>
+      <span className={bold ? "text-brand-red" : "font-medium"}>{value}</span>
     </div>
   );
 }

@@ -356,13 +356,14 @@ export function DealModal({ deal, onClose }: { deal: Deal; onClose: () => void }
             <button
               onClick={handleAdd}
               disabled={!preview}
-              className="flex flex-1 items-center justify-between rounded-lg bg-brand-red px-5 py-3 font-semibold text-white disabled:opacity-50"
+              className="relative flex flex-1 items-center justify-between overflow-hidden rounded-lg bg-brand-red px-5 py-3 font-poppins text-[14px] font-bold leading-[14px] text-white disabled:opacity-50"
             >
               {preview ? (
                 <>
+                  <span className="pointer-events-none absolute inset-y-0 left-0 w-1/3 -translate-x-full animate-cart-shine bg-gradient-to-r from-transparent via-white/40 to-transparent" />
                   <span>{formatPaisa(preview.dealPrice * quantity)}</span>
                   <span className="flex items-center gap-1.5">
-                    Add to Cart <ArrowRightIcon size={12} />
+                    Add to Cart <ArrowRightIcon size={12} className="animate-ride" />
                   </span>
                 </>
               ) : (

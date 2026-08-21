@@ -4,6 +4,7 @@ import { forwardRef, useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { SkeletonBanner } from "./skeletons";
+import { ChevronLeftIcon, ChevronRightIcon } from "./icons";
 
 type Banner = {
   id: string;
@@ -37,9 +38,18 @@ export const HeroBanner = forwardRef<HTMLElement>(function HeroBanner(_props, re
 
   if (isLoading) return <SkeletonBanner />;
 
+  function goToPrev() {
+    if (!slides) return;
+    setActiveIndex((i) => (i - 1 + slides.length) % slides.length);
+  }
+  function goToNext() {
+    if (!slides) return;
+    setActiveIndex((i) => (i + 1) % slides.length);
+  }
+
   return (
     <section ref={ref} className="px-4 py-6 sm:px-8">
-      <div className="relative mx-auto h-[320px] max-w-[90rem] overflow-hidden rounded-3xl bg-transparent sm:h-[460px] lg:h-[600px]">
+      <div className="group relative mx-auto aspect-[21/9] max-w-[90rem] overflow-hidden rounded-2xl bg-transparent">
         {slides &&
           slides.map((banner, i) => (
             <div
@@ -49,7 +59,7 @@ export const HeroBanner = forwardRef<HTMLElement>(function HeroBanner(_props, re
               }`}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={banner.image} alt="" className="h-full w-full rounded-3xl object-fit" />
+              <img src={banner.image} alt="" className="h-full w-full rounded-2xl object-fit" />
             </div>
           ))}
 
@@ -64,6 +74,25 @@ export const HeroBanner = forwardRef<HTMLElement>(function HeroBanner(_props, re
               />
             ))}
           </div>
+        )}
+
+        {slides && slides.length > 1 && (
+          <>
+            <button
+              onClick={goToPrev}
+              aria-label="Previous banner"
+              className="absolute left-4 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/80 text-ink opacity-0 shadow-md transition duration-200 ease-out hover:bg-white group-hover:opacity-100"
+            >
+              <ChevronLeftIcon size={18} />
+            </button>
+            <button
+              onClick={goToNext}
+              aria-label="Next banner"
+              className="absolute right-4 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/80 text-ink opacity-0 shadow-md transition duration-200 ease-out hover:bg-white group-hover:opacity-100"
+            >
+              <ChevronRightIcon size={18} />
+            </button>
+          </>
         )}
       </div>
     </section>

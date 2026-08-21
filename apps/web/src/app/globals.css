@@ -4,7 +4,7 @@
 
 :root {
   --font-display: "Playfair Display", "Brush Script MT", cursive;
-  --font-sans: "Inter", system-ui, sans-serif;
+  --font-sans: var(--font-poppins), "Poppins Fallback", sans-serif;
 
   --color-page: #ffffff;
   --color-surface: #ffffff;

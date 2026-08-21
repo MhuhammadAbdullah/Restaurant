@@ -61,11 +61,7 @@ export function Header() {
 
   if (NO_CHROME_PATHS.includes(pathname)) return null;
 
-  const locationSubtitle = branch
-    ? orderType === "DELIVERY"
-      ? `${area}, ${city} – eta ${branch.estimatedDeliveryMins} minutes.`
-      : `${branch.area}, ${branch.city}`
-    : "";
+  const locationSubtitle = branch ? (orderType === "DELIVERY" ? area : branch.area) ?? "" : "";
   const locationLabel = orderType === "DELIVERY" ? header.deliveryButtonLabel : header.pickupButtonLabel;
 
   const navButtonClass =
@@ -74,41 +70,42 @@ export function Header() {
   return (
     <>
       <header className="relative z-20 bg-brand-red">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-4 sm:px-8">
+        <div className="relative mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-4 sm:px-8">
+          <Link href="/" className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center">
+            {restaurantLoading ? (
+              <Skeleton className="h-10 w-28 rounded-md sm:h-12 sm:w-32" />
+            ) : restaurant?.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={restaurant.logoUrl} alt={restaurant.name} className="h-14 w-auto object-contain sm:h-16" />
+            ) : (
+              <span className="font-display text-xl text-white sm:text-2xl">{restaurant?.name}</span>
+            )}
+          </Link>
           <div className="flex items-center gap-2 sm:gap-3">
-            <Link href="/" className="flex items-center">
-              {restaurantLoading ? (
-                <Skeleton className="h-10 w-28 rounded-md sm:h-12 sm:w-32" />
-              ) : restaurant?.logoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={restaurant.logoUrl} alt={restaurant.name} className="h-14 w-auto object-contain sm:h-16" />
-              ) : (
-                <span className="font-display text-xl text-white sm:text-2xl">{restaurant?.name}</span>
-              )}
-            </Link>
             {branch && (
               <button
                 onClick={openChangeModal}
-                className="hidden items-center gap-2.5 rounded-xl bg-white px-3.5 py-2 text-left text-black transition hover:bg-neutral-100 sm:flex"
+                className="flex items-center gap-1.5 rounded-lg bg-white px-2 py-1.5 text-left text-black transition hover:bg-neutral-100 sm:gap-2.5 sm:px-3.5 sm:py-2"
               >
-                <PinIcon size={20} className="shrink-0 text-brand-red" />
+                <PinIcon size={16} className="shrink-0 text-brand-red sm:hidden" />
+                <PinIcon size={20} className="hidden shrink-0 text-brand-red sm:block" />
                 <span className="flex flex-col leading-tight">
-                  <span className="flex items-center gap-1 text-sm font-semibold">
+                  <span className="flex items-center gap-1 text-xs font-semibold sm:text-sm">
                     {locationLabel}
-                    <ChevronDownIcon size={14} className="text-brand-red" />
+                    <ChevronDownIcon size={12} className="text-brand-red sm:hidden" />
+                    <ChevronDownIcon size={14} className="hidden text-brand-red sm:block" />
                   </span>
-                  <span className="text-xs text-black/60">{locationSubtitle}</span>
+                  <span className="block max-w-[120px] truncate text-[10px] text-black/60 sm:max-w-[200px] sm:text-xs">
+                    {locationSubtitle}
+                  </span>
                 </span>
               </button>
             )}
             <ContactPopover triggerClassName={`hidden ${navButtonClass} sm:flex`} />
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3">
-            <Link href="/complaints" className={`hidden ${navButtonClass} sm:flex`}>
-              <ComplaintIcon size={16} className="text-brand-red" />
-              {header.complaintButtonLabel}
-            </Link>
+          <div className="flex items-center gap-1.5 sm:gap-3">
+            <ContactPopover triggerClassName={`${navButtonClass} sm:hidden`} />
             {customer && <CustomerNotificationBell />}
             {header.showCartIcon && (
               <button onClick={openCart} className="relative text-white" aria-label="Open cart">
@@ -151,25 +148,6 @@ export function Header() {
             <CloseIcon size={20} />
           </button>
         </div>
-
-        {branch && (
-          <button
-            onClick={() => {
-              openChangeModal();
-              setMenuOpen(false);
-            }}
-            className="flex items-center gap-2.5 rounded-xl bg-brand-red px-3.5 py-2.5 text-left text-white sm:hidden"
-          >
-            <PinIcon size={20} className="shrink-0 text-white" />
-            <span className="flex flex-col leading-tight">
-              <span className="flex items-center gap-1 text-sm font-semibold">
-                {locationLabel}
-                <ChevronDownIcon size={14} />
-              </span>
-              <span className="text-xs text-white/80">{locationSubtitle}</span>
-            </span>
-          </button>
-        )}
 
         {customer ? (
           <Link

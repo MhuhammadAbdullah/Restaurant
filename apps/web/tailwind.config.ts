@@ -26,6 +26,7 @@ const config: Config = {
       fontFamily: {
         display: ["var(--font-display)", "cursive"],
         sans: ["var(--font-sans)", "sans-serif"],
+        poppins: ["var(--font-poppins)", "Poppins Fallback", "sans-serif"],
       },
       keyframes: {
         shimmer: {
@@ -70,6 +71,10 @@ const config: Config = {
           "0%, 100%": { opacity: "0.2" },
           "20%": { opacity: "1" },
         },
+        "cart-shine": {
+          "0%, 35%": { transform: "translateX(-150%) skewX(-20deg)" },
+          "65%, 100%": { transform: "translateX(150%) skewX(-20deg)" },
+        },
       },
       animation: {
         shimmer: "shimmer 1.6s ease-in-out infinite",
@@ -82,6 +87,7 @@ const config: Config = {
         sparkle: "sparkle 1.4s ease-in-out infinite",
         "logo-zoom": "logo-zoom 2.2s ease-in-out infinite",
         "dots-blink": "dots-blink 1.4s infinite both",
+        "cart-shine": "cart-shine 2.8s ease-in-out infinite",
       },
     },
   },

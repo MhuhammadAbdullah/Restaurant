@@ -278,11 +278,13 @@ export default function HomePage() {
                           <img
                             src="https://res.cloudinary.com/dgkd8jw6a/image/upload/v1786367974/popular-icon_qk8csc.svg"
                             alt=""
-                            className="h-10 w-10 object-contain"
+                            className="h-6 w-6 object-contain sm:h-8 sm:w-8 lg:h-10 lg:w-10"
                           />
-                          <h2 className="cursor-pointer text-[50px] font-bold leading-none text-ink">Popular Items</h2>
+                          <h2 className="cursor-pointer whitespace-nowrap text-[24px] font-semibold leading-none text-ink sm:text-[32px] lg:text-[50px]">
+                            Popular Items
+                          </h2>
                         </div>
-                        <p className="mt-1 text-[20px] font-normal text-muted">Most ordered right now</p>
+                        <p className="mt-1 text-[13px] font-normal text-muted sm:text-[16px] lg:text-[20px]">Most ordered right now</p>
                       </div>
                       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
                         {popularProducts?.map((p) => (
