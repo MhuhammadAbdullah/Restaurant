@@ -1,5 +1,6 @@
 import {
   FaArrowTrendUp,
+  FaBars,
   FaBell,
   FaBox,
   FaCheckDouble,
@@ -21,6 +22,7 @@ import {
   FaMoneyBillWave,
   FaPenToSquare,
   FaPlus,
+  FaRightFromBracket,
   FaStar,
   FaStore,
   FaTrashCan,
@@ -149,4 +151,12 @@ export function PlusIcon({ size = 16, className = "" }: IconProps) {
 
 export function MinusIcon({ size = 16, className = "" }: IconProps) {
   return <FaMinus size={size} className={className} />;
+}
+
+export function MenuIcon({ size = 16, className = "" }: IconProps) {
+  return <FaBars size={size} className={className} />;
+}
+
+export function LogoutIcon({ size = 16, className = "" }: IconProps) {
+  return <FaRightFromBracket size={size} className={className} />;
 }

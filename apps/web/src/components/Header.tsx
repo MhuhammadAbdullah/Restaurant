@@ -85,17 +85,17 @@ export function Header() {
             {branch && (
               <button
                 onClick={openChangeModal}
-                className="flex items-center gap-1.5 rounded-lg bg-white px-2 py-1.5 text-left text-black transition hover:bg-neutral-100 sm:gap-2.5 sm:px-3.5 sm:py-2"
+                className="flex items-center gap-1 rounded-lg bg-white px-1.5 py-1 text-left text-black transition hover:bg-neutral-100 sm:gap-2.5 sm:px-3.5 sm:py-2"
               >
-                <PinIcon size={16} className="shrink-0 text-brand-red sm:hidden" />
+                <PinIcon size={14} className="shrink-0 text-brand-red sm:hidden" />
                 <PinIcon size={20} className="hidden shrink-0 text-brand-red sm:block" />
-                <span className="flex flex-col leading-tight">
-                  <span className="flex items-center gap-1 text-xs font-semibold sm:text-sm">
-                    {locationLabel}
-                    <ChevronDownIcon size={12} className="text-brand-red sm:hidden" />
-                    <ChevronDownIcon size={14} className="hidden text-brand-red sm:block" />
+                <span className="flex min-w-0 flex-col leading-tight">
+                  <span className="flex items-center gap-0.5 text-xs font-semibold sm:gap-1 sm:text-sm">
+                    <span className="max-w-[62px] truncate sm:max-w-none">{locationLabel}</span>
+                    <ChevronDownIcon size={12} className="shrink-0 text-brand-red sm:hidden" />
+                    <ChevronDownIcon size={14} className="hidden shrink-0 text-brand-red sm:block" />
                   </span>
-                  <span className="block max-w-[120px] truncate text-[10px] text-black/60 sm:max-w-[200px] sm:text-xs">
+                  <span className="block max-w-[90px] truncate text-[10px] text-black/60 sm:max-w-[200px] sm:text-xs">
                     {locationSubtitle}
                   </span>
                 </span>

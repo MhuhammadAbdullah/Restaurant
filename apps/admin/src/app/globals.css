@@ -6,32 +6,32 @@ body {
   @apply bg-neutral-50 text-neutral-900 antialiased;
 }
 
-/* Shared scroll style for popup/modal bodies — red thumb, no arrow buttons, inset from the
-   rounded corners so it reads as "inside" the popup rather than flush against its edge.
-   Reuse this class (alongside rounded-2xl + overflow-hidden on the outer card) on every
-   new popup so they all stay visually consistent. */
-.modal-scroll {
+/* Red scrollbar thumb everywhere in the dashboard (sidebar, main content, tables, popups) so
+   it reads as one consistent brand surface rather than switching to the OS default outside
+   of modals. `.modal-scroll` is kept as a harmless alias for existing call sites. */
+* {
   scrollbar-width: thin;
   scrollbar-color: #ED2320 transparent;
 }
-.modal-scroll::-webkit-scrollbar {
+*::-webkit-scrollbar {
   width: 10px;
+  height: 10px;
 }
-.modal-scroll::-webkit-scrollbar-track {
+*::-webkit-scrollbar-track {
   background: transparent;
   margin-block: 12px;
 }
-.modal-scroll::-webkit-scrollbar-thumb {
+*::-webkit-scrollbar-thumb {
   background-color: #ED2320;
   border-radius: 9999px;
   border: 3px solid white;
   background-clip: padding-box;
 }
-.modal-scroll::-webkit-scrollbar-thumb:hover {
+*::-webkit-scrollbar-thumb:hover {
   background-color: #b91a16;
   background-clip: padding-box;
 }
-.modal-scroll::-webkit-scrollbar-button {
+*::-webkit-scrollbar-button {
   display: none;
   width: 0;
   height: 0;

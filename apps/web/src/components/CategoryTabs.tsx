@@ -29,7 +29,7 @@ function CardRow({ tabs, activeKey, onTabClick }: RowProps) {
         )}
         <div
           ref={scrollerRef}
-          className={`no-scrollbar flex flex-1 items-center justify-center gap-3 overflow-x-auto scroll-smooth pt-[5px] transition-[gap] duration-200 ${canScrollLeft ? "pl-10" : ""} ${canScrollRight ? "pr-10" : ""}`}
+          className={`no-scrollbar flex flex-1 items-center justify-start gap-3 overflow-x-auto scroll-smooth pt-[5px] transition-[gap] duration-200 ${canScrollLeft ? "pl-10" : ""} ${canScrollRight ? "pr-10" : ""}`}
         >
           {tabs.map((tab) => (
             <button
@@ -85,7 +85,7 @@ function PillRow({ tabs, activeKey, onTabClick, stuck }: RowProps & { stuck: boo
         )}
         <div
           ref={scrollerRef}
-          className={`no-scrollbar flex flex-1 items-center justify-center gap-3 overflow-x-auto scroll-smooth py-2 ${canScrollLeft ? "pl-10" : ""} ${canScrollRight ? "pr-10" : ""}`}
+          className={`no-scrollbar flex flex-1 items-center justify-start gap-3 overflow-x-auto scroll-smooth py-2 ${canScrollLeft ? "pl-10" : ""} ${canScrollRight ? "pr-10" : ""}`}
         >
           {tabs.map((tab) => (
             <button

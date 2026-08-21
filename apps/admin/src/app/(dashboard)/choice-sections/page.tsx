@@ -298,7 +298,7 @@ export default function ChoiceSectionsPage() {
 
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex shrink-0 items-center justify-between border-b border-neutral-200 px-5 py-4">
               <p className="text-base font-semibold text-neutral-900">{editingId ? "Edit Choice Section" : "New Choice Section"}</p>
               <button type="button" onClick={closeForm} aria-label="Close" className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-red text-white hover:opacity-90">
@@ -353,8 +353,8 @@ export default function ChoiceSectionsPage() {
                   {form.options.map((o, i) => (
                     <div key={i} className="rounded-lg border border-neutral-200 bg-neutral-50 p-3">
                       <div className="flex gap-3">
-                        <div className="w-24 shrink-0">
-                          <ImageUploadField label="Image" folder="choices" value={o.image} onChange={(url) => updateOption(i, { image: url })} />
+                        <div className="w-32 shrink-0">
+                          <ImageUploadField label="Image" folder="choices" compact value={o.image} onChange={(url) => updateOption(i, { image: url })} />
                         </div>
                         <div className="min-w-0 flex-1 space-y-2">
                           <input placeholder="Option name" value={o.name} onChange={(e) => updateOption(i, { name: e.target.value })} className="input w-full bg-white" />

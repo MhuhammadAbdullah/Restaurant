@@ -127,9 +127,9 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
           <CloseIcon size={16} />
         </button>
 
-        <div className="h-80 shrink-0 self-start bg-white p-4 sm:w-2/5 sm:p-5">
+        <div className="h-80 w-full shrink-0 bg-white p-2 sm:w-2/5 sm:self-start">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={image} alt={product.name} className="h-full w-full rounded-xl object-contain" />
+          <img src={image} alt={product.name} className="h-full w-full rounded-lg object-contain" />
         </div>
 
         <div className="flex flex-1 flex-col overflow-y-auto">

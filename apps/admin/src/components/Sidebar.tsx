@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { useMe, hasPermission } from "../lib/useMe";
-import { useAuthStore } from "../store/useAuthStore";
+import { useSidebarStore } from "../store/useSidebarStore";
+import { api } from "../lib/api";
 
 type NavItem = { href: string; label: string; permission: string | null };
 type NavGroup = { label: string; items: NavItem[] };
@@ -81,11 +83,18 @@ function ChevronIcon({ open }: { open: boolean }) {
   );
 }
 
+type RestaurantInfo = { name: string; logoUrl: string | null };
+
 export function Sidebar() {
   const pathname = usePathname();
-  const router = useRouter();
   const { data: me } = useMe();
-  const logout = useAuthStore((s) => s.logout);
+  const { data: restaurant } = useQuery({
+    queryKey: ["cms-restaurant"],
+    queryFn: () => api.get<RestaurantInfo>("/cms/restaurant"),
+  });
+  const mobileOpen = useSidebarStore((s) => s.mobileOpen);
+  const collapsed = useSidebarStore((s) => s.collapsed);
+  const closeMobile = useSidebarStore((s) => s.closeMobile);
 
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(NAV_GROUPS.map((g) => [g.label, g.items.some((item) => item.href === pathname)])),
@@ -99,56 +108,62 @@ export function Sidebar() {
     `block rounded-lg px-3 py-2 text-sm ${active ? "bg-brand-red/10 font-medium text-brand-red" : "text-neutral-600 hover:bg-neutral-50"}`;
 
   return (
-    <aside className="flex h-screen w-56 shrink-0 flex-col overflow-y-auto border-r border-neutral-200 bg-white">
-      <div className="p-4">
-        <p className="font-semibold text-brand-red">Demo Restaurant</p>
-        <p className="text-xs text-neutral-400">Admin Dashboard</p>
-      </div>
-      <nav className="flex-1 space-y-0.5 px-2 pb-3">
-        <Link href={DASHBOARD.href} className={linkClass(pathname === DASHBOARD.href)}>
-          {DASHBOARD.label}
-        </Link>
+    <>
+      <div
+        onClick={closeMobile}
+        aria-hidden="true"
+        className={`fixed inset-0 z-30 bg-black/40 transition-opacity duration-300 lg:hidden ${
+          mobileOpen ? "opacity-100" : "pointer-events-none opacity-0"
+        }`}
+      />
+      <aside
+        className={`fixed inset-y-0 left-0 z-40 flex h-screen w-64 shrink-0 flex-col overflow-hidden border-r border-neutral-200 bg-white shadow-xl transition-transform duration-300 ease-in-out lg:static lg:shadow-none lg:transition-[width] ${
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        } lg:translate-x-0 ${collapsed ? "lg:w-0 lg:border-r-0" : "lg:w-56"}`}
+      >
+        <div className="flex h-full w-64 flex-col overflow-y-auto lg:w-56">
+          <div className="flex items-center border-b border-neutral-100 p-4">
+            {restaurant?.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={restaurant.logoUrl} alt={restaurant.name} className="h-10 w-auto rounded-full object-contain" />
+            ) : (
+              <p className="font-semibold text-brand-red">{restaurant?.name ?? "Restaurant"}</p>
+            )}
+          </div>
+          <nav className="flex-1 space-y-0.5 px-2 pb-3 pt-3">
+            <Link href={DASHBOARD.href} onClick={closeMobile} className={linkClass(pathname === DASHBOARD.href)}>
+              {DASHBOARD.label}
+            </Link>
 
-        {NAV_GROUPS.map((group) => {
-          const visibleItems = group.items.filter((item) => !item.permission || hasPermission(me, item.permission));
-          if (visibleItems.length === 0) return null;
-          const isOpen = !!openGroups[group.label];
+            {NAV_GROUPS.map((group) => {
+              const visibleItems = group.items.filter((item) => !item.permission || hasPermission(me, item.permission));
+              if (visibleItems.length === 0) return null;
+              const isOpen = !!openGroups[group.label];
 
-          return (
-            <div key={group.label} className="pt-1">
-              <button
-                onClick={() => toggleGroup(group.label)}
-                className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-400 hover:bg-neutral-50 hover:text-neutral-600"
-              >
-                {group.label}
-                <ChevronIcon open={isOpen} />
-              </button>
-              {isOpen && (
-                <div className="mt-0.5 space-y-0.5">
-                  {visibleItems.map((item) => (
-                    <Link key={item.href} href={item.href} className={linkClass(pathname === item.href)}>
-                      {item.label}
-                    </Link>
-                  ))}
+              return (
+                <div key={group.label} className="pt-1">
+                  <button
+                    onClick={() => toggleGroup(group.label)}
+                    className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-400 hover:bg-neutral-50 hover:text-neutral-600"
+                  >
+                    {group.label}
+                    <ChevronIcon open={isOpen} />
+                  </button>
+                  {isOpen && (
+                    <div className="mt-0.5 space-y-0.5">
+                      {visibleItems.map((item) => (
+                        <Link key={item.href} href={item.href} onClick={closeMobile} className={linkClass(pathname === item.href)}>
+                          {item.label}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          );
-        })}
-      </nav>
-      <div className="border-t p-3">
-        <p className="text-xs font-medium text-neutral-900">{me?.name}</p>
-        <p className="text-xs text-neutral-400">{me?.role}</p>
-        <button
-          onClick={() => {
-            logout();
-            router.push("/login");
-          }}
-          className="mt-2 text-xs text-neutral-400 underline"
-        >
-          Logout
-        </button>
-      </div>
-    </aside>
+              );
+            })}
+          </nav>
+        </div>
+      </aside>
+    </>
   );
 }
