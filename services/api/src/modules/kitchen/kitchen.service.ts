@@ -3,6 +3,7 @@ import type { StaffJwtPayload } from "@restaurant/auth";
 import { PrismaService } from "../../common/prisma/prisma.service";
 import { RealtimeGateway } from "../realtime/realtime.gateway";
 import { OrdersService } from "../orders/orders.service";
+import { hiddenOnlinePaymentWhere } from "../orders/order-visibility";
 
 function assertBranchAccess(staff: StaffJwtPayload, branchId: string) {
   if (staff.isOwner) return;
@@ -35,7 +36,10 @@ export class KitchenService {
     assertBranchAccess(staff, branchId);
 
     return this.prisma.order.findMany({
-      where: { branchId, status: { in: [...KITCHEN_STATUSES] } },
+      // KITCHEN_STATUSES already excludes PENDING (an unaccepted order), which is the normal
+      // path — this predicate is defense-in-depth in case a hidden ONLINE order ever ends up
+      // CONFIRMED/PREPARING/etc. despite the Accept-guard in OrdersService.updateOrderStatus.
+      where: { ...hiddenOnlinePaymentWhere(), branchId, status: { in: [...KITCHEN_STATUSES] } },
       orderBy: { createdAt: "asc" },
       select: {
         id: true,

@@ -41,6 +41,14 @@ export class OrdersController {
     return { success: true, data };
   }
 
+  /** Retry a failed/expired/abandoned online payment on the SAME order — never creates a new one. */
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post(":orderNumber/retry-payment")
+  async retryPayment(@CurrentCustomer() customer: CustomerJwtPayload, @Param("orderNumber") orderNumber: string) {
+    const data = await this.orders.retryOnlinePayment(customer.sub, orderNumber);
+    return { success: true, data };
+  }
+
   /** Guest checkout (CLAUDE.md §11 — "Guest checkout optional"): no account, no saved address/loyalty. */
   @Public()
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
@@ -58,6 +66,14 @@ export class OrdersController {
   @Get("guest/:orderNumber")
   async findOneGuest(@Param("orderNumber") orderNumber: string) {
     const data = await this.orders.getOrderForGuest(orderNumber);
+    return { success: true, data };
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post("guest/:orderNumber/retry-payment")
+  async retryPaymentGuest(@Param("orderNumber") orderNumber: string) {
+    const data = await this.orders.retryOnlinePayment(null, orderNumber);
     return { success: true, data };
   }
 

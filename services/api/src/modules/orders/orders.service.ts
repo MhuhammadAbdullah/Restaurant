@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, forwardRef, Inject, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import type { OrderStatus, OrderSource, Prisma } from "@restaurant/database";
 import type {
@@ -27,6 +27,7 @@ import { AuditLogService } from "../audit-logs/audit-log.service";
 import { PermissionsCheckService } from "../auth/permissions-check.service";
 import { BranchResolutionService } from "../branches/branch-resolution.service";
 import { ProductPricingService, type ProductLineBreakdown } from "./product-pricing.service";
+import { hiddenOnlinePaymentWhere } from "./order-visibility";
 import { DealPricingService } from "../deals/deal-pricing.service";
 import { PaymentsService } from "../payments/payments.service";
 import { CouponsService } from "../coupons/coupons.service";
@@ -102,7 +103,7 @@ export class OrdersService {
     private readonly branchResolution: BranchResolutionService,
     private readonly productPricing: ProductPricingService,
     private readonly dealPricing: DealPricingService,
-    private readonly payments: PaymentsService,
+    @Inject(forwardRef(() => PaymentsService)) private readonly payments: PaymentsService,
     private readonly coupons: CouponsService,
     private readonly auditLogs: AuditLogService,
     private readonly permissionsCheck: PermissionsCheckService,
@@ -275,6 +276,11 @@ export class OrdersService {
     const estimatedDeliveryAt =
       input.type === "ONLINE_DELIVERY" ? roundUpToFiveMinutes(new Date(Date.now() + branch.estimatedDeliveryMins * 60_000)) : null;
 
+    // An ONLINE order with real money on the line isn't "placed" from the restaurant's
+    // perspective until the gateway confirms it — see order-visibility.ts. COD (and a zero-total
+    // online order, which never touches a gateway) is unaffected and stays visible immediately.
+    const shouldDeferConfirmation = paymentMethod === "ONLINE" && grandTotal > 0;
+
     // 18-25: create order + items + ledgers + payment, atomically.
     // Explicit timeout: default Prisma interactive-transaction timeout is 5s — this block does
     // order + item creation, loyalty ledger writes, payment +
@@ -379,7 +385,7 @@ export class OrdersService {
 
       await tx.receipt.create({ data: { orderId: created.id } });
 
-      if (customerId) {
+      if (customerId && !shouldDeferConfirmation) {
         await tx.notification.create({
           data: {
             restaurantId,
@@ -397,7 +403,7 @@ export class OrdersService {
     }, { timeout: 15000 });
 
     let paymentRedirectUrl: string | undefined;
-    if (paymentMethod === "ONLINE" && grandTotal > 0) {
+    if (shouldDeferConfirmation) {
       const initiated = await this.payments.initiateForOrder(order.id);
       paymentRedirectUrl = initiated.redirectUrl;
     }
@@ -407,10 +413,85 @@ export class OrdersService {
     // confirmation email; see updateOrderStatus / sendAcceptanceEmailIfApplicable below.
 
     const full = customerId ? await this.getOrderForCustomer(customerId, order.orderNumber) : await this.getOrderForGuest(order.orderNumber);
-    this.realtime.emitOrderCreated({ restaurantId, branchId: branch.id, order: full });
-    await this.notifications.notifyStaffNewOrder(full);
+
+    // A deferred (ONLINE, unpaid) order stays invisible to staff — no realtime "new order" event,
+    // no staff notification, no customer ORDER_CONFIRMED (above) — until
+    // PaymentsService.handleWebhook confirms PAID and calls onlinePaymentConfirmed below.
+    if (!shouldDeferConfirmation) {
+      this.realtime.emitOrderCreated({ restaurantId, branchId: branch.id, order: full });
+      await this.notifications.notifyStaffNewOrder(full);
+    }
 
     return { order: full, paymentRedirectUrl };
+  }
+
+  /**
+   * Fired exactly once, from PaymentsService.handleWebhook, the moment an ONLINE order's payment
+   * is confirmed PAID. Mirrors the "order just placed" side effects createOnlineOrder already
+   * performs immediately for COD — customer ORDER_CONFIRMED notification, realtime "new order"
+   * event, staff new-order notification — deferred until now specifically because a
+   * PENDING/FAILED/EXPIRED online payment was never a real order as far as the restaurant is
+   * concerned (see order-visibility.ts).
+   */
+  async onlinePaymentConfirmed(orderId: string): Promise<void> {
+    const order = await this.prisma.order.findUniqueOrThrow({ where: { id: orderId } });
+
+    if (order.customerId) {
+      await this.prisma.notification.create({
+        data: {
+          restaurantId: order.restaurantId,
+          recipientType: "CUSTOMER",
+          recipientCustomerId: order.customerId,
+          orderId: order.id,
+          type: "ORDER_CONFIRMED",
+          title: "Order placed",
+          message: `Your order ${order.orderNumber} has been placed.`,
+        },
+      });
+    }
+
+    const full = order.customerId
+      ? await this.getOrderForCustomer(order.customerId, order.orderNumber)
+      : await this.getOrderForGuest(order.orderNumber);
+    this.realtime.emitOrderCreated({ restaurantId: order.restaurantId, branchId: order.branchId, order: full });
+    await this.notifications.notifyStaffNewOrder(full);
+  }
+
+  /**
+   * A failed/expired/abandoned online payment never creates a new order (Rule: order numbers are
+   * never reused) — the customer retries against the SAME order row, which just gets a fresh
+   * Payment attempt row and a fresh gateway redirect. Ownership is checked exactly like
+   * getOrderForCustomer/getOrderForGuest (registered customers by customerId, guests by the
+   * order having no customerId + not being in a terminal state).
+   */
+  async retryOnlinePayment(customerId: string | null, orderNumber: string) {
+    const order = await this.prisma.order.findUnique({ where: { orderNumber } });
+    if (!order) throw new NotFoundException({ code: "ORDER_NOT_FOUND", message: "Order not found" });
+
+    if (customerId) {
+      if (order.customerId !== customerId) throw new NotFoundException({ code: "ORDER_NOT_FOUND", message: "Order not found" });
+    } else {
+      if (order.customerId) throw new NotFoundException({ code: "ORDER_NOT_FOUND", message: "Order not found" });
+      if (TERMINAL_STATUSES.includes(order.status)) {
+        throw new NotFoundException({ code: "ORDER_ACCESS_EXPIRED", message: "This order is complete and its tracking link has expired." });
+      }
+    }
+
+    if (order.paymentMethod !== "ONLINE") {
+      throw new BadRequestException({ code: "NOT_ONLINE_PAYMENT", message: "This order does not use online payment." });
+    }
+    if (order.paymentStatus === "PAID" || order.paymentStatus === "PARTIALLY_PAID" || order.paymentStatus === "REFUNDED") {
+      throw new BadRequestException({ code: "PAYMENT_ALREADY_SETTLED", message: "This order's payment has already been completed." });
+    }
+    if (TERMINAL_STATUSES.includes(order.status)) {
+      throw new BadRequestException({ code: "ORDER_NOT_RETRYABLE", message: "This order can no longer be paid for." });
+    }
+
+    await this.prisma.payment.create({
+      data: { orderId: order.id, method: "ONLINE", provider: "payfast", status: "PENDING", amount: order.grandTotal },
+    });
+    const initiated = await this.payments.initiateForOrder(order.id);
+    return { paymentRedirectUrl: initiated.redirectUrl };
   }
 
   /**
@@ -1425,6 +1506,7 @@ export class OrdersService {
     const toExclusive = filters.to ? new Date(new Date(filters.to).getTime() + 24 * 60 * 60 * 1000) : undefined;
     return this.prisma.order.findMany({
       where: {
+        ...hiddenOnlinePaymentWhere(),
         branchId: filters.branchId ?? (staff.isOwner ? undefined : { in: staff.branchIds }),
         status: filters.status,
         source: filters.source,
@@ -1521,6 +1603,17 @@ export class OrdersService {
     // sends the confirmation email and the accompanying customer notification/push. Every other
     // transition never emails.
     const isAccepting = order.status === "PENDING" && input.status === "CONFIRMED";
+
+    // Defense-in-depth: an ONLINE order whose payment hasn't cleared is hidden from every staff
+    // view (order-visibility.ts), so normally there's nothing to click Accept on — but this
+    // blocks the transition outright in case that hiding is ever bypassed (a stale cached order
+    // id, a direct API call) or a webhook is simply still in flight.
+    if (isAccepting && order.paymentMethod === "ONLINE" && order.paymentStatus !== "PAID") {
+      throw new BadRequestException({
+        code: "PAYMENT_NOT_CONFIRMED",
+        message: "This order's online payment has not been confirmed yet and cannot be accepted.",
+      });
+    }
 
     const updated = await this.prisma.$transaction(async (tx) => {
       const result = await tx.order.update({

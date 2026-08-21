@@ -2,6 +2,7 @@ import { ForbiddenException, Injectable } from "@nestjs/common";
 import type { StaffJwtPayload } from "@restaurant/auth";
 import { PrismaService } from "../../common/prisma/prisma.service";
 import { RestaurantContextService } from "../../common/restaurant/restaurant-context.service";
+import { hiddenOnlinePaymentWhere } from "../orders/order-visibility";
 
 function assertBranchAccess(staff: StaffJwtPayload, branchId: string) {
   if (staff.isOwner) return;
@@ -48,7 +49,7 @@ export class ReportsService {
 
     const revenueSince = async (since: Date) => {
       const result = await this.prisma.order.aggregate({
-        where: { restaurantId, ...branchFilter, createdAt: { gte: since }, status: { notIn: ["CANCELLED", "REFUNDED"] } },
+        where: { restaurantId, ...branchFilter, createdAt: { gte: since }, status: { notIn: ["CANCELLED", "REFUNDED"] }, ...hiddenOnlinePaymentWhere() },
         _sum: { grandTotal: true },
       });
       return result._sum.grandTotal ?? 0;
@@ -108,7 +109,7 @@ export class ReportsService {
 
     const statuses = ["PENDING", "CONFIRMED", "PREPARING", "READY", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED"] as const;
     const [pending, confirmed, preparing, ready, outForDelivery, delivered, cancelled] = await Promise.all(
-      statuses.map((status) => this.prisma.order.count({ where: { restaurantId, ...branchFilter, status, createdAt } })),
+      statuses.map((status) => this.prisma.order.count({ where: { restaurantId, ...branchFilter, status, createdAt, ...hiddenOnlinePaymentWhere() } })),
     );
     return { pending, confirmed, preparing, ready, outForDelivery, delivered, cancelled };
   }
@@ -122,7 +123,7 @@ export class ReportsService {
 
     const raw = await this.prisma.orderItem.groupBy({
       by: ["productId"],
-      where: { productId: { not: null }, order: { restaurantId, ...branchFilter, createdAt, status: { notIn: ["CANCELLED", "REFUNDED"] } } },
+      where: { productId: { not: null }, order: { restaurantId, ...branchFilter, createdAt, status: { notIn: ["CANCELLED", "REFUNDED"] }, ...hiddenOnlinePaymentWhere() } },
       _sum: { quantity: true },
       orderBy: { _sum: { quantity: "desc" } },
       take,
@@ -145,7 +146,7 @@ export class ReportsService {
 
     const raw = await this.prisma.order.groupBy({
       by: ["customerId"],
-      where: { restaurantId, ...branchFilter, customerId: { not: null }, createdAt, status: { notIn: ["CANCELLED", "REFUNDED"] } },
+      where: { restaurantId, ...branchFilter, customerId: { not: null }, createdAt, status: { notIn: ["CANCELLED", "REFUNDED"] }, ...hiddenOnlinePaymentWhere() },
       _sum: { grandTotal: true },
       _count: { _all: true },
       orderBy: { _sum: { grandTotal: "desc" } },

@@ -22,6 +22,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/tables", label: "Tables", permission: "tables.view" },
       { href: "/kitchen", label: "Kitchen", permission: "kitchen.access" },
       { href: "/riders", label: "Riders", permission: "riders.view" },
+      { href: "/reports/finance", label: "Order & Finance Reports", permission: "reports.view" },
     ],
   },
   {

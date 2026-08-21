@@ -106,7 +106,7 @@ export type OrderDetail = {
   customer: { id: string; name: string; phone: string; email: string | null } | null;
   assignedRider: { id: string; name: string; phone: string | null } | null;
   items: OrderItemDetail[];
-  payments: { id: string; method: string; status: string; amount: number }[];
+  payments: { id: string; method: string; status: string; amount: number; transactionRef: string | null; createdAt: string }[];
   revisions: { id: string; staffId: string | null; previousGrandTotal: number; newGrandTotal: number; note: string | null; createdAt: string }[];
   branchTransfers: {
     id: string;
@@ -889,6 +889,42 @@ export function OrderDetailModal({ orderId, onClose, onNavigateReceipt }: { orde
                     {order.loyaltyDiscountAmount > 0 && <div className="flex justify-between"><span className="text-neutral-500">Loyalty</span><span>-{formatPaisa(order.loyaltyDiscountAmount)}</span></div>}
                     <div className="flex justify-between border-t border-neutral-200 pt-1 font-semibold text-neutral-900"><span>Grand Total</span><span>{formatPaisa(order.grandTotal)}</span></div>
                   </div>
+
+                  {/* Payment attempt history — each retry after a failed/expired online payment
+                      is its own Payment row against this same order, kept for reconciliation. */}
+                  {order.paymentMethod === "ONLINE" && order.payments.length > 0 && (
+                    <div className="rounded-lg border border-neutral-200 p-3">
+                      <p className="text-xs font-semibold uppercase text-neutral-500">Payment Attempts</p>
+                      <div className="mt-2 space-y-1.5">
+                        {[...order.payments]
+                          .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+                          .map((p, i) => (
+                            <div key={p.id} className="flex items-center justify-between gap-2 text-xs">
+                              <span className="text-neutral-500">
+                                #{i + 1} · {new Date(p.createdAt).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                                {p.transactionRef && <span className="ml-1 text-neutral-400">({p.transactionRef})</span>}
+                              </span>
+                              <span className="flex items-center gap-2">
+                                <span>{formatPaisa(p.amount)}</span>
+                                <span
+                                  className={`rounded-full px-2 py-0.5 font-medium ${
+                                    p.status === "PAID"
+                                      ? "bg-green-100 text-green-700"
+                                      : p.status === "FAILED" || p.status === "CANCELLED"
+                                        ? "bg-red-100 text-red-700"
+                                        : p.status === "EXPIRED"
+                                          ? "bg-neutral-200 text-neutral-600"
+                                          : "bg-amber-100 text-amber-700"
+                                  }`}
+                                >
+                                  {p.status}
+                                </span>
+                              </span>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Record Payment ("request the bill") — never auto-closes the order itself;
                       closing + freeing the table happens server-side only once payment actually

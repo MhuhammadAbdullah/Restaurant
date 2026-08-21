@@ -30,6 +30,9 @@ import { useAuthModalStore } from "../../../store/useAuthModalStore";
 import { OrderStatusBadge, OrderHeroIcon, getStatusMessage, PaymentStatusBadge, PAYMENT_METHOD_LABEL } from "../../../components/OrderStatusBadge";
 import { Skeleton, SkeletonText } from "../../../components/skeletons";
 import { ArrowLeftIcon, HourglassIcon, SearchIcon } from "../../../components/icons";
+import { toast } from "../../../store/useToastStore";
+
+const RETRYABLE_PAYMENT_STATUSES = new Set(["PENDING", "FAILED", "EXPIRED"]);
 
 type OrderDetail = {
   id: string;
@@ -218,11 +221,25 @@ export default function OrderConfirmationPage({ params }: { params: Promise<{ or
   const openAuthModal = useAuthModalStore((s) => s.open);
   const confettiFired = useRef(false);
   const [pushState, setPushState] = useState<PushSubscribeResult | "idle" | "loading">("idle");
+  const [retrying, setRetrying] = useState(false);
 
   async function enableNotifications() {
     setPushState("loading");
     const result = await subscribeToOrderPush(orderNumber);
     setPushState(result);
+  }
+
+  async function retryPayment() {
+    setRetrying(true);
+    try {
+      const data = customer
+        ? await api.post<{ paymentRedirectUrl: string }>(`/orders/${orderNumber}/retry-payment`)
+        : await api.public.post<{ paymentRedirectUrl: string }>(`/orders/guest/${orderNumber}/retry-payment`);
+      window.location.href = data.paymentRedirectUrl;
+    } catch {
+      setRetrying(false);
+      toast.error("Could not start payment. Please try again.");
+    }
   }
 
   const { data: restaurant } = useQuery({
@@ -345,6 +362,26 @@ export default function OrderConfirmationPage({ params }: { params: Promise<{ or
         <h1 className="mt-4 text-2xl font-semibold text-ink">{headline}</h1>
         <p className="mt-1 text-sm text-muted">{subtext}</p>
       </div>
+
+      {order.paymentMethod === "ONLINE" && RETRYABLE_PAYMENT_STATUSES.has(order.paymentStatus) && (
+        <div data-no-print className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-center">
+          <p className="text-sm font-semibold text-amber-800">
+            {order.paymentStatus === "PENDING" ? "Waiting for payment confirmation" : "Payment was not completed"}
+          </p>
+          <p className="mt-1 text-xs text-amber-700">
+            {order.paymentStatus === "PENDING"
+              ? "If you already paid, this will update automatically. Otherwise, you can retry payment below."
+              : "Your order is saved — you can retry payment to complete it."}
+          </p>
+          <button
+            onClick={retryPayment}
+            disabled={retrying}
+            className="mt-3 w-full rounded-full bg-brand-red py-3 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            {retrying ? "Redirecting..." : "Retry Payment"}
+          </button>
+        </div>
+      )}
 
       <div id="receipt" className="mt-6 space-y-4 text-left text-sm">
         <div className="rounded-xl border border-line p-5">

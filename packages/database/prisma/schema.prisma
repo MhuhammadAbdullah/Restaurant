@@ -80,6 +80,8 @@ enum PaymentStatus {
   PARTIALLY_PAID
   PAID
   FAILED
+  EXPIRED
+  CANCELLED
   REFUNDED
 }
 
@@ -1078,6 +1080,12 @@ model Payment {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Multiple Payment rows per order are expected (one per gateway attempt — retries after a
+  // failed/expired online payment reuse the same order, never a new one). These serve the two
+  // query patterns that lean on that: "latest attempt for this order" (initiate/retry) and the
+  // expiry sweep's "stale pending online payments" scan.
+  @@index([orderId, createdAt])
+  @@index([status, method, createdAt])
   @@map("payments")
 }
 

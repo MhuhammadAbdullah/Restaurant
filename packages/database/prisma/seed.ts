@@ -189,7 +189,7 @@ async function main() {
     "coupons.view", "coupons.create", "coupons.edit", "coupons.delete",
     "customers.view", "loyalty.view", "loyalty.adjust",
     "complaints.view", "complaints.assign", "complaints.reply", "complaints.resolve",
-    "reports.view", "tables.view", "tables.create", "tables.edit", "tables.delete",
+    "reports.view", "reports.export", "tables.view", "tables.create", "tables.edit", "tables.delete",
     "branches.view", "riders.view", "riders.assign",
   ]);
   await grantPermissions(kitchenStaff.id, ["kitchen.access", "kitchen.updateStatus", "orders.view", "products.view"]);

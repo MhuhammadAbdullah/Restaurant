@@ -8,6 +8,7 @@ import { formatPaisa } from "@restaurant/utils";
 import { api } from "../../lib/api";
 import { useMe, hasPermission } from "../../lib/useMe";
 import { OrderDetailModal } from "../../components/orders/OrderDetailModal";
+import { StatCard } from "../../components/StatCard";
 import { Skeleton } from "../../components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 import { DateRangePopover } from "../../components/ui/date-range-popover";
@@ -199,13 +200,13 @@ export default function DashboardPage() {
       ) : (
         <>
           <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-            <Card icon={StoreIcon} color="text-blue-600 bg-blue-50" label="Branches" value={`${data.branches.active}/${data.branches.total}`} />
-            <Card icon={BanknoteIcon} color="text-green-600 bg-green-50" label="Today's Revenue" value={formatPaisa(data.revenue.today)} />
-            <Card icon={TrendingUpIcon} color="text-emerald-600 bg-emerald-50" label="Week Revenue" value={formatPaisa(data.revenue.week)} />
-            <Card icon={BarChartIcon} color="text-teal-600 bg-teal-50" label="Month Revenue" value={formatPaisa(data.revenue.month)} />
-            <Card icon={UsersIcon} color="text-purple-600 bg-purple-50" label="Total Customers" value={String(data.customers.total)} sub={`+${data.customers.newToday} today`} />
-            <Card icon={AlertCircleIcon} color="text-red-600 bg-red-50" label="Open Complaints" value={String(data.complaints.open)} warn={data.complaints.open > 0} />
-            <Card icon={StarIcon} color="text-pink-600 bg-pink-50" label="Loyalty Points Issued" value={String(data.loyaltyPointsIssued)} />
+            <StatCard icon={StoreIcon} color="text-blue-600 bg-blue-50" label="Branches" value={`${data.branches.active}/${data.branches.total}`} />
+            <StatCard icon={BanknoteIcon} color="text-green-600 bg-green-50" label="Today's Revenue" value={formatPaisa(data.revenue.today)} />
+            <StatCard icon={TrendingUpIcon} color="text-emerald-600 bg-emerald-50" label="Week Revenue" value={formatPaisa(data.revenue.week)} />
+            <StatCard icon={BarChartIcon} color="text-teal-600 bg-teal-50" label="Month Revenue" value={formatPaisa(data.revenue.month)} />
+            <StatCard icon={UsersIcon} color="text-purple-600 bg-purple-50" label="Total Customers" value={String(data.customers.total)} sub={`+${data.customers.newToday} today`} />
+            <StatCard icon={AlertCircleIcon} color="text-red-600 bg-red-50" label="Open Complaints" value={String(data.complaints.open)} warn={data.complaints.open > 0} />
+            <StatCard icon={StarIcon} color="text-pink-600 bg-pink-50" label="Loyalty Points Issued" value={String(data.loyaltyPointsIssued)} />
           </div>
 
           <div className="mt-8 flex flex-wrap items-center justify-between gap-2">
@@ -359,33 +360,6 @@ export default function DashboardPage() {
       {detailOrderId && (
         <OrderDetailModal orderId={detailOrderId} onClose={() => setDetailOrderId(null)} onNavigateReceipt={(id) => router.push(`/pos/receipt/${id}`)} />
       )}
-    </div>
-  );
-}
-
-function Card({
-  icon: Icon,
-  color,
-  label,
-  value,
-  sub,
-  warn,
-}: {
-  icon: (p: { size?: number; className?: string }) => React.ReactElement;
-  color: string;
-  label: string;
-  value: string;
-  sub?: string;
-  warn?: boolean;
-}) {
-  return (
-    <div className={`rounded-xl border p-4 ${warn ? "border-red-200 bg-red-50" : "border-neutral-200 bg-white"}`}>
-      <span className={`flex h-9 w-9 items-center justify-center rounded-full ${warn ? "bg-red-100 text-red-600" : color}`}>
-        <Icon size={18} />
-      </span>
-      <p className="mt-2 text-xs text-neutral-500">{label}</p>
-      <p className={`mt-0.5 text-xl font-semibold ${warn ? "text-red-600" : "text-neutral-900"}`}>{value}</p>
-      {sub && <p className="text-xs text-neutral-400">{sub}</p>}
     </div>
   );
 }

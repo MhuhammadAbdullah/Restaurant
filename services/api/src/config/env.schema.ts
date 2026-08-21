@@ -21,6 +21,18 @@ export const envSchema = z.object({
   PAYFAST_MODE: z.enum(["live", "mock"]).default("mock"),
   PAYFAST_MERCHANT_ID: z.string().optional(),
   PAYFAST_SECURED_KEY: z.string().optional(),
+  PAYFAST_MERCHANT_NAME: z.string().optional(),
+  // PayFast's Hosted Checkout Transaction API base — defaults to their UAT/sandbox host; swap for
+  // the production host once PayFast provides it.
+  PAYFAST_LIVE_API_BASE_URL: z.string().url().optional(),
+  // Our own public base URL PayFast's servers redirect/notify back to (SUCCESS_URL/FAILURE_URL/
+  // CHECKOUT_URL). Must be internet-reachable for PAYFAST_MODE=live to work at all — localhost
+  // needs a tunnel (e.g. ngrok) pointed at this API for sandbox testing.
+  PAYFAST_LIVE_BRIDGE_BASE_URL: z.string().url().optional(),
+
+  // Minutes an ONLINE order's payment can sit PENDING before the sweep (PaymentsService.expirePendingPayments)
+  // flips it to EXPIRED and hides it from operational Orders/Kitchen/dashboard views.
+  PAYMENT_EXPIRY_MINUTES: z.coerce.number().int().positive().default(45),
 
   // Customer email OTP (login/registration). Both provider configs can sit in .env at once —
   // EMAIL_PROVIDER picks which one is actually used, so switching to the "official" provider
