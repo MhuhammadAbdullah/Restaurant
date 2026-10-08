@@ -26,6 +26,7 @@ type RiderOrder = {
   createdAt: string;
   collectionStatus: "PAID" | "COLLECTED" | "PENDING" | "N/A";
   isSubmitted: boolean;
+  isSettled?: boolean;
 };
 
 type CollectionSummary = {
@@ -217,7 +218,7 @@ export default function RiderDashboardPage() {
               <p className="text-sm font-semibold text-neutral-900">Today's Collection</p>
               <div className="mt-2 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
                 <div><p className="text-xs text-neutral-500">COD Orders</p><p className="text-lg font-semibold">{summary.codOrderCount}</p></div>
-                <div><p className="text-xs text-neutral-500">Collected</p><p className="text-lg font-semibold text-green-600">{formatPaisa(summary.collectedAmount)}</p></div>
+                <div><p className="text-xs text-neutral-500">Cash in hand</p><p className="text-lg font-semibold text-red-600">{formatPaisa(summary.collectedAmount)}</p></div>
                 <div><p className="text-xs text-neutral-500">Pending</p><p className="text-lg font-semibold text-amber-600">{formatPaisa(summary.pendingAmount)}</p></div>
                 <div><p className="text-xs text-neutral-500">Paid Orders</p><p className="text-lg font-semibold text-blue-600">{summary.paidOrderCount}</p></div>
               </div>
@@ -236,7 +237,7 @@ export default function RiderDashboardPage() {
                 onClick={() => setCollectionFilter(f)}
                 className={`rounded-full border px-3 py-1 text-xs capitalize ${collectionFilter === f ? "border-brand-red bg-brand-red/10 text-brand-red" : "border-neutral-300 text-neutral-600"}`}
               >
-                {f === "all" ? "All" : f === "cod" ? "COD" : f === "paid" ? "Paid" : f === "collected" ? "Collected" : "Pending Collection"}
+                {f === "all" ? "All" : f === "cod" ? "COD" : f === "paid" ? "Paid" : f === "collected" ? "Cash in hand" : "Pending Collection"}
               </button>
             ))}
           </div>
@@ -261,7 +262,7 @@ export default function RiderDashboardPage() {
                     <td className="px-4 py-2.5 text-xs">{o.paymentMethod}</td>
                     <td className="px-4 py-2.5">
                       <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${o.collectionStatus === "COLLECTED" ? "bg-green-50 text-green-700" : o.collectionStatus === "PENDING" ? "bg-amber-50 text-amber-700" : "bg-blue-50 text-blue-700"}`}>
-                        {o.collectionStatus === "COLLECTED" && o.isSubmitted ? "Submitted" : o.collectionStatus === "COLLECTED" ? "Collected" : o.collectionStatus === "PENDING" ? "Pending" : "Paid"}
+                        {o.collectionStatus === "COLLECTED" && o.isSettled ? "Received by admin" : o.collectionStatus === "COLLECTED" && o.isSubmitted ? "Handed in — awaiting admin" : o.collectionStatus === "COLLECTED" ? "Cash in hand" : o.collectionStatus === "PENDING" ? "Pending" : "Paid"}
                       </span>
                     </td>
                   </tr>
@@ -310,7 +311,7 @@ export default function RiderDashboardPage() {
             <div className="mt-3 space-y-1.5 text-sm">
               <div className="flex justify-between"><span className="text-neutral-500">COD Orders</span><span>{summary.codOrderCount}</span></div>
               <div className="flex justify-between"><span className="text-neutral-500">Expected Collection</span><span>{formatPaisa(summary.expectedAmount)}</span></div>
-              <div className="flex justify-between"><span className="text-neutral-500">Collected</span><span className="text-green-600">{formatPaisa(summary.collectedAmount)}</span></div>
+              <div className="flex justify-between"><span className="text-neutral-500">Cash in hand</span><span className="text-red-600">{formatPaisa(summary.collectedAmount)}</span></div>
               <div className="flex justify-between"><span className="text-neutral-500">Pending</span><span className="text-amber-600">{formatPaisa(summary.pendingAmount)}</span></div>
               <div className="flex justify-between border-t border-neutral-100 pt-1.5"><span className="text-neutral-500">Paid Orders</span><span>{summary.paidOrderCount} · {formatPaisa(summary.paidAmount)}</span></div>
               <div className="flex justify-between border-t border-neutral-200 pt-1.5 text-base font-semibold text-neutral-900"><span>Cash to Submit</span><span>{formatPaisa(summary.collectedAmount)}</span></div>

@@ -1,4 +1,6 @@
 import {
+  FaBagShopping,
+  FaCalculator,
   FaArrowTrendUp,
   FaBars,
   FaBell,
@@ -159,4 +161,12 @@ export function MenuIcon({ size = 16, className = "" }: IconProps) {
 
 export function LogoutIcon({ size = 16, className = "" }: IconProps) {
   return <FaRightFromBracket size={size} className={className} />;
+}
+
+export function ShoppingBagIcon({ size = 16, className = "" }: IconProps) {
+  return <FaBagShopping size={size} className={className} />;
+}
+
+export function CalculatorIcon({ size = 16, className = "" }: IconProps) {
+  return <FaCalculator size={size} className={className} />;
 }

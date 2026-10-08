@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
+import { formatPaisa } from "@restaurant/utils";
 import { api } from "../../../lib/api";
 import { useSelectedBranch } from "../../../lib/useSelectedBranch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select";
@@ -15,6 +16,7 @@ type Rider = {
   branches: { id: string; name: string }[];
   assignedOrders: number;
   completedOrders: number;
+  unsettledAmount: number;
 };
 
 export default function RidersPage() {
@@ -67,6 +69,7 @@ export default function RidersPage() {
               <th className="px-4 py-2.5 font-medium">Status</th>
               <th className="px-4 py-2.5 font-medium">Assigned Orders</th>
               <th className="px-4 py-2.5 font-medium">Completed Orders</th>
+              <th className="px-4 py-2.5 font-medium">Cash to Settle</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-neutral-100">
@@ -82,11 +85,18 @@ export default function RidersPage() {
                 </td>
                 <td className="px-4 py-2.5 text-neutral-600">{r.assignedOrders}</td>
                 <td className="px-4 py-2.5 text-neutral-600">{r.completedOrders}</td>
+                <td className="px-4 py-2.5">
+                  {r.unsettledAmount > 0 ? (
+                    <span className="rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-semibold text-red-700">{formatPaisa(r.unsettledAmount)}</span>
+                  ) : (
+                    <span className="text-xs text-neutral-400">—</span>
+                  )}
+                </td>
               </tr>
             ))}
             {riders?.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-neutral-400">No riders match these filters.</td>
+                <td colSpan={7} className="px-4 py-6 text-center text-neutral-400">No riders match these filters.</td>
               </tr>
             )}
           </tbody>

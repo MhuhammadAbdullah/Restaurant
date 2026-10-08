@@ -25,6 +25,8 @@ export function ImageUploadField({
   onChange,
   compact,
   hideLabel,
+  shape,
+  hint,
 }: {
   label: string;
   folder: "restaurant" | "banners" | "products" | "categories" | "deals" | "choices" | "addons";
@@ -34,6 +36,14 @@ export function ImageUploadField({
   compact?: boolean;
   /** Skip the built-in label above the dropzone — for callers rendering their own caption elsewhere (e.g. below the image, in a dense grid). */
   hideLabel?: boolean;
+  /**
+   * Fixes the dropzone's proportions so the preview matches what the image is for:
+   * "square" is 1:1 (icons/thumbnails — cropped to fill), "landscape" is a wide 21:9 banner (shown whole, uncropped).
+   * Omit it for the legacy compact / wide-box behaviour.
+   */
+  shape?: "square" | "landscape";
+  /** Short guidance under the upload prompt, e.g. the recommended size. */
+  hint?: string;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -86,13 +96,13 @@ export function ImageUploadField({
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
         className={`group relative flex cursor-pointer items-center justify-center overflow-hidden rounded-xl border-2 border-dashed transition ${
-          compact ? "h-32 w-32" : "h-40 w-full"
+          shape === "square" ? "aspect-square w-44" : shape === "landscape" ? "aspect-[21/9] w-full bg-neutral-50" : compact ? "h-32 w-32" : "h-40 w-full"
         } ${dragOver ? "border-brand-red bg-red-50" : "border-neutral-300 hover:border-brand-red hover:bg-neutral-50"}`}
       >
         {value ? (
           <>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={value} alt="" className="h-full w-full object-cover" />
+            <img src={value} alt="" className={`h-full w-full ${shape === "landscape" ? "object-contain" : "object-cover"}`} />
             <div className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition group-hover:bg-black/50 group-hover:opacity-100">
               <span className="rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-neutral-900">Click or drop to replace</span>
             </div>
@@ -117,17 +127,17 @@ export function ImageUploadField({
             <p className="text-sm">Uploading...</p>
           </div>
         ) : (
-          <div className={`flex flex-col items-center text-center text-neutral-400 ${compact ? "gap-1 px-2" : "gap-1.5 px-4"}`}>
+          <div className={`flex flex-col items-center text-center text-neutral-400 ${compact && !shape ? "gap-1 px-2" : "gap-1.5 px-4"}`}>
             <svg width={compact ? 20 : 28} height={compact ? 20 : 28} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 16V4M12 4l-4 4M12 4l4 4" />
               <path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
             </svg>
-            {compact ? (
+            {compact && !shape ? (
               <p className="text-xs font-medium text-neutral-500">Upload</p>
             ) : (
               <>
                 <p className="text-sm font-medium text-neutral-500">Click or drag an image to upload</p>
-                <p className="text-xs">JPG, PNG or WEBP</p>
+                <p className="text-xs">{hint ?? "JPG, PNG or WEBP"}</p>
               </>
             )}
           </div>

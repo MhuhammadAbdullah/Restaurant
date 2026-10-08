@@ -1,12 +1,13 @@
 ﻿"use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "../../../lib/api";
 import { toast } from "../../../store/useToastStore";
 import { useMe, hasPermission } from "../../../lib/useMe";
 import { BlockToggle, CustomerDetailModal, type CustomerStatus } from "../../../components/customers/CustomerDetailModal";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select";
+import { Pagination } from "../../../components/Pagination";
 
 type CustomerListItem = {
   id: string;
@@ -32,17 +33,38 @@ export default function CustomersPage() {
   const [statusFilter, setStatusFilter] = useState<"all" | "registered" | "guest">("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
 
-  const { data: customers } = useQuery({
-    queryKey: ["staff-customers", search, statusFilter],
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  // A new search/filter/page size is a new result set — start from the first page.
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, statusFilter, pageSize]);
+
+  const { data: customerPage } = useQuery({
+    queryKey: ["staff-customers", debouncedSearch, statusFilter, page, pageSize],
     queryFn: () => {
       const params = new URLSearchParams();
-      if (search) params.set("search", search);
+      if (debouncedSearch) params.set("search", debouncedSearch);
       if (statusFilter !== "all") params.set("status", statusFilter);
-      const qs = params.toString();
-      return api.get<CustomerListItem[]>(`/staff/customers${qs ? `?${qs}` : ""}`);
+      params.set("page", String(page));
+      params.set("pageSize", String(pageSize));
+      return api.get<{ items: CustomerListItem[]; total: number; page: number; pageSize: number; pageCount: number }>(`/staff/customers/page?${params.toString()}`);
     },
+    placeholderData: (prev) => prev,
   });
+  const customers = customerPage?.items;
+
+  // Filtering can leave us past the last page — step back.
+  useEffect(() => {
+    if (customerPage && page > customerPage.pageCount) setPage(customerPage.pageCount);
+  }, [customerPage, page]);
 
   async function toggleRowStatus(c: CustomerListItem) {
     const blocking = c.status === "ACTIVE";
@@ -100,7 +122,7 @@ export default function CustomersPage() {
               <tr key={c.id} onClick={() => setSelectedId(c.id)} className="cursor-pointer hover:bg-neutral-50">
                 <td className="px-4 py-2.5 font-medium text-neutral-900">{c.name}</td>
                 <td className="px-4 py-2.5 text-neutral-600">{c.phone}</td>
-                <td className="px-4 py-2.5 text-neutral-600">{c.email ?? "—"}</td>
+                <td className="px-4 py-2.5">{c.email ? <span className="text-neutral-600">{c.email}</span> : <span className="text-xs italic text-neutral-400">Not added</span>}</td>
                 <td className="px-4 py-2.5">
                   <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${c.isGuest ? "bg-amber-50 text-amber-700" : "bg-green-50 text-green-700"}`}>
                     {c.isGuest ? "Not Registered" : "Registered"}
@@ -122,6 +144,18 @@ export default function CustomersPage() {
           </tbody>
         </table>
       </div>
+
+      {customerPage && (
+        <Pagination
+          page={customerPage.page}
+          pageCount={customerPage.pageCount}
+          total={customerPage.total}
+          pageSize={pageSize}
+          onPage={setPage}
+          onPageSize={setPageSize}
+          itemLabel="customers"
+        />
+      )}
 
       {selectedId && <CustomerDetailModal id={selectedId} onClose={() => setSelectedId(null)} />}
     </div>

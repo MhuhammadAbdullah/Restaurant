@@ -58,6 +58,8 @@ export default function KitchenTicketPage({ params }: { params: Promise<{ orderI
 
   useEffect(() => {
     if (!data || printedRef.current) return;
+    // Never fire the printer (or log a PRINTED event) for a ticket with nothing on it.
+    if (data.order.items.length === 0) return;
     printedRef.current = true;
     window.print();
     void api
@@ -136,7 +138,7 @@ export default function KitchenTicketPage({ params }: { params: Promise<{ orderI
               {item.specialInstructions && <p className="pl-3 text-xs italic text-amber-700">** {item.specialInstructions} **</p>}
             </div>
           ))}
-          {ord.items.length === 0 && <p className="text-xs text-neutral-400">No items in this scope.</p>}
+          {ord.items.length === 0 && <p className="text-xs text-neutral-400 print:hidden">This order has no items to print.</p>}
         </div>
 
         {ord.specialInstructions && (

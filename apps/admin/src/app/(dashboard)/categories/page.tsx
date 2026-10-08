@@ -249,8 +249,8 @@ export default function CategoriesPage() {
               <input placeholder="Category name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="input w-full" required />
               <input placeholder="Description (optional)" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="input w-full" />
 
-              <ImageUploadField label="Category Image" folder="categories" value={form.image} onChange={(url) => setForm({ ...form, image: url })} />
-              <ImageUploadField label="Banner Image" folder="categories" value={form.banner} onChange={(url) => setForm({ ...form, banner: url })} />
+              <ImageUploadField label="Category Image (square, 1:1)" folder="categories" shape="square" hint="Square 1:1 · e.g. 600×600" value={form.image} onChange={(url) => setForm({ ...form, image: url })} />
+              <ImageUploadField label="Banner Image (landscape)" folder="categories" shape="landscape" hint="Landscape · e.g. 1680×600" value={form.banner} onChange={(url) => setForm({ ...form, banner: url })} />
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
