@@ -17,7 +17,7 @@ function CardRow({ tabs, activeKey, onTabClick }: RowProps) {
 
   return (
     <div className="px-4 py-2.5 sm:px-8">
-      <div className="relative mx-auto flex max-w-[90rem] items-center">
+      <div className="relative mx-auto flex max-w-4xl items-center">
         {canScrollLeft && (
           <button
             onClick={() => scrollBy(-1)}
@@ -29,7 +29,7 @@ function CardRow({ tabs, activeKey, onTabClick }: RowProps) {
         )}
         <div
           ref={scrollerRef}
-          className={`no-scrollbar flex flex-1 items-center justify-start gap-3 overflow-x-auto scroll-smooth pt-[5px] transition-[gap] duration-200 ${canScrollLeft ? "pl-10" : ""} ${canScrollRight ? "pr-10" : ""}`}
+          className={`no-scrollbar flex flex-1 items-center justify-start gap-6 [&>*:first-child]:ml-auto [&>*:last-child]:mr-auto overflow-x-auto scroll-smooth pt-[5px] transition-[gap] duration-200 ${canScrollLeft ? "pl-10" : ""} ${canScrollRight ? "pr-10" : ""}`}
         >
           {tabs.map((tab) => (
             <button
@@ -37,12 +37,12 @@ function CardRow({ tabs, activeKey, onTabClick }: RowProps) {
               onClick={() => onTabClick(tab.key)}
               className="relative z-0 flex shrink-0 flex-col items-center gap-1.5 transition duration-200 ease-out hover:z-10 hover:scale-[1.08]"
             >
-              <span className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-xl border-2 border-line bg-surface p-1.5 shadow-sm transition duration-200 ease-out hover:shadow-lg">
+              <span className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl transition duration-200 ease-out hover:drop-shadow-lg">
                 {tab.image ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={tab.image} alt="" className="h-full w-full rounded-lg object-cover" />
+                  <img src={tab.image} alt="" className="h-full w-full rounded-2xl object-cover" />
                 ) : (
-                  <span className="h-full w-full rounded-lg bg-surface-alt" />
+                  <span className="h-full w-full rounded-2xl bg-surface-alt" />
                 )}
               </span>
               <span className="text-center text-sm font-semibold text-brand-red">{tab.label}</span>
@@ -69,7 +69,7 @@ function PillRow({ tabs, activeKey, onTabClick, stuck }: RowProps & { stuck: boo
 
   return (
     <div
-      className={`fixed inset-x-0 top-0 z-30 border-b border-line bg-white px-4 py-4 shadow-sm transition-all duration-300 ease-out sm:px-8 ${
+      className={`fixed inset-x-0 top-0 z-30 border-b border-line bg-surface px-4 py-4 shadow-sm transition-all duration-300 ease-out sm:px-8 ${
         stuck ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-full opacity-0"
       }`}
     >

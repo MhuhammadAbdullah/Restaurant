@@ -268,23 +268,23 @@ export function LocationModal() {
           </button>
         )}
 
-        <div className="mx-auto flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl bg-brand-red">
+        <div className="mx-auto flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl bg-transparent">
           {popupLogo ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={popupLogo} alt={restaurant?.name ?? ""} className="h-full w-full object-cover" />
+            <img src={popupLogo} alt={restaurant?.name ?? ""} className="h-full w-full object-contain" />
           ) : (
-            <span className="px-2 text-center font-display text-lg leading-tight text-white">{restaurant?.name ?? ""}</span>
+            <span className="px-2 text-center font-display text-lg leading-tight text-brand-red">{restaurant?.name ?? ""}</span>
           )}
         </div>
 
         <h2 className="mt-4 text-center text-lg font-semibold text-ink">{copy?.heading ?? "Select Your Order Type"}</h2>
-        <div className="mx-auto mt-3 flex w-fit rounded-full bg-red-50 p-1">
+        <div className="mx-auto mt-3 flex w-fit rounded-full bg-surface-alt p-1">
           {(["DELIVERY", "PICKUP"] as const).map((t) => (
             <button
               key={t}
               onClick={() => setOrderType(t)}
               className={`rounded-full px-8 py-2 text-sm font-medium transition ${
-                orderType === t ? "bg-brand-red text-white" : "text-brand-red/70"
+                orderType === t ? "bg-brand-red text-white" : "text-ink"
               }`}
             >
               {t === "DELIVERY" ? copy?.deliveryLabel ?? "Delivery" : copy?.pickupLabel ?? "Pick-Up"}

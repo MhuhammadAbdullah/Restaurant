@@ -4,6 +4,7 @@ import type { ComponentType } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
+import { FaClock, FaEnvelope, FaLocationDot, FaPhoneVolume } from "react-icons/fa6";
 import { api } from "../lib/api";
 import { useLocationStore } from "../store/useLocationStore";
 import { FacebookIcon, InstagramIcon, TwitterIcon, YoutubeIcon, TiktokIcon, LinkedinIcon, WhatsappIcon } from "./icons";
@@ -63,45 +64,40 @@ export function Footer() {
   const displayEmail = selectedBranch?.email ?? restaurant?.contactEmail;
   const socialEntries = Object.entries(restaurant?.socialLinks ?? {}).filter(([, url]) => !!url);
 
-  const headingClass = "text-[17px] font-bold tracking-wide text-ink";
+  const headingClass = "text-[17px] font-semibold text-ink";
+  const columnClass = "lg:border-l lg:border-line lg:pl-8";
 
   return (
-    <footer data-no-print className="mt-16 border-t border-line bg-surface text-sm text-ink">
-      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:grid-cols-2 sm:px-8 lg:grid-cols-5">
+    <footer data-no-print className="mt-16 bg-surface text-sm text-ink">
+      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-10 sm:grid-cols-2 sm:px-8 lg:grid-cols-[1.1fr_1.4fr_1fr_1fr]">
         {isLoading ? (
           <>
             <div>
-              <Skeleton className="h-9 w-40 rounded-md" />
+              <Skeleton className="h-14 w-40 rounded-md" />
               <Skeleton className="mt-3 h-3 w-4/5 rounded-md" />
             </div>
-            <div>
-              <h3 className={headingClass}>Contact Us</h3>
-              <div className="mt-3 space-y-2.5">
+            <div className={columnClass}>
+              <h3 className={headingClass}>Contact us</h3>
+              <div className="mt-4 space-y-3">
                 <Skeleton className="h-3 w-32 rounded-md" />
                 <Skeleton className="h-3 w-40 rounded-md" />
                 <Skeleton className="h-3 w-36 rounded-md" />
               </div>
             </div>
-            <div>
-              <h3 className={headingClass}>Our Timing</h3>
-              <div className="mt-3 space-y-2.5">
-                <Skeleton className="h-3 w-44 rounded-md" />
-              </div>
-            </div>
-            <div>
-              <h3 className={headingClass}>Legal</h3>
-              <div className="mt-3 space-y-2.5">
-                <Skeleton className="h-3 w-32 rounded-md" />
-                <Skeleton className="h-3 w-24 rounded-md" />
-                <Skeleton className="h-3 w-16 rounded-md" />
-              </div>
-            </div>
-            <div>
-              <h3 className={headingClass}>Follow Us</h3>
-              <div className="mt-3 flex flex-wrap gap-4">
+            <div className={columnClass}>
+              <h3 className={headingClass}>Follow us</h3>
+              <div className="mt-4 flex flex-wrap gap-4">
                 {Array.from({ length: 4 }).map((_, i) => (
                   <Skeleton key={i} className="h-[22px] w-[22px] rounded-full" />
                 ))}
+              </div>
+            </div>
+            <div className={columnClass}>
+              <h3 className={headingClass}>Help</h3>
+              <div className="mt-4 space-y-3">
+                <Skeleton className="h-3 w-32 rounded-md" />
+                <Skeleton className="h-3 w-24 rounded-md" />
+                <Skeleton className="h-3 w-16 rounded-md" />
               </div>
             </div>
           </>
@@ -110,87 +106,84 @@ export function Footer() {
         <div>
           {restaurant?.footerLogoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={restaurant.footerLogoUrl} alt={restaurant.name} className="h-14 w-auto object-contain" />
+            <img src={restaurant.footerLogoUrl} alt={restaurant.name} className="h-20 w-auto object-contain" />
           ) : (
             <p className="font-display text-2xl text-brand-red">{restaurant?.name ?? "Restaurant"}</p>
           )}
-          <p className="mt-2 text-sm text-muted">{restaurant?.footer?.tagline ?? "Exquisite range of flavours, delivered fresh."}</p>
+          <p className="mt-3 text-sm text-muted">{restaurant?.footer?.tagline ?? "Exquisite range of flavours, delivered fresh."}</p>
         </div>
 
-        <div>
-          <h3 className={headingClass}>Contact Us</h3>
-          <div className="mt-3 space-y-2">
+        <div className={columnClass}>
+          <h3 className={headingClass}>Contact us</h3>
+          <div className="mt-4 space-y-3 text-muted">
             {displayPhone && (
-              <p className="text-muted">
-                <span className="font-bold text-ink">Phone: </span>
+              <p className="flex items-start gap-3">
+                <FaPhoneVolume size={16} className="mt-0.5 shrink-0 text-brand-red" />
                 <a href={`tel:${displayPhone}`}>{displayPhone}</a>
               </p>
             )}
             {displayEmail && (
-              <p className="text-muted">
-                <span className="font-bold text-ink">Email: </span>
+              <p className="flex items-start gap-3">
+                <FaEnvelope size={16} className="mt-0.5 shrink-0 text-brand-red" />
                 <a href={`mailto:${displayEmail}`}>{displayEmail}</a>
               </p>
             )}
             {displayBranch && (
-              <p className="text-muted">
-                <span className="font-bold text-ink">Address: </span>
-                {displayBranch.address}, {displayBranch.city}
+              <p className="flex items-start gap-3">
+                <FaLocationDot size={16} className="mt-0.5 shrink-0 text-brand-red" />
+                <span>
+                  {displayBranch.address}, {displayBranch.city}
+                </span>
               </p>
             )}
+            {(restaurant?.footer?.timingText ?? "Monday - Sunday: 11:00 AM - 04:55 AM").split("\n").map((line, i) => (
+              <p key={i} className="flex items-start gap-3">
+                <FaClock size={16} className={`mt-0.5 shrink-0 ${i === 0 ? "text-brand-red" : "invisible"}`} />
+                <span>{line}</span>
+              </p>
+            ))}
           </div>
         </div>
 
-        <div>
-          <h3 className={headingClass}>Our Timing</h3>
-          <div className="mt-3 space-y-2 text-muted">
-            {(restaurant?.footer?.timingText ?? "Monday - Sunday: 11:00 AM - 04:55 AM").split("\n").map((line, i) => {
-              const colonIndex = line.indexOf(":");
-              if (colonIndex === -1) return <p key={i}>{line}</p>;
-              return (
-                <p key={i}>
-                  <span className="font-bold text-ink">{line.slice(0, colonIndex + 1)}</span>
-                  {line.slice(colonIndex + 1)}
-                </p>
-              );
-            })}
-          </div>
-        </div>
-
-        <div>
-          <h3 className={headingClass}>Legal</h3>
-          <div className="mt-3 space-y-2 text-muted">
-            <Link href="/terms" className="block">
-              {restaurant?.pages?.terms.title ?? "Terms & Conditions"}
-            </Link>
-            <Link href="/privacy-policy" className="block">
-              {restaurant?.pages?.privacy.title ?? "Privacy Policy"}
-            </Link>
-            <Link href="/faqs" className="block">
-              {restaurant?.pages?.faqs.title ?? "FAQs"}
-            </Link>
-          </div>
-        </div>
-
-        <div>
-          <h3 className={headingClass}>Follow Us</h3>
-          <div className="mt-3 flex flex-wrap gap-4">
-            {socialEntries.map(([platform, url]) => {
+        <div className={columnClass}>
+          <h3 className={headingClass}>Follow us</h3>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            {socialEntries.map(([platform, url], i) => {
               const Icon = SOCIAL_ICONS[platform];
               if (!Icon) return null;
               return (
-                <a
-                  key={platform}
-                  href={url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={platform}
-                  className="text-muted transition hover:text-brand-red"
-                >
-                  <Icon size={22} />
-                </a>
+                <span key={platform} className="flex items-center gap-3">
+                  {i > 0 && <span aria-hidden="true" className="h-3.5 w-px bg-line" />}
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={platform}
+                    className="flex h-8 w-8 items-center justify-center rounded-md bg-brand-red/10 text-brand-red transition hover:bg-brand-red hover:text-white"
+                  >
+                    <Icon size={18} />
+                  </a>
+                </span>
               );
             })}
+          </div>
+        </div>
+
+        <div className={columnClass}>
+          <h3 className={headingClass}>Help</h3>
+          <div className="mt-4 space-y-3 text-muted">
+            <Link href="/complaints" className="block transition hover:text-brand-red">
+              Submit Your Complaint
+            </Link>
+            <Link href="/terms" className="block transition hover:text-brand-red">
+              {restaurant?.pages?.terms.title ?? "Terms & Conditions"}
+            </Link>
+            <Link href="/privacy-policy" className="block transition hover:text-brand-red">
+              {restaurant?.pages?.privacy.title ?? "Privacy Policy"}
+            </Link>
+            <Link href="/faqs" className="block transition hover:text-brand-red">
+              {restaurant?.pages?.faqs.title ?? "FAQs"}
+            </Link>
           </div>
         </div>
         </>

@@ -71,9 +71,15 @@ const config: Config = {
           "0%, 100%": { opacity: "0.2" },
           "20%": { opacity: "1" },
         },
+        "gift-bounce": {
+          "0%, 60%, 100%": { transform: "translateY(0) rotate(0deg)" },
+          "15%": { transform: "translateY(-6px) rotate(-8deg)" },
+          "30%": { transform: "translateY(0) rotate(0deg)" },
+          "45%": { transform: "translateY(-3px) rotate(8deg)" },
+        },
         "cart-shine": {
           "0%, 35%": { transform: "translateX(-150%) skewX(-20deg)" },
-          "65%, 100%": { transform: "translateX(150%) skewX(-20deg)" },
+          "65%, 100%": { transform: "translateX(450%) skewX(-20deg)" },
         },
       },
       animation: {
@@ -88,6 +94,7 @@ const config: Config = {
         "logo-zoom": "logo-zoom 2.2s ease-in-out infinite",
         "dots-blink": "dots-blink 1.4s infinite both",
         "cart-shine": "cart-shine 2.8s ease-in-out infinite",
+        "gift-bounce": "gift-bounce 2s ease-in-out infinite",
       },
     },
   },

@@ -348,16 +348,7 @@ export default function OrderConfirmationPage({ params }: { params: Promise<{ or
 
   return (
     <main className="mx-auto max-w-lg px-4 py-8">
-      {restaurant?.logoUrl ? (
-        <div className="flex justify-center">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={restaurant.logoUrl} alt={restaurantName} className="h-14 w-auto object-contain" />
-        </div>
-      ) : (
-        <p className="text-center font-display text-2xl text-brand-red">{restaurantName}</p>
-      )}
-
-      <div className="mt-6 text-center">
+      <div className="text-center">
         <OrderHeroIcon status={order.status} />
         <h1 className="mt-4 text-2xl font-semibold text-ink">{headline}</h1>
         <p className="mt-1 text-sm text-muted">{subtext}</p>

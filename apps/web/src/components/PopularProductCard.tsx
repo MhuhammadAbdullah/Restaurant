@@ -9,6 +9,7 @@ import { QtyStepper } from "./QtyStepper";
 import { PlusIcon } from "./icons";
 import { resolveProductImage, useFallbackProductImage } from "../lib/image";
 import { toast } from "../store/useToastStore";
+import { ProductTagBadge } from "./ProductTagBadge";
 
 export function PopularProductCard({ product, onClick }: { product: Product; onClick: () => void }) {
   const fallback = useFallbackProductImage();
@@ -55,55 +56,56 @@ export function PopularProductCard({ product, onClick }: { product: Product; onC
   }
 
   return (
-    <div className="group relative z-0 flex aspect-square flex-col justify-end overflow-hidden rounded-2xl border border-line shadow-sm transition duration-200 ease-out hover:z-10 hover:shadow-lg">
-      <button onClick={onClick} className="absolute inset-0" aria-label={product.name}>
+    <div className="group relative z-0 flex flex-col">
+      <ProductTagBadge tag={product.tag} />
+      <button
+        onClick={onClick}
+        aria-label={product.name}
+        className="relative block aspect-square w-full overflow-hidden rounded-3xl bg-surface-alt"
+      >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={image}
           alt={product.name}
-          className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-110"
+          className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
         />
       </button>
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
 
-      <div className="relative p-3 pr-14">
-        <button onClick={onClick} className="block w-full text-left">
-          <p className="truncate font-poppins text-[14px] font-bold leading-[16px] text-white sm:text-[16px] sm:leading-[18px] lg:text-[20px] lg:leading-[21px]">
-            {product.name}
-          </p>
-          {product.description && (
-            <p className="truncate font-poppins text-[10px] font-medium leading-[14px] text-white/70 sm:text-[11px] sm:leading-[16px] lg:text-[12px] lg:leading-[20px]">
-              {product.description}
+      <div className="relative mt-3 flex items-end justify-between gap-2 px-1">
+        <div className="min-w-0 flex-1">
+          <button onClick={onClick} className="block w-full text-left">
+            <p className="truncate font-poppins text-[14px] font-bold uppercase leading-[18px] text-ink sm:text-[16px] lg:text-[18px]">
+              {product.name}
             </p>
-          )}
-        </button>
-        <p className="mt-1.5 font-poppins text-[13px] font-bold leading-[14px] text-white sm:text-[15px] sm:leading-[16px] lg:text-[18px] lg:leading-[18px]">
-          {product.discountPrice != null && <span className="mr-1 text-xs font-normal text-white/60 line-through">{formatPaisa(product.basePrice)}</span>}
-          {formatPaisa(price)}
-        </p>
-      </div>
-
-      <div className="absolute bottom-3 right-3">
-        {quantity > 0 && simpleLine ? (
-          <QtyStepper
-            quantity={quantity}
-            itemName={product.name}
-            onIncrement={() => updateQuantity(simpleLine.cartItemId, quantity + 1)}
-            onDecrement={() => updateQuantity(simpleLine.cartItemId, quantity - 1)}
-            onRemove={() => removeItem(simpleLine.cartItemId)}
-          />
-        ) : (
-          <button
-            onClick={handleAdd}
-            disabled={checking}
-            aria-label="Add to cart"
-            className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-red text-white shadow-lg transition hover:opacity-90 disabled:opacity-60 sm:h-8 sm:w-8 lg:h-9 lg:w-9"
-          >
-            <PlusIcon size={14} className="sm:hidden" />
-            <PlusIcon size={16} className="hidden sm:block lg:hidden" />
-            <PlusIcon size={18} className="hidden lg:block" />
           </button>
-        )}
+          <p className="mt-1.5 font-poppins text-[12px] font-semibold uppercase leading-[16px] text-muted sm:text-[13px] lg:text-[15px]">
+            {product.discountPrice != null && <span className="mr-1.5 text-[11px] font-normal line-through opacity-70">{formatPaisa(product.basePrice)}</span>}
+            {formatPaisa(price)}
+          </p>
+        </div>
+
+        <div className="shrink-0">
+          {quantity > 0 && simpleLine ? (
+            <QtyStepper
+              quantity={quantity}
+              itemName={product.name}
+              onIncrement={() => updateQuantity(simpleLine.cartItemId, quantity + 1)}
+              onDecrement={() => updateQuantity(simpleLine.cartItemId, quantity - 1)}
+              onRemove={() => removeItem(simpleLine.cartItemId)}
+            />
+          ) : (
+            <button
+              onClick={handleAdd}
+              disabled={checking}
+              aria-label="Add to cart"
+              className="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-red text-white transition hover:opacity-90 disabled:opacity-60 sm:h-9 sm:w-9 lg:h-11 lg:w-11"
+            >
+              <PlusIcon size={16} className="sm:hidden" />
+              <PlusIcon size={18} className="hidden sm:block lg:hidden" />
+              <PlusIcon size={22} className="hidden lg:block" />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

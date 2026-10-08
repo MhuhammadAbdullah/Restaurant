@@ -280,11 +280,11 @@ export default function HomePage() {
                             alt=""
                             className="h-6 w-6 object-contain sm:h-8 sm:w-8 lg:h-10 lg:w-10"
                           />
-                          <h2 className="cursor-pointer whitespace-nowrap text-[24px] font-semibold leading-none text-ink sm:text-[32px] lg:text-[50px]">
-                            Popular Items
+                          <h2 className="cursor-pointer whitespace-nowrap text-[24px] font-bold uppercase leading-[36px] text-ink sm:text-[32px] sm:leading-[48px] lg:text-[50px] lg:leading-[75px]">
+                            Popular <span className="text-brand-red">Items</span>
                           </h2>
                         </div>
-                        <p className="mt-1 text-[13px] font-normal text-muted sm:text-[16px] lg:text-[20px]">Most ordered right now</p>
+                        <p className="text-[13px] font-normal leading-[20px] text-ink sm:text-[16px] sm:leading-[23px] lg:text-[20px] lg:leading-[29px]">Most ordered right now</p>
                       </div>
                       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
                         {popularProducts?.map((p) => (
