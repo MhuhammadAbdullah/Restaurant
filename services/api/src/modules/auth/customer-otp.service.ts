@@ -113,11 +113,28 @@ export class CustomerOtpService {
     if (emailTaken) {
       throw new ConflictException({ code: "EMAIL_ALREADY_REGISTERED", message: "An account with this email already exists." });
     }
-    if (phoneTaken) {
+    // A POS walk-in profile (guest, no email yet) is claimed by registering with the same phone: the
+    // customer keeps their order history instead of being told the phone is taken.
+    const claimable = phoneTaken && phoneTaken.isGuest && !phoneTaken.email && phoneTaken.status === "ACTIVE" ? phoneTaken : null;
+    if (phoneTaken && !claimable) {
       throw new ConflictException({ code: "PHONE_TAKEN", message: "An account with this phone number already exists." });
     }
 
     const loyaltyConfig = await this.loyalty.getConfig(restaurantId);
+
+    if (claimable) {
+      const claimed = await this.prisma.$transaction(async (tx) => {
+        const updated = await tx.customer.update({
+          where: { id: claimable.id },
+          data: { name: input.name, email: input.email, gender: input.gender, dob: input.dob, isGuest: false },
+          include: { loyaltyAccount: true },
+        });
+        const account = updated.loyaltyAccount ?? (await tx.loyaltyAccount.create({ data: { customerId: updated.id, pointsBalance: 0 } }));
+        await this.loyalty.awardSignupBonus(tx, account.id, loyaltyConfig);
+        return updated;
+      });
+      return this.issueSession(claimed.id, restaurantId, claimed);
+    }
 
     const customer = await this.prisma.$transaction(async (tx) => {
       const created = await tx.customer.create({
@@ -140,7 +157,7 @@ export class CustomerOtpService {
     return this.issueSession(customer.id, restaurantId, customer);
   }
 
-  private async issueSession(customerId: string, restaurantId: string, customer: { name: string; phone: string; email: string }) {
+  private async issueSession(customerId: string, restaurantId: string, customer: { name: string; phone: string; email: string | null }) {
     const pair = await this.tokens.issueCustomerTokens({ sub: customerId, restaurantId });
     await this.prisma.customer.update({ where: { id: customerId }, data: { refreshTokenHash: pair.refreshTokenHash } });
 

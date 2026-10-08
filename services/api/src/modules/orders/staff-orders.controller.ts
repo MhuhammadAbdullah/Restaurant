@@ -8,6 +8,7 @@ import {
   logPrintEventSchema,
   orderItemInputSchema,
   recordOrderPaymentSchema,
+  settleCodCashSchema,
   transferOrderBranchSchema,
   updateDeliveryEtaSchema,
   updateOrderDeliveryDetailsSchema,
@@ -21,6 +22,7 @@ import {
   type LogPrintEventInput,
   type OrderItemInput,
   type RecordOrderPaymentInput,
+  type SettleCodCashInput,
   type TransferOrderBranchInput,
   type UpdateDeliveryEtaInput,
   type UpdateOrderDeliveryDetailsInput,
@@ -68,6 +70,31 @@ export class StaffOrdersController {
       staff,
       { branchId, status, source, type, paymentStatus, search, from, to, customerId, contactPhone },
       take ? Math.min(Number(take), 500) : undefined,
+    );
+    return { success: true, data };
+  }
+
+  /** Paginated list for the Orders page. Declared before `:id` so "page" is never read as an order id. */
+  @RequirePermission("orders.view")
+  @Get("page")
+  async listPage(
+    @CurrentStaff() staff: StaffJwtPayload,
+    @Query("branchId") branchId?: string,
+    @Query("status") status?: OrderStatus,
+    @Query("source") source?: OrderSource,
+    @Query("type") type?: string,
+    @Query("paymentStatus") paymentStatus?: string,
+    @Query("search") search?: string,
+    @Query("from") from?: string,
+    @Query("to") to?: string,
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string,
+  ) {
+    const data = await this.orders.listOrdersForStaffPaged(
+      staff,
+      { branchId, status, source, type, paymentStatus, search, from, to },
+      Number(page) || 1,
+      Number(pageSize) || 50,
     );
     return { success: true, data };
   }
@@ -224,6 +251,14 @@ export class StaffOrdersController {
     @Body(new ZodValidationPipe(assignRiderSchema)) body: AssignRiderInput,
   ) {
     const data = await this.orders.assignRider(staff, id, body);
+    return { success: true, data };
+  }
+
+  /** Admin receives a rider's COD cash: flips the selected delivered COD orders to PAID. */
+  @RequirePermission("riders.assign")
+  @Post("settle-cod")
+  async settleCodCash(@CurrentStaff() staff: StaffJwtPayload, @Body(new ZodValidationPipe(settleCodCashSchema)) body: SettleCodCashInput) {
+    const data = await this.orders.settleCodCash(staff, body);
     return { success: true, data };
   }
 

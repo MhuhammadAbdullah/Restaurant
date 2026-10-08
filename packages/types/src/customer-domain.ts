@@ -47,6 +47,7 @@ export type Product = {
   discountPrice: number | null;
   isFeatured: boolean;
   isPopular: boolean;
+  tag?: "HOUSE_FAVORITE" | "NEW_ARRIVAL" | "BEST_SELLER" | null;
   images: { url: string; isPrimary: boolean }[];
   choiceGroups?: ProductChoiceGroupAssignment[];
   addons?: { addonId: string; sortOrder: number; addon: Addon }[];

@@ -19,6 +19,12 @@ enum BranchStatus {
   TEMPORARILY_CLOSED
 }
 
+enum ProductTag {
+  HOUSE_FAVORITE
+  NEW_ARRIVAL
+  BEST_SELLER
+}
+
 enum RecordStatus {
   ACTIVE
   INACTIVE
@@ -484,6 +490,8 @@ model Product {
   status             RecordStatus      @default(ACTIVE)
   isFeatured         Boolean           @default(false)
   isPopular          Boolean           @default(false)
+  // Optional promotional badge shown on the product card on the storefront (admin-selectable).
+  tag                ProductTag?
   // Admin-curated opt-in: only products with this on are eligible to appear in the cart drawer's
   // "Popular with your order" section — see RecommendationsService.getForCart.
   isCartRecommendable Boolean          @default(false)
@@ -740,7 +748,8 @@ model Customer {
   restaurantId     String
   restaurant       Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   name             String
-  email            String
+  // Null until the customer (or an admin) supplies a real address — POS walk-ins are created without one.
+  email            String?
   phone            String
   // Customer auth is email+OTP only now (see EmailOtp) — password stays as a nullable legacy
   // column so existing password-based rows keep working without a backfill; new customers never

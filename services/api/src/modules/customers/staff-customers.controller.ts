@@ -2,8 +2,10 @@ import { Body, Controller, Get, Param, Patch, Post, Query, Req, UseGuards } from
 import type { Request } from "express";
 import {
   adjustLoyaltySchema,
+  updateCustomerEmailSchema,
   updateCustomerStatusSchema,
   type AdjustLoyaltyInput,
+  type UpdateCustomerEmailInput,
   type UpdateCustomerStatusInput,
 } from "@restaurant/validation";
 import type { StaffJwtPayload } from "@restaurant/auth";
@@ -30,10 +32,36 @@ export class StaffCustomersController {
     return { success: true, data };
   }
 
+  /** Paginated list. Declared before `:id` so "page" is never read as a customer id. */
+  @RequirePermission("customers.view")
+  @Get("page")
+  async listPage(
+    @Query("search") search?: string,
+    @Query("status") status?: "registered" | "guest",
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string,
+  ) {
+    const data = await this.customers.listForStaffPaged(search, status, Number(page) || 1, Number(pageSize) || 50);
+    return { success: true, data };
+  }
+
   @RequirePermission("customers.view")
   @Get(":id")
   async findOne(@Param("id") id: string) {
     const data = await this.customers.getForStaff(id);
+    return { success: true, data };
+  }
+
+  @RequirePermission("customers.edit")
+  @Patch(":id/email")
+  async setEmail(
+    @CurrentStaff() staff: StaffJwtPayload,
+    @Param("id") id: string,
+    @Body(new ZodValidationPipe(updateCustomerEmailSchema)) body: UpdateCustomerEmailInput,
+    @Req() req: Request,
+  ) {
+    const data = await this.customers.setEmailForStaff(id, body.email);
+    await this.auditLogs.recordForStaff(staff, "customer.emailSet", "Customer", data.id, { newValue: { email: body.email } }, { ip: req.ip, userAgent: req.headers["user-agent"] });
     return { success: true, data };
   }
 

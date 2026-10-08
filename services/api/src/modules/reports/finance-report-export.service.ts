@@ -34,6 +34,30 @@ export class FinanceReportExportService {
     const card = (label: string, value: string) =>
       createElement(View, { style: styles.card }, createElement(Text, { style: styles.cardLabel }, label), createElement(Text, { style: styles.cardValue }, value));
 
+    const breakdownTable = (list: FinanceReport["byMethod"]) =>
+      createElement(
+        View,
+        { style: styles.table },
+        createElement(
+          View,
+          { style: styles.tr },
+          ...["", "Orders", "Net Sales", "Tax", "Total Billed", "Collected", "Outstanding"].map((h) => createElement(Text, { key: h || "k", style: styles.th }, h)),
+        ),
+        ...list.map((r) =>
+          createElement(
+            View,
+            { key: r.key, style: styles.tr, wrap: false },
+            createElement(Text, { style: styles.td }, r.label),
+            createElement(Text, { style: styles.td }, String(r.orders)),
+            createElement(Text, { style: styles.td }, rupees(r.netSales)),
+            createElement(Text, { style: styles.td }, rupees(r.tax)),
+            createElement(Text, { style: styles.td }, rupees(r.totalBilled)),
+            createElement(Text, { style: styles.td }, rupees(r.collected)),
+            createElement(Text, { style: styles.td }, rupees(r.outstanding)),
+          ),
+        ),
+      );
+
     const tableHeader = createElement(
       View,
       { style: styles.tr },
@@ -66,6 +90,25 @@ export class FinanceReportExportService {
         { size: "A4", orientation: "landscape", style: styles.page },
         createElement(Text, { style: styles.title }, `${meta.restaurantName} — Order & Finance Statement`),
         createElement(Text, { style: styles.subtitle }, `${meta.branchLabel} · ${meta.periodLabel} · Generated ${new Date().toLocaleString()}`),
+
+        createElement(Text, { style: styles.sectionHeading }, "Sales Statement"),
+        createElement(
+          View,
+          { style: styles.cardsRow },
+          card("Item Sales (subtotal)", rupees(report.salesSummary.subtotal)),
+          card("Discounts", `-${rupees(report.salesSummary.discounts)}`),
+          card("Net Sales", rupees(report.salesSummary.netSales)),
+          card("Delivery Fees", rupees(report.salesSummary.deliveryFees)),
+          card("Tax Collected", rupees(report.salesSummary.tax)),
+          card("Total Billed", rupees(report.salesSummary.totalBilled)),
+          card("Orders / Avg. Order", `${report.salesSummary.orders} / ${rupees(report.salesSummary.averageOrderValue)}`),
+          card("COD held by riders", rupees(report.codReceivable.withRiders)),
+        ),
+
+        createElement(Text, { style: styles.sectionHeading }, "By Payment Method"),
+        breakdownTable(report.byMethod),
+        createElement(Text, { style: styles.sectionHeading }, "By Branch"),
+        breakdownTable(report.byBranch),
 
         createElement(Text, { style: styles.sectionHeading }, "Order Summary"),
         createElement(
@@ -154,6 +197,59 @@ export class FinanceReportExportService {
       ["Refunded Amount", (report.financialSummary.refundedAmount / 100).toFixed(2)],
     ]);
 
+    const money = '#,##0.00';
+    const num = (paisa: number) => paisa / 100;
+
+    const statement = workbook.addWorksheet("Sales Statement");
+    statement.columns = [{ width: 36 }, { width: 18 }];
+    statement.addRow([`${meta.restaurantName} — Sales Statement`]).font = { bold: true, size: 14 };
+    statement.addRow([`${meta.branchLabel} · ${meta.periodLabel}`]);
+    statement.addRow([]);
+    const stmt: [string, number, boolean?][] = [
+      ["Item sales (subtotal)", num(report.salesSummary.subtotal)],
+      ["Less: discounts, coupons, loyalty", -num(report.salesSummary.discounts)],
+      ["Net sales", num(report.salesSummary.netSales), true],
+      ["Add: delivery fees", num(report.salesSummary.deliveryFees)],
+      ["Add: tax collected", num(report.salesSummary.tax)],
+      ["Total billed", num(report.salesSummary.totalBilled), true],
+      ["Collected — online", num(report.financialSummary.onlineCollected)],
+      ["Collected — COD (received by admin)", num(report.financialSummary.codCollected)],
+      ["Collected — other (cash/card/QR)", num(report.financialSummary.otherCollected)],
+      ["Total collected", num(report.financialSummary.totalCollected), true],
+      ["COD outstanding — held by riders", num(report.codReceivable.withRiders)],
+      ["COD outstanding — out for delivery", num(report.codReceivable.inTransit)],
+      ["Pending online payments", num(report.financialSummary.pendingOnlineValue)],
+      ["Refunded", num(report.financialSummary.refundedAmount)],
+    ];
+    for (const [label, value, bold] of stmt) {
+      const row = statement.addRow([label, value]);
+      row.getCell(2).numFmt = money;
+      if (bold) row.font = { bold: true };
+    }
+
+    const breakdownSheet = (name: string, firstHeader: string, list: FinanceReport["byMethod"], withRefunds = false) => {
+      const ws = workbook.addWorksheet(name);
+      const headers = [firstHeader, "Orders", "Net Sales (Rs.)", "Tax (Rs.)", "Total Billed (Rs.)", "Collected (Rs.)", "Outstanding (Rs.)", ...(withRefunds ? ["Refunds (Rs.)"] : [])];
+      ws.columns = headers.map((h, i) => ({ header: h, width: i === 0 ? 22 : 18 }));
+      ws.getRow(1).font = { bold: true };
+      ws.views = [{ state: "frozen", ySplit: 1 }];
+      for (const r of list) {
+        const row = ws.addRow([r.label, r.orders, num(r.netSales), num(r.tax), num(r.totalBilled), num(r.collected), num(r.outstanding), ...(withRefunds ? [num((r as FinanceReport["byDay"][number]).refunds)] : [])]);
+        for (let c = 3; c <= headers.length; c++) row.getCell(c).numFmt = money;
+      }
+      const totals = ws.addRow([
+        "Total",
+        list.reduce((a, r) => a + r.orders, 0),
+        ...(["netSales", "tax", "totalBilled", "collected", "outstanding"] as const).map((k) => num(list.reduce((a, r) => a + r[k], 0))),
+        ...(withRefunds ? [num((list as FinanceReport["byDay"]).reduce((a, r) => a + r.refunds, 0))] : []),
+      ]);
+      totals.font = { bold: true };
+      for (let c = 3; c <= headers.length; c++) totals.getCell(c).numFmt = money;
+    };
+    breakdownSheet("By Payment Method", "Method", report.byMethod);
+    breakdownSheet("By Branch", "Branch", report.byBranch);
+    breakdownSheet("Daily Register", "Date", report.byDay, true);
+
     const sheet = workbook.addWorksheet("Orders");
     sheet.columns = [
       { header: "Order #", key: "orderNumber", width: 18 },
@@ -182,16 +278,21 @@ export class FinanceReportExportService {
       sheet.addRow({
         ...r,
         createdAt: new Date(r.createdAt).toLocaleString(),
-        subtotal: (r.subtotal / 100).toFixed(2),
-        discount: (r.discount / 100).toFixed(2),
-        deliveryFee: (r.deliveryFee / 100).toFixed(2),
-        tax: (r.tax / 100).toFixed(2),
-        grandTotal: (r.grandTotal / 100).toFixed(2),
-        collectedAmount: (r.collectedAmount / 100).toFixed(2),
-        outstandingAmount: (r.outstandingAmount / 100).toFixed(2),
-        refundAmount: (r.refundAmount / 100).toFixed(2),
+        subtotal: num(r.subtotal),
+        discount: num(r.discount),
+        deliveryFee: num(r.deliveryFee),
+        tax: num(r.tax),
+        grandTotal: num(r.grandTotal),
+        collectedAmount: num(r.collectedAmount),
+        outstandingAmount: num(r.outstandingAmount),
+        refundAmount: num(r.refundAmount),
       });
     }
+    for (const key of ["subtotal", "discount", "deliveryFee", "tax", "grandTotal", "collectedAmount", "outstandingAmount", "refundAmount"]) {
+      sheet.getColumn(key).numFmt = money;
+    }
+    sheet.views = [{ state: "frozen", ySplit: 1 }];
+    sheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: sheet.columnCount } };
 
     const buffer = await workbook.xlsx.writeBuffer();
     return buffer as unknown as Buffer;

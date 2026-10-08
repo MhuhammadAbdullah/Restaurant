@@ -147,7 +147,47 @@ export class CustomersService {
   // `guest:<phone>` so the frontend can tell a synthetic row apart from a real one when asking for
   // detail/order-history.
 
-  async listForStaff(search?: string, status?: "registered" | "guest") {
+  /** One page of the staff customer list (registered customers + phone-only guests, newest first). */
+  async listForStaffPaged(search: string | undefined, status: "registered" | "guest" | undefined, page: number, pageSize: number) {
+    const all = await this.listForStaff(search, status, 5000);
+    const size = Math.min(Math.max(Math.floor(pageSize) || 50, 1), 200);
+    const current = Math.max(Math.floor(page) || 1, 1);
+    const pageCount = Math.max(1, Math.ceil(all.length / size));
+    return { items: all.slice((current - 1) * size, current * size), total: all.length, page: Math.min(current, pageCount), pageSize: size, pageCount };
+  }
+
+  /**
+   * Adds or corrects a customer's real email. Phone-only guests (`guest:<phone>` ids, people who only ever
+   * appeared on an order) get a Customer profile created on the fly so the email has somewhere to live.
+   */
+  async setEmailForStaff(customerId: string, email: string) {
+    const restaurantId = await this.restaurantContext.getRestaurantId();
+    const clash = await this.prisma.customer.findUnique({ where: { restaurantId_email: { restaurantId, email } }, select: { id: true } });
+    if (clash && clash.id !== customerId) {
+      throw new ConflictException({ code: "EMAIL_ALREADY_USED", message: "Another customer already uses this email address." });
+    }
+
+    if (customerId.startsWith("guest:")) {
+      const phone = customerId.slice("guest:".length);
+      const existing = await this.prisma.customer.findUnique({ where: { restaurantId_phone: { restaurantId, phone } }, select: { id: true } });
+      if (existing) return this.prisma.customer.update({ where: { id: existing.id }, data: { email }, select: { id: true, name: true, email: true, phone: true } });
+      const latestOrder = await this.prisma.order.findFirst({
+        where: { restaurantId, customerId: null, contactPhone: phone },
+        orderBy: { createdAt: "desc" },
+        select: { contactName: true },
+      });
+      if (!latestOrder) throw new NotFoundException({ code: "CUSTOMER_NOT_FOUND", message: "Customer not found" });
+      return this.prisma.customer.create({
+        data: { restaurantId, name: latestOrder.contactName ?? phone, phone, email, isGuest: true },
+        select: { id: true, name: true, email: true, phone: true },
+      });
+    }
+
+    await this.assertOwnedByRestaurant(customerId);
+    return this.prisma.customer.update({ where: { id: customerId }, data: { email }, select: { id: true, name: true, email: true, phone: true } });
+  }
+
+  async listForStaff(search?: string, status?: "registered" | "guest", cap = 200) {
     const restaurantId = await this.restaurantContext.getRestaurantId();
     const searchFilter = search
       ? { OR: [{ name: { contains: search, mode: "insensitive" as const } }, { phone: { contains: search } }, { email: { contains: search, mode: "insensitive" as const } }] }
@@ -171,7 +211,7 @@ export class CustomersService {
         _count: { select: { orders: true } },
       },
       orderBy: { createdAt: "desc" },
-      take: 200,
+      take: cap,
     });
 
     const rows = customers.map((c) => ({
@@ -197,7 +237,7 @@ export class CustomersService {
       where: { restaurantId, customerId: null, contactPhone: { not: null } },
       select: { contactPhone: true, contactName: true, createdAt: true },
       orderBy: { createdAt: "desc" },
-      take: 500,
+      take: cap > 200 ? cap : 500,
     });
 
     const guestGroups = new Map<string, { phone: string; name: string; createdAt: Date; orderCount: number }>();
@@ -232,7 +272,7 @@ export class CustomersService {
       guestRows = guestRows.filter((g) => g.name.toLowerCase().includes(term) || g.phone.includes(search));
     }
 
-    return [...rows, ...guestRows].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, 200);
+    return [...rows, ...guestRows].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, cap);
   }
 
   // Excludes passwordHash/refreshTokenHash — every caller here (loyalty adjust, block
@@ -358,7 +398,6 @@ export class CustomersService {
         restaurantId,
         name: latestOrder.contactName ?? phone,
         phone,
-        email: `blocked-${phone}@placeholder.internal`,
         isGuest: true,
         status: "INACTIVE",
       },

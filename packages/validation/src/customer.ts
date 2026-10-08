@@ -35,6 +35,12 @@ export const changePasswordSchema = z.object({
 });
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 
+/** Staff adds or corrects a customer's real email (POS walk-ins are created without one). */
+export const updateCustomerEmailSchema = z.object({
+  email: z.string().trim().toLowerCase().email().max(254),
+});
+export type UpdateCustomerEmailInput = z.infer<typeof updateCustomerEmailSchema>;
+
 export const adjustLoyaltySchema = z.object({
   points: z.number().int().refine((n) => n !== 0, "points must not be zero"),
   note: z.string().trim().min(1).max(300),

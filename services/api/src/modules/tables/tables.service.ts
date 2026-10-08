@@ -22,6 +22,51 @@ export class TablesService {
     });
   }
 
+  /** Floor view: every table at the branch, with the running bill of its open dine-in order (if any). */
+  async overview(staff: StaffJwtPayload, branchId?: string) {
+    const tables = await this.list(staff, branchId);
+    const orders = await this.prisma.order.findMany({
+      where: {
+        type: "DINE_IN",
+        tableId: { in: tables.map((t) => t.id) },
+        status: { notIn: ["DELIVERED", "COMPLETED", "CANCELLED", "REFUNDED"] },
+      },
+      select: {
+        id: true,
+        orderNumber: true,
+        tableId: true,
+        status: true,
+        grandTotal: true,
+        createdAt: true,
+        payments: { select: { status: true, amount: true } },
+        _count: { select: { items: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    const byTable = new Map<string, (typeof orders)[number]>();
+    for (const o of orders) if (o.tableId && !byTable.has(o.tableId)) byTable.set(o.tableId, o);
+
+    return tables.map((t) => {
+      const o = byTable.get(t.id);
+      const paidTotal = o ? o.payments.filter((p) => p.status === "PAID").reduce((sum, p) => sum + p.amount, 0) : 0;
+      return {
+        ...t,
+        openOrder: o
+          ? {
+              id: o.id,
+              orderNumber: o.orderNumber,
+              status: o.status,
+              grandTotal: o.grandTotal,
+              paidTotal,
+              balanceDue: Math.max(0, o.grandTotal - paidTotal),
+              itemCount: o._count.items,
+              createdAt: o.createdAt,
+            }
+          : null,
+      };
+    });
+  }
+
   async create(staff: StaffJwtPayload, input: CreateTableInput) {
     assertBranchAccess(staff, input.branchId);
     return this.prisma.restaurantTable.create({ data: input });
