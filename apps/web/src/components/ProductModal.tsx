@@ -7,7 +7,8 @@ import type { Product } from "../lib/types";
 import { groupAddonsByCategory } from "../lib/types";
 import { useCartStore, makeCartItemId } from "../store/useCartStore";
 import { resolveProductImage, useFallbackProductImage } from "../lib/image";
-import { ArrowRightIcon, CloseIcon, MinusIcon, PlusIcon } from "./icons";
+import { FaShareNodes } from "react-icons/fa6";
+import { ArrowRightIcon, CloseIcon, MinusIcon, PlusIcon, TrashIcon } from "./icons";
 import { AccordionSection } from "./AccordionSection";
 import { toast } from "../store/useToastStore";
 
@@ -116,30 +117,59 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
     onClose();
   }
 
+  async function handleShare() {
+    const url = typeof window !== "undefined" ? window.location.href : "";
+    const text = `${product.name} - ${formatPaisa(basePrice)}`;
+    try {
+      if (typeof navigator !== "undefined" && navigator.share) {
+        await navigator.share({ title: product.name, text, url });
+        return;
+      }
+      await navigator.clipboard.writeText(`${text} ${url}`.trim());
+      toast.success("Link copied to clipboard");
+    } catch {
+      // share sheet dismissed by the user — nothing to do
+    }
+  }
+
+  const glowButton =
+    "flex h-11 w-11 items-center justify-center rounded-full bg-brand-red text-white shadow-[0_0_16px_rgba(237,35,32,0.55)] transition hover:opacity-90";
+
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center sm:p-4">
-      <div className="relative flex h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl bg-surface sm:flex-row sm:rounded-2xl">
-        <button
-          onClick={onClose}
-          aria-label="Close"
-          className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-brand-red text-white shadow"
-        >
-          <CloseIcon size={16} />
-        </button>
-
-        <div className="h-80 w-full shrink-0 bg-white p-2 sm:w-2/5 sm:self-start">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={image} alt={product.name} className="h-full w-full rounded-lg object-contain" />
+      <div className="relative flex h-[90vh] w-full max-w-4xl flex-col overflow-y-auto rounded-t-3xl bg-surface sm:h-auto sm:max-h-[85vh] sm:flex-row sm:overflow-hidden sm:rounded-3xl">
+        {/* On mobile the whole sheet scrolls; this zero-height sticky row keeps share/close reachable while scrolling. */}
+        <div className="sticky top-0 z-20 h-0 shrink-0 sm:static sm:h-auto">
+          <div className="absolute right-4 top-4 z-10 flex gap-3">
+            <button onClick={handleShare} aria-label="Share" className={glowButton}>
+              <FaShareNodes size={16} />
+            </button>
+            <button onClick={onClose} aria-label="Close" className={glowButton}>
+              <CloseIcon size={18} />
+            </button>
+          </div>
         </div>
 
-        <div className="flex flex-1 flex-col overflow-y-auto">
-          <div className="p-5">
-            <h2 className="text-xl font-semibold text-ink">{product.name}</h2>
-            <p className="mt-1 font-semibold">
-              {product.discountPrice != null && <span className="mr-1.5 text-muted line-through">{formatPaisa(product.basePrice)}</span>}
-              <span className="text-brand-red">{formatPaisa(basePrice)}</span>
+        <div className="relative h-72 w-full shrink-0 overflow-hidden bg-surface-alt sm:aspect-square sm:h-auto sm:w-[45%] sm:self-start">
+          {/* blurred copy of the photo fills the panel so the sharp, uncropped image below never leaves bare bars */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={image} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full scale-110 object-cover opacity-60 blur-2xl" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={image} alt={product.name} className="absolute inset-x-0 top-0 h-[calc(100%-3.5rem)] w-full object-contain p-2" />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/80 to-transparent" />
+          <h2 className="absolute inset-x-0 bottom-0 p-5 font-poppins text-2xl font-bold uppercase leading-tight text-white sm:p-6 sm:text-3xl">
+            {product.name}
+          </h2>
+        </div>
+
+        <div className="flex flex-none flex-col sm:flex-1 sm:overflow-y-auto">
+          <div className="p-6 sm:p-8">
+            <p className="pr-28 font-poppins text-3xl font-bold text-ink sm:text-4xl">
+              {product.discountPrice != null && <span className="mr-2 text-xl font-normal text-muted line-through">{formatPaisa(product.basePrice)}</span>}
+              {formatPaisa(basePrice)}
             </p>
-            {product.description && <p className="mt-2 text-sm text-muted">{product.description}</p>}
+            {product.description && <p className="mt-3 text-[15px] leading-relaxed text-muted">{product.description}</p>}
+            <div className="mt-4 border-t border-line" />
 
             <div className="mt-5 space-y-3">
               {choiceAssignments.map((assignment) => {
@@ -237,33 +267,46 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
               })}
             </div>
 
-            <div className="mt-5 border-t pt-4">
-              <h3 className="font-medium text-ink">Instructions</h3>
-              <textarea
-                value={specialInstructions}
-                onChange={(e) => setSpecialInstructions(e.target.value.slice(0, 500))}
-                placeholder="Any Special Instructions?"
-                className="mt-2 w-full rounded-lg border px-3 py-2 text-sm"
-                rows={2}
-              />
-              <p className="mt-1 text-right text-xs text-muted">{specialInstructions.length}/500</p>
+            <div className="mt-6">
+              <h3 className="font-poppins text-[15px] font-semibold text-ink">Special Instructions</h3>
+              <div className="relative mt-3">
+                <textarea
+                  value={specialInstructions}
+                  onChange={(e) => setSpecialInstructions(e.target.value.slice(0, 500))}
+                  placeholder="Please enter instructions about this item"
+                  className="h-28 w-full resize-none rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-ink placeholder:text-muted placeholder:opacity-70 focus:border-brand-red focus:outline-none sm:h-32"
+                />
+                <span className="pointer-events-none absolute bottom-3 right-4 text-xs font-medium text-muted">
+                  {specialInstructions.length}/500
+                </span>
+              </div>
             </div>
           </div>
 
-          <div className="sticky bottom-0 mt-auto flex items-center gap-3 border-t bg-surface p-4">
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                aria-label="Decrease quantity"
-                className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-alt text-ink"
-              >
-                <MinusIcon size={14} />
-              </button>
-              <span className="w-5 text-center">{quantity}</span>
+          <div className="sticky bottom-0 mt-auto flex items-center gap-4 bg-surface p-4 sm:px-8 sm:py-5">
+            <div className="flex items-center gap-3 rounded-full border border-brand-red/25 bg-brand-red/10 p-1">
+              {quantity > 1 ? (
+                <button
+                  onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                  aria-label="Decrease quantity"
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-surface text-brand-red"
+                >
+                  <MinusIcon size={14} />
+                </button>
+              ) : (
+                <button
+                  onClick={onClose}
+                  aria-label="Discard item"
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-red/15 text-brand-red"
+                >
+                  <TrashIcon size={14} />
+                </button>
+              )}
+              <span className="w-6 text-center text-sm font-semibold text-ink">{quantity}</span>
               <button
                 onClick={() => setQuantity((q) => q + 1)}
                 aria-label="Increase quantity"
-                className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-red text-white"
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-red text-white"
               >
                 <PlusIcon size={14} />
               </button>
@@ -271,14 +314,15 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
             <button
               onClick={handleAdd}
               disabled={!isValid}
-              className="relative flex flex-1 items-center justify-between overflow-hidden rounded-lg bg-brand-red px-5 py-3 font-poppins text-[14px] font-bold leading-[14px] text-white disabled:opacity-50"
+              className="relative flex flex-1 items-center justify-center gap-4 overflow-hidden rounded-2xl bg-brand-red px-5 py-4 font-poppins text-[15px] font-bold leading-[16px] text-white shadow-[0_6px_20px_rgba(237,35,32,0.4)] disabled:opacity-50"
             >
               {isValid && (
                 <span className="pointer-events-none absolute inset-y-0 left-0 w-1/3 -translate-x-full animate-cart-shine bg-gradient-to-r from-transparent via-white/40 to-transparent" />
               )}
               <span>{formatPaisa(unitPrice * quantity)}</span>
-              <span className="flex items-center gap-1.5">
-                Add to Cart <ArrowRightIcon size={12} className="animate-ride" />
+              <span aria-hidden="true" className="h-4 w-px bg-white/70" />
+              <span className="flex items-center gap-2">
+                Add to Cart <ArrowRightIcon size={14} className="animate-ride" />
               </span>
             </button>
           </div>

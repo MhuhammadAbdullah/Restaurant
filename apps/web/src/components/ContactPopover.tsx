@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { FaHeadset } from "react-icons/fa6";
+import { FaHeadset, FaMobileScreenButton } from "react-icons/fa6";
 import { api } from "../lib/api";
 import { CloseIcon } from "./icons";
 
@@ -14,7 +14,13 @@ type RestaurantInfo = {
   header?: { contactButtonLabel: string };
 };
 
-export function ContactPopover({ triggerClassName }: { triggerClassName: string }) {
+export function ContactPopover({
+  triggerClassName,
+  variant = "default",
+}: {
+  triggerClassName: string;
+  variant?: "default" | "pill";
+}) {
   const [open, setOpen] = useState(false);
   const { data } = useQuery({
     queryKey: ["cms-restaurant"],
@@ -22,6 +28,26 @@ export function ContactPopover({ triggerClassName }: { triggerClassName: string 
     staleTime: 0,
     refetchOnWindowFocus: true,
   });
+
+  // Header variant: a plain tap-to-call link (no dropdown).
+  if (variant === "pill") {
+    const phone = data?.contactPhone;
+    return (
+      <a
+        href={phone ? `tel:${phone.replace(/[^\d+]/g, "")}` : undefined}
+        className={triggerClassName}
+        aria-label={phone ? `Call ${phone}` : "Contact us"}
+      >
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-red/10 text-brand-red">
+          <FaMobileScreenButton size={18} />
+        </span>
+        <span className="hidden flex-col items-start leading-tight lg:flex">
+          <span className="text-[11px] font-semibold">{data?.header?.contactButtonLabel ?? "Contact us"}</span>
+          {phone && <span className="text-[13px] font-medium">{phone}</span>}
+        </span>
+      </a>
+    );
+  }
 
   return (
     <div className="relative">

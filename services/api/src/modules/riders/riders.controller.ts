@@ -80,6 +80,13 @@ export class RidersController {
   }
 
   @RequirePermission("riders.view")
+  @Get(":id/unsettled")
+  async unsettled(@CurrentStaff() staff: StaffJwtPayload, @Param("id") id: string) {
+    const data = await this.riders.unsettled(staff, id);
+    return { success: true, data };
+  }
+
+  @RequirePermission("riders.view")
   @Get(":id/collection-summary")
   async collectionSummary(@CurrentStaff() staff: StaffJwtPayload, @Param("id") id: string, @Query("date") date?: string) {
     const data = await this.riders.collectionSummary(staff, id, date);

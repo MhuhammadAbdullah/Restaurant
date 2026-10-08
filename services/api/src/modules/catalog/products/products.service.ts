@@ -9,6 +9,10 @@ import type {
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { RestaurantContextService } from "../../../common/restaurant/restaurant-context.service";
 
+// Updating a product rewrites choice groups/addons/images in one transaction — many round trips
+// against a remote DB, so give it headroom instead of failing with "Transaction already closed".
+const PRODUCT_WRITE_TX_TIMEOUT_MS = 20000;
+
 const PRODUCT_DETAIL_INCLUDE = {
   images: { orderBy: { sortOrder: "asc" as const } },
   branchAvailability: true,
@@ -121,6 +125,7 @@ export class ProductsService {
         taxPct: input.taxPct,
         isFeatured: input.isFeatured,
         isPopular: input.isPopular,
+        tag: input.tag,
         isCartRecommendable: input.isCartRecommendable,
         showOnMainPage: input.showOnMainPage,
         mainPageSortOrder: input.mainPageSortOrder,
@@ -192,6 +197,7 @@ export class ProductsService {
           status: input.status,
           isFeatured: input.isFeatured,
           isPopular: input.isPopular,
+          tag: input.tag,
           isCartRecommendable: input.isCartRecommendable,
           showOnMainPage: input.showOnMainPage,
           mainPageSortOrder: input.mainPageSortOrder,
@@ -199,7 +205,7 @@ export class ProductsService {
         },
         include: PRODUCT_DETAIL_INCLUDE,
       });
-    });
+    }, { timeout: PRODUCT_WRITE_TX_TIMEOUT_MS });
   }
 
   async remove(id: string) {

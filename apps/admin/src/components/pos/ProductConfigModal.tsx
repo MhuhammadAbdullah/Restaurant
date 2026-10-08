@@ -162,15 +162,21 @@ export function ProductConfigModal({
           {product.choiceGroups.map(({ choiceGroupId, choiceGroup, isRequiredOverride, minSelectOverride, maxSelectOverride }) => {
             const rules = resolveChoiceGroupRules(choiceGroup, { isRequiredOverride, minSelectOverride, maxSelectOverride });
             return (
-              <div key={choiceGroupId}>
-                <p className="text-sm font-medium text-neutral-900">
-                  {choiceGroup.name} {rules.isRequired && <span className="text-xs font-normal text-brand-red">Required</span>}
-                </p>
-                <div className="mt-1.5 space-y-1">
+              <div key={choiceGroupId} className="rounded-xl border border-neutral-200 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-semibold text-neutral-900">{choiceGroup.name}</p>
+                  {rules.isRequired && <span className="rounded-full bg-brand-red/10 px-2.5 py-0.5 text-[11px] font-medium text-brand-red">Required</span>}
+                </div>
+                <div className="mt-2 space-y-1">
                   {choiceGroup.options
                     .filter((o) => o.status === "ACTIVE")
                     .map((opt) => (
-                      <label key={opt.id} className="flex cursor-pointer items-center justify-between rounded-lg px-2 py-1.5 text-sm hover:bg-neutral-50">
+                      <label
+                        key={opt.id}
+                        className={`flex cursor-pointer items-center justify-between rounded-lg border px-3 py-2 text-sm transition ${
+                          (choices[choiceGroup.id] ?? []).includes(opt.id) ? "border-brand-red bg-brand-red/5" : "border-transparent hover:bg-neutral-50"
+                        }`}
+                      >
                         <span>{opt.name}</span>
                         <span className="flex items-center gap-2">
                           {opt.priceAdjustment > 0 && <span className="text-xs text-neutral-500">+{formatPaisa(effectivePrice(opt.priceAdjustment, opt.discountPriceAdjustment))}</span>}
@@ -190,9 +196,9 @@ export function ProductConfigModal({
           })}
 
           {product.addons.length > 0 && (
-            <div>
-              <p className="text-sm font-medium text-neutral-900">Add-ons</p>
-              <div className="mt-1.5 space-y-1">
+            <div className="rounded-xl border border-neutral-200 p-3">
+              <p className="text-sm font-semibold text-neutral-900">Add-ons</p>
+              <div className="mt-2 space-y-1">
                 {product.addons
                   .filter((pa) => pa.addon.status === "ACTIVE")
                   .map(({ addon }) => {
@@ -237,14 +243,14 @@ export function ProductConfigModal({
             />
           </div>
 
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium text-neutral-900">Quantity</p>
-            <div className="flex items-center gap-2">
-              <button type="button" onClick={() => setQuantity((q) => Math.max(1, q - 1))} className="flex h-7 w-7 items-center justify-center rounded-full bg-neutral-100">
+          <div className="flex items-center justify-between rounded-xl border border-neutral-200 p-3">
+            <p className="text-sm font-semibold text-neutral-900">Quantity</p>
+            <div className="flex items-center overflow-hidden rounded-lg border border-neutral-300">
+              <button type="button" onClick={() => setQuantity((q) => Math.max(1, q - 1))} aria-label="Decrease quantity" className="flex h-9 w-9 items-center justify-center text-lg text-neutral-600 hover:bg-neutral-50">
                 −
               </button>
-              <span className="w-6 text-center">{quantity}</span>
-              <button type="button" onClick={() => setQuantity((q) => q + 1)} className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-red text-white">
+              <span className="w-10 text-center text-sm font-semibold">{quantity}</span>
+              <button type="button" onClick={() => setQuantity((q) => q + 1)} aria-label="Increase quantity" className="flex h-9 w-9 items-center justify-center text-lg text-neutral-600 hover:bg-neutral-50">
                 +
               </button>
             </div>

@@ -12,33 +12,33 @@ export function SkeletonGrid({ count, render }: { count: number; render: (i: num
 /** Mirrors ProductCard.tsx / DealCard.tsx — same border/radius/padding so nothing shifts when real content mounts. */
 export function SkeletonProductCard() {
   return (
-    <div className="flex flex-col overflow-hidden rounded-xl border border-line bg-surface shadow-sm">
+    <div className="flex flex-col overflow-hidden rounded-2xl border border-brand-red bg-surface">
       <div className="p-2">
-        <Skeleton className="aspect-square w-full rounded-lg" />
+        <Skeleton className="aspect-square w-full rounded-2xl" />
       </div>
-      <div className="flex flex-1 flex-col p-3">
+      <div className="flex flex-1 flex-col px-4 pb-4 pt-2">
         <Skeleton className="h-4 w-4/5 rounded-md" />
         <Skeleton className="mt-2 h-3 w-3/5 rounded-md" />
         <div className="mt-auto flex items-center justify-between pt-3">
           <Skeleton className="h-4 w-16 rounded-md" />
-          <Skeleton className="h-7 w-14 rounded-lg" />
+          <Skeleton className="h-9 w-9 rounded-xl lg:h-11 lg:w-11" />
         </div>
       </div>
     </div>
   );
 }
 
-/** Mirrors PopularProductCard.tsx — tall image card with title/price/add-button overlay. */
+/** Mirrors PopularProductCard.tsx — square image with title/price on the left and the add button on the right below it. */
 export function SkeletonPopularCard() {
   return (
-    <div className="relative flex aspect-[3/4] flex-col justify-end overflow-hidden rounded-2xl shadow-sm">
-      <Skeleton className="absolute inset-0" />
-      <div className="relative z-10 p-3 pr-14">
-        <Skeleton className="h-4 w-3/4 rounded-md bg-white/30" />
-        <Skeleton className="mt-2 h-3 w-1/2 rounded-md bg-white/20" />
-      </div>
-      <div className="absolute bottom-3 right-3 z-10">
-        <SkeletonCircle size={36} className="bg-white/30" />
+    <div className="flex flex-col">
+      <Skeleton className="aspect-square w-full rounded-3xl" />
+      <div className="mt-3 flex items-end justify-between gap-2 px-1">
+        <div className="min-w-0 flex-1">
+          <Skeleton className="h-4 w-3/4 rounded-md" />
+          <Skeleton className="mt-2 h-3 w-1/3 rounded-md" />
+        </div>
+        <Skeleton className="h-9 w-9 rounded-xl lg:h-11 lg:w-11" />
       </div>
     </div>
   );
@@ -59,7 +59,7 @@ export function SkeletonCartRecommendationCard() {
 export function SkeletonBanner() {
   return (
     <section className="px-4 py-6 sm:px-8">
-      <Skeleton className="mx-auto aspect-[21/9] max-w-[90rem] rounded-3xl" />
+      <Skeleton className="mx-auto aspect-[27/10] max-w-[105rem] rounded-3xl" />
     </section>
   );
 }
@@ -68,7 +68,7 @@ export function SkeletonBanner() {
 export function SkeletonCategoryTabs({ count = 6 }: { count?: number }) {
   return (
     <div className="px-4 py-2.5 sm:px-8">
-      <div className="mx-auto flex max-w-[90rem] items-center justify-center gap-3 overflow-hidden">
+      <div className="mx-auto flex max-w-4xl items-center justify-center gap-3 overflow-hidden">
         {Array.from({ length: count }).map((_, i) => (
           <div key={i} className="flex shrink-0 flex-col items-center gap-1.5">
             <SkeletonCircle size={80} className="rounded-xl" />
@@ -92,7 +92,7 @@ export function SkeletonSectionHeading() {
 
 /** Mirrors SectionBanner.tsx's rounded promo-banner strip used above category product sections. */
 export function SkeletonSectionBanner() {
-  return <Skeleton className="my-[50px] aspect-[21/9] w-full rounded-2xl" />;
+  return <Skeleton className="my-[50px] aspect-[3/1] w-full rounded-2xl" />;
 }
 
 /** A full category-style section: banner + a grid of product cards. */

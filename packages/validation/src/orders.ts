@@ -98,6 +98,8 @@ export const createPosOrderSchema = z
     customerId: idSchema.optional(), // existing customer selected via phone lookup
     customerName: z.string().trim().max(120).optional(),
     customerPhone: z.string().trim().max(20).optional(),
+    customerAlternatePhone: z.string().trim().max(20).optional(),
+    customerEmail: z.string().trim().toLowerCase().email().max(254).optional(),
     deliveryAddress: posDeliveryAddressSchema.optional(),
     items: z.array(orderItemInputSchema).min(1),
     couponCode: z.string().trim().max(40).optional(),
@@ -112,8 +114,24 @@ export const createPosOrderSchema = z
   .refine((v) => v.type !== "DELIVERY" || v.deliveryAddress, {
     message: "Delivery orders require an address",
     path: ["deliveryAddress"],
+  })
+  // The rider has to be able to call the customer.
+  .refine((v) => v.type !== "DELIVERY" || (!!v.customerName?.trim() && !!v.customerPhone?.trim()), {
+    message: "Delivery orders require the customer's name and phone number",
+    path: ["customerPhone"],
   });
 export type CreatePosOrderInput = z.infer<typeof createPosOrderSchema>;
+
+/** Prices the current POS cart exactly as createPosOrder would (tax, delivery fee, discounts) without persisting anything. */
+export const quotePosOrderSchema = z.object({
+  branchId: idSchema,
+  type: z.enum(["DINE_IN", "WALK_IN", "TAKEAWAY", "DELIVERY"]),
+  customerId: idSchema.optional(),
+  items: z.array(orderItemInputSchema).min(1),
+  couponCode: z.string().trim().max(40).optional(),
+  loyaltyPointsToRedeem: z.number().int().min(0).default(0),
+});
+export type QuotePosOrderInput = z.infer<typeof quotePosOrderSchema>;
 
 export const addOrderItemsSchema = z.object({
   items: z.array(orderItemInputSchema).min(1),
@@ -128,6 +146,14 @@ export const recordOrderPaymentSchema = z.object({
   amountTendered: z.number().int().min(0).optional(),
 });
 export type RecordOrderPaymentInput = z.infer<typeof recordOrderPaymentSchema>;
+
+/** Admin confirms they received a rider's COD cash for these delivered orders. `receivedAmount` is the cash actually counted, in paisa. */
+export const settleCodCashSchema = z.object({
+  orderIds: z.array(idSchema).min(1).max(100),
+  receivedAmount: z.number().int().min(0).optional(),
+  note: z.string().trim().max(300).optional(),
+});
+export type SettleCodCashInput = z.infer<typeof settleCodCashSchema>;
 
 export const confirmPaymentSchema = z.object({
   paymentId: idSchema.optional(), // omit to confirm the order's most recent PENDING payment

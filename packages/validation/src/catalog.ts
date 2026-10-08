@@ -186,6 +186,7 @@ const productShape = z.object({
   taxPct: z.number().min(0).max(100).optional(),
   isFeatured: z.boolean().default(false),
   isPopular: z.boolean().default(false),
+  tag: z.enum(["HOUSE_FAVORITE", "NEW_ARRIVAL", "BEST_SELLER"]).nullable().optional(),
   isCartRecommendable: z.boolean().default(false),
   showOnMainPage: z.boolean().default(false),
   mainPageSortOrder: z.number().int().default(0),

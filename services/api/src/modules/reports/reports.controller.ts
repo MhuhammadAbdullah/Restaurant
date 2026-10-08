@@ -31,6 +31,18 @@ export class ReportsController {
   }
 
   @RequirePermission("reports.view")
+  @Get("dashboard-analytics")
+  async dashboardAnalytics(
+    @CurrentStaff() staff: StaffJwtPayload,
+    @Query("branchId") branchId?: string,
+    @Query("from") from?: string,
+    @Query("to") to?: string,
+  ) {
+    const data = await this.reports.getDashboardAnalytics(staff, { branchId, from, to });
+    return { success: true, data };
+  }
+
+  @RequirePermission("reports.view")
   @Get("order-status-counts")
   async orderStatusCounts(
     @CurrentStaff() staff: StaffJwtPayload,

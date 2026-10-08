@@ -1,5 +1,12 @@
 import { Body, Controller, Post, UseGuards } from "@nestjs/common";
-import { createPosOrderSchema, previewCouponSchema, type CreatePosOrderInput, type PreviewCouponInput } from "@restaurant/validation";
+import {
+  createPosOrderSchema,
+  previewCouponSchema,
+  quotePosOrderSchema,
+  type CreatePosOrderInput,
+  type PreviewCouponInput,
+  type QuotePosOrderInput,
+} from "@restaurant/validation";
 import type { StaffJwtPayload } from "@restaurant/auth";
 import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
 import { StaffJwtAuthGuard } from "../auth/guards/staff-jwt-auth.guard";
@@ -18,6 +25,13 @@ export class PosOrdersController {
   @Post()
   async create(@CurrentStaff() staff: StaffJwtPayload, @Body(new ZodValidationPipe(createPosOrderSchema)) body: CreatePosOrderInput) {
     const data = await this.orders.createPosOrder(staff, body);
+    return { success: true, data };
+  }
+
+  @RequirePermission("pos.access")
+  @Post("quote")
+  async quote(@CurrentStaff() staff: StaffJwtPayload, @Body(new ZodValidationPipe(quotePosOrderSchema)) body: QuotePosOrderInput) {
+    const data = await this.orders.quotePosOrder(staff, body);
     return { success: true, data };
   }
 

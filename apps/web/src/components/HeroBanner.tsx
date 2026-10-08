@@ -49,7 +49,7 @@ export const HeroBanner = forwardRef<HTMLElement>(function HeroBanner(_props, re
 
   return (
     <section ref={ref} className="px-4 py-6 sm:px-8">
-      <div className="group relative mx-auto aspect-[21/9] max-w-[90rem] overflow-hidden rounded-2xl bg-transparent">
+      <div className="group relative mx-auto aspect-[27/10] max-w-[105rem] overflow-hidden rounded-2xl bg-transparent">
         {slides &&
           slides.map((banner, i) => (
             <div
@@ -59,7 +59,7 @@ export const HeroBanner = forwardRef<HTMLElement>(function HeroBanner(_props, re
               }`}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={banner.image} alt="" className="h-full w-full rounded-2xl object-fit" />
+              <img src={banner.image} alt="" className="h-full w-full rounded-2xl object-cover" />
             </div>
           ))}
 

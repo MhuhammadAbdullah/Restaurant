@@ -18,6 +18,8 @@ function assertBranchAccess(staff: StaffJwtPayload, branchId: string) {
 // orders. CANCELLED is included (read-only on the board) so kitchen staff can see an order was
 // called off and stop preparing it — not because kitchen ever transitions an order into that status.
 const KITCHEN_STATUSES = ["CONFIRMED", "PREPARING", "READY", "CANCELLED"] as const;
+// Cancelled tickets only matter while the kitchen might still be cooking them — older ones would just clutter the board forever.
+const CANCELLED_VISIBLE_MS = 12 * 60 * 60 * 1000;
 
 /**
  * Kitchen board data deliberately excludes financial/customer PII (CLAUDE.md §13 —
@@ -39,7 +41,14 @@ export class KitchenService {
       // KITCHEN_STATUSES already excludes PENDING (an unaccepted order), which is the normal
       // path — this predicate is defense-in-depth in case a hidden ONLINE order ever ends up
       // CONFIRMED/PREPARING/etc. despite the Accept-guard in OrdersService.updateOrderStatus.
-      where: { ...hiddenOnlinePaymentWhere(), branchId, status: { in: [...KITCHEN_STATUSES] } },
+      where: {
+        ...hiddenOnlinePaymentWhere(),
+        branchId,
+        OR: [
+          { status: { in: KITCHEN_STATUSES.filter((s) => s !== "CANCELLED") } },
+          { status: "CANCELLED", updatedAt: { gte: new Date(Date.now() - CANCELLED_VISIBLE_MS) } },
+        ],
+      },
       orderBy: { createdAt: "asc" },
       select: {
         id: true,

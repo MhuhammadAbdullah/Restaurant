@@ -8,10 +8,12 @@ import type {
   ConfirmPaymentInput,
   CreateOrderInput,
   CreatePosOrderInput,
+  QuotePosOrderInput,
   LogPrintEventInput,
   OrderItemInput,
   PushSubscribeInput,
   RecordOrderPaymentInput,
+  SettleCodCashInput,
   TransferOrderBranchInput,
   UpdateDeliveryEtaInput,
   UpdateOrderDeliveryDetailsInput,
@@ -39,6 +41,19 @@ import { EmailService, type OrderConfirmationEmailParams } from "../../common/em
 import type { Env } from "../../config/env.schema";
 
 /** Terminal statuses that free up a dine-in table and stop counting an order as "open". */
+type StaffOrderListFilters = {
+  branchId?: string;
+  status?: OrderStatus;
+  source?: OrderSource;
+  type?: string;
+  paymentStatus?: string;
+  search?: string;
+  from?: string;
+  to?: string;
+  customerId?: string;
+  contactPhone?: string;
+};
+
 const TERMINAL_STATUSES: OrderStatus[] = ["DELIVERED", "COMPLETED", "CANCELLED", "REFUNDED"];
 
 // Mirrors apps/web's PICKUP_TYPES / DELIVERY_TYPES — kept in sync manually since the two apps
@@ -587,7 +602,7 @@ export class OrdersService {
       }
     }
 
-    const customerId = await this.resolveOrCreateCustomer(restaurantId, input.customerId, input.customerPhone, input.customerName);
+    const customerId = await this.resolveOrCreateCustomer(restaurantId, input.customerId, input.customerPhone, input.customerName, input.customerEmail);
     if (customerId) {
       const account = await this.prisma.customer.findUnique({ where: { id: customerId }, select: { status: true } });
       if (account?.status === "INACTIVE") {
@@ -673,6 +688,8 @@ export class OrdersService {
           deliveryLandmark: input.deliveryAddress?.landmark,
           contactName: input.customerName,
           contactPhone: input.customerPhone,
+          contactAlternatePhone: input.customerAlternatePhone || undefined,
+          contactEmail: input.customerEmail,
           subtotal,
           taxAmount,
           deliveryFee,
@@ -753,6 +770,57 @@ export class OrdersService {
     const full = await this.getOrderForStaff(staff, order.id);
     this.realtime.emitOrderCreated({ restaurantId, branchId: branch.id, order: full });
     return full;
+  }
+
+  /**
+   * Exact total for the POS cart — the same arithmetic createPosOrder uses (subtotal + tax + delivery
+   * fee - coupon - loyalty) so the cashier sees the real amount due, and the change to hand back,
+   * BEFORE placing the order. Persists nothing. An invalid coupon never throws here: it is reported
+   * as `couponError` with no discount applied, so the quote stays usable while the cashier types.
+   * createPosOrder re-checks `clientTotal` against its own result, so any drift between the two
+   * surfaces as a TOTAL_MISMATCH instead of a silently wrong charge.
+   */
+  async quotePosOrder(staff: StaffJwtPayload, input: QuotePosOrderInput) {
+    assertStaffBranchAccess(staff, input.branchId);
+    const restaurantId = await this.restaurantContext.getRestaurantId();
+    const branch = await this.prisma.branch.findUnique({ where: { id: input.branchId } });
+    if (!branch || branch.restaurantId !== restaurantId) {
+      throw new BadRequestException({ code: "BRANCH_UNAVAILABLE", message: "Selected branch is not available" });
+    }
+
+    const pricedLines = await this.priceLineItems(branch.id, input.items);
+    const subtotal = this.sumLineItems(pricedLines);
+    const restaurant = await this.prisma.restaurant.findUniqueOrThrow({ where: { id: restaurantId } });
+    const taxPct = Number(restaurant.defaultTaxPct);
+    const taxAmount = Math.round(subtotal * (taxPct / 100));
+    const deliveryFee = input.type === "DELIVERY" ? branch.deliveryFee : 0;
+
+    let couponDiscountAmount = 0;
+    let couponError: string | undefined;
+    if (input.couponCode) {
+      try {
+        const priced = await this.coupons.validateAndPrice({
+          restaurantId,
+          code: input.couponCode,
+          customerId: input.customerId ?? null,
+          productLines: productLinesFor(pricedLines),
+        });
+        couponDiscountAmount = priced.discountAmount;
+      } catch (e) {
+        couponError = e instanceof Error ? e.message : "Coupon could not be applied";
+      }
+    }
+
+    let loyaltyDiscountAmount = 0;
+    if (input.customerId && input.loyaltyPointsToRedeem > 0) {
+      const loyaltyConfig = resolveLoyaltyConfig(restaurant.settings);
+      const account = loyaltyConfig.enabled ? await this.prisma.loyaltyAccount.findUnique({ where: { customerId: input.customerId } }) : null;
+      const points = Math.min(input.loyaltyPointsToRedeem, account?.pointsBalance ?? 0);
+      loyaltyDiscountAmount = points * loyaltyConfig.redemptionValuePaisaPerPoint;
+    }
+
+    const grandTotal = Math.max(0, subtotal + taxAmount + deliveryFee - couponDiscountAmount - loyaltyDiscountAmount);
+    return { subtotal, taxPct, taxAmount, deliveryFee, couponDiscountAmount, couponError, loyaltyDiscountAmount, grandTotal };
   }
 
   /**
@@ -1256,6 +1324,90 @@ export class OrdersService {
     return this.getOrderForStaff(staff, orderId);
   }
 
+  /**
+   * COD cash reconciliation. A cash-on-delivery order stays payment-PENDING after the rider marks it
+   * delivered — the money is in the rider's pocket until they hand it in at the restaurant. Only an
+   * admin confirming receipt of that cash flips it to PAID (this method). That closes the fraud window:
+   * a rider can never settle their own deliveries, and unsettled cash stays visible against their name
+   * until someone actually receives it. Loyalty points were already awarded at order creation for COD,
+   * so none are awarded again here.
+   */
+  async settleCodCash(staff: StaffJwtPayload, input: SettleCodCashInput) {
+    const ids = [...new Set(input.orderIds)];
+    const orders = await this.prisma.order.findMany({ where: { id: { in: ids } }, include: { payments: true } });
+    if (orders.length !== ids.length) {
+      throw new NotFoundException({ code: "ORDER_NOT_FOUND", message: "One or more orders were not found" });
+    }
+
+    const paidOn = (o: (typeof orders)[number]) => o.payments.filter((p) => p.status === "PAID").reduce((sum, p) => sum + p.amount, 0);
+    for (const o of orders) {
+      assertStaffBranchAccess(staff, o.branchId);
+      if (o.assignedRiderId && o.assignedRiderId === staff.sub) {
+        throw new ForbiddenException({ code: "CANNOT_SETTLE_OWN_CASH", message: "A rider cannot confirm receipt of their own cash — ask an admin or manager." });
+      }
+      if (o.paymentMethod !== "COD") {
+        throw new BadRequestException({ code: "NOT_COD", message: `${o.orderNumber} is not a cash-on-delivery order` });
+      }
+      if (o.status !== "DELIVERED" && o.status !== "COMPLETED") {
+        throw new BadRequestException({ code: "NOT_DELIVERED", message: `${o.orderNumber} has not been delivered yet` });
+      }
+      if (o.paymentStatus === "PAID" || o.paymentStatus === "REFUNDED") {
+        throw new BadRequestException({ code: "ALREADY_SETTLED", message: `${o.orderNumber} is already settled` });
+      }
+    }
+
+    const expected = orders.reduce((sum, o) => sum + Math.max(0, o.grandTotal - paidOn(o)), 0);
+    if (input.receivedAmount !== undefined && input.receivedAmount !== expected) {
+      throw new BadRequestException({
+        code: "AMOUNT_MISMATCH",
+        message: `Cash received (Rs. ${input.receivedAmount / 100}) does not match the selected orders (Rs. ${expected / 100}). Select only the orders whose cash you actually received.`,
+        details: { expected, received: input.receivedAmount },
+      });
+    }
+
+    const now = new Date();
+    await this.prisma.$transaction(
+      async (tx) => {
+        for (const o of orders) {
+          const outstanding = Math.max(0, o.grandTotal - paidOn(o));
+          const pending = o.payments.find((p) => p.status === "PENDING");
+          if (pending) {
+            // The pending row's amount can be stale if items were amended after creation — settle the true balance.
+            await tx.payment.update({ where: { id: pending.id }, data: { status: "PAID", amount: outstanding, paidAt: now, recordedByStaffId: staff.sub } });
+          } else {
+            await tx.payment.create({
+              data: { orderId: o.id, method: "COD", provider: "cod", status: "PAID", amount: outstanding, recordedByStaffId: staff.sub, paidAt: now },
+            });
+          }
+        }
+      },
+      { timeout: 20000 },
+    );
+
+    for (const o of orders) {
+      await this.recomputeOrderPaymentStatus(o.id);
+      await this.auditLogs.recordForStaff(staff, "order.codCashReceived", "Order", o.id, {
+        newValue: { amount: Math.max(0, o.grandTotal - paidOn(o)), riderId: o.assignedRiderId, note: input.note },
+      });
+    }
+
+    // A rider's hand-in is "received" once every order in it has been settled.
+    const submissionIds = [...new Set(orders.map((o) => o.collectionSubmissionId).filter((v): v is string => !!v))];
+    for (const submissionId of submissionIds) {
+      const remaining = await this.prisma.order.count({ where: { collectionSubmissionId: submissionId, paymentStatus: { notIn: ["PAID", "REFUNDED"] } } });
+      if (remaining === 0) {
+        await this.prisma.riderCollectionSubmission.update({ where: { id: submissionId }, data: { status: "RECEIVED" } });
+      }
+    }
+
+    for (const o of orders) {
+      const full = await this.getOrderForStaff(staff, o.id);
+      this.realtime.emitOrderUpdated({ restaurantId: o.restaurantId, branchId: o.branchId, customerId: o.customerId, order: full });
+    }
+
+    return { settledCount: orders.length, settledAmount: expected, orderIds: ids };
+  }
+
   /** Card/QR payments never flip to PAID from a click alone — this is the explicit confirmation step. */
   async confirmPayment(staff: StaffJwtPayload, orderId: string, input: ConfirmPaymentInput) {
     const order = await this.prisma.order.findUnique({ where: { id: orderId } });
@@ -1373,6 +1525,15 @@ export class OrdersService {
       }
     }
 
+    // Everything was already sent to the kitchen and nothing new was added since: a plain "print ticket"
+    // must still produce a usable ticket, so fall back to a full reprint instead of an empty one.
+    let fullReprintFallback = false;
+    if (!opts.revisionId && !opts.full && items.length === 0 && order.items.length > 0) {
+      items = order.items;
+      isAdditional = false;
+      fullReprintFallback = true;
+    }
+
     return {
       restaurant: {
         name: restaurant.name,
@@ -1381,7 +1542,7 @@ export class OrdersService {
       },
       order: { ...order, items },
       isAdditional,
-      isFullReprint: !!opts.full,
+      isFullReprint: !!opts.full || fullReprintFallback,
     };
   }
 
@@ -1457,99 +1618,128 @@ export class OrdersService {
     customerId: string | undefined,
     phone: string | undefined,
     name: string | undefined,
+    email?: string,
   ): Promise<string | null> {
+    // A staff-typed email only ever FILLS a missing one — it never overwrites a customer's own address —
+    // and is silently skipped if another profile already uses it (unique per restaurant).
+    const attachEmailIfFree = async (customer: { id: string; email: string | null }) => {
+      if (!email || customer.email) return;
+      const taken = await this.prisma.customer.findUnique({ where: { restaurantId_email: { restaurantId, email } }, select: { id: true } });
+      if (!taken) await this.prisma.customer.update({ where: { id: customer.id }, data: { email } });
+    };
+
     if (customerId) {
       const customer = await this.prisma.customer.findUnique({ where: { id: customerId } });
       if (!customer || customer.restaurantId !== restaurantId) {
         throw new NotFoundException({ code: "CUSTOMER_NOT_FOUND", message: "Customer not found" });
       }
+      await attachEmailIfFree(customer);
       return customer.id;
     }
     if (!phone) return null;
 
     const existing = await this.prisma.customer.findUnique({ where: { restaurantId_phone: { restaurantId, phone } } });
-    if (existing) return existing.id;
+    if (existing) {
+      await attachEmailIfFree(existing);
+      return existing.id;
+    }
     if (!name) return null; // phone alone isn't enough to create a profile — stays a guest/unidentified order
 
-    // Walk-in/POS profiles are created without ever going through email OTP — phone is already
-    // unique per restaurant, so a placeholder built from it satisfies the (now required, unique)
-    // email column without colliding across customers. passwordHash stays unset: this customer
-    // never logs in with a password, only OTP if they later claim the profile with a real email.
+    // Walk-in/POS profiles are created without ever going through email OTP, so they have NO email
+    // until the customer registers (which claims this profile — see CustomerOtpService.verifyRegister)
+    // or a staff member adds one. passwordHash stays unset: they never log in with a password.
+    const emailTaken = email
+      ? await this.prisma.customer.findUnique({ where: { restaurantId_email: { restaurantId, email } }, select: { id: true } })
+      : null;
     const created = await this.prisma.customer.create({
-      data: { restaurantId, name, phone, email: `pos-${phone}@placeholder.internal` },
+      data: { restaurantId, name, phone, ...(email && !emailTaken ? { email } : {}) },
     });
     return created.id;
   }
 
   // ---------- Staff-facing order management (admin dashboard, kitchen) ----------
 
-  async listOrdersForStaff(
-    staff: StaffJwtPayload,
-    filters: {
-      branchId?: string;
-      status?: OrderStatus;
-      source?: OrderSource;
-      type?: string;
-      paymentStatus?: string;
-      search?: string;
-      from?: string;
-      to?: string;
-      customerId?: string;
-      contactPhone?: string;
-    },
-    take = 500,
-  ) {
+  /** Shared filter for every staff-facing order list (plain and paginated), so both always agree on what "matches". */
+  private staffOrderWhere(staff: StaffJwtPayload, filters: StaffOrderListFilters): Prisma.OrderWhereInput {
     if (filters.branchId) assertStaffBranchAccess(staff, filters.branchId);
-    // `to` arrives as a date-only string (YYYY-MM-DD) from the <input type="date"> picker — parsed
-    // literally it's UTC midnight, which would exclude every order placed later that same day.
-    // Advance to the start of the next day and use an exclusive upper bound instead.
-    const toExclusive = filters.to ? new Date(new Date(filters.to).getTime() + 24 * 60 * 60 * 1000) : undefined;
+    // `from`/`to` arrive as date-only strings (YYYY-MM-DD) from the date picker. They are LOCAL calendar
+    // days: `to` is advanced to the start of the next day and used as an exclusive bound, so the whole
+    // selected day is included.
+    const parseDay = (v: string) => {
+      const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
+      return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(v);
+    };
+    const toExclusive = filters.to ? (() => { const d = parseDay(filters.to); return new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1); })() : undefined;
+    return {
+      ...hiddenOnlinePaymentWhere(),
+      branchId: filters.branchId ?? (staff.isOwner ? undefined : { in: staff.branchIds }),
+      status: filters.status,
+      source: filters.source,
+      type: filters.type as never,
+      paymentStatus: filters.paymentStatus as never,
+      createdAt: filters.from || toExclusive ? { gte: filters.from ? parseDay(filters.from) : undefined, lt: toExclusive } : undefined,
+      // Powers the admin customer-detail order history. `customerId` alone for a normal
+      // registered profile. `contactPhone` alone (with customerId forced null) for a pure
+      // guest identity that never got a Customer record. Both together for an isGuest profile
+      // whose id now exists (e.g. a blocked guest phone was just materialized into a real
+      // Customer row) — its *older* orders are still only tagged by contactPhone since blocking
+      // never retroactively relinks history, so an AND here would hide exactly the order
+      // history an admin is blocking someone to go look at.
+      ...(filters.customerId && filters.contactPhone
+        ? { OR: [{ customerId: filters.customerId }, { customerId: null, contactPhone: filters.contactPhone }] }
+        : filters.customerId
+          ? { customerId: filters.customerId }
+          : filters.contactPhone
+            ? { customerId: null, contactPhone: filters.contactPhone }
+            : {}),
+      ...(filters.search
+        ? {
+            OR: [
+              { orderNumber: { contains: filters.search, mode: "insensitive" } },
+              { contactName: { contains: filters.search, mode: "insensitive" } },
+              { contactPhone: { contains: filters.search } },
+              { customer: { name: { contains: filters.search, mode: "insensitive" } } },
+              { customer: { phone: { contains: filters.search } } },
+            ],
+          }
+        : {}),
+    };
+  }
+
+  private readonly staffOrderListInclude = {
+    branch: true,
+    table: true,
+    customer: { select: { name: true, phone: true } },
+    assignedRider: { select: { name: true } },
+  } as const;
+
+  async listOrdersForStaff(staff: StaffJwtPayload, filters: StaffOrderListFilters, take = 500) {
     return this.prisma.order.findMany({
-      where: {
-        ...hiddenOnlinePaymentWhere(),
-        branchId: filters.branchId ?? (staff.isOwner ? undefined : { in: staff.branchIds }),
-        status: filters.status,
-        source: filters.source,
-        type: filters.type as never,
-        paymentStatus: filters.paymentStatus as never,
-        createdAt: filters.from || toExclusive ? { gte: filters.from ? new Date(filters.from) : undefined, lt: toExclusive } : undefined,
-        // Powers the admin customer-detail order history. `customerId` alone for a normal
-        // registered profile. `contactPhone` alone (with customerId forced null) for a pure
-        // guest identity that never got a Customer record. Both together for an isGuest profile
-        // whose id now exists (e.g. a blocked guest phone was just materialized into a real
-        // Customer row) — its *older* orders are still only tagged by contactPhone since blocking
-        // never retroactively relinks history, so an AND here would hide exactly the order
-        // history an admin is blocking someone to go look at.
-        ...(filters.customerId && filters.contactPhone
-          ? { OR: [{ customerId: filters.customerId }, { customerId: null, contactPhone: filters.contactPhone }] }
-          : filters.customerId
-            ? { customerId: filters.customerId }
-            : filters.contactPhone
-              ? { customerId: null, contactPhone: filters.contactPhone }
-              : {}),
-        ...(filters.search
-          ? {
-              OR: [
-                { orderNumber: { contains: filters.search, mode: "insensitive" } },
-                { contactName: { contains: filters.search, mode: "insensitive" } },
-                { contactPhone: { contains: filters.search } },
-                { customer: { name: { contains: filters.search, mode: "insensitive" } } },
-                { customer: { phone: { contains: filters.search } } },
-              ],
-            }
-          : {}),
-      },
+      where: this.staffOrderWhere(staff, filters),
       orderBy: { createdAt: "desc" },
-      include: {
-        branch: true,
-        table: true,
-        customer: { select: { name: true, phone: true } },
-        assignedRider: { select: { name: true } },
-      },
+      include: this.staffOrderListInclude,
       // Defense-in-depth: even if the admin UI's default date window is bypassed (e.g. a direct
       // API call with no range), never let one query pull unbounded history off the DB.
       take,
     });
+  }
+
+  /** Server-side pagination for the Orders page: one page of rows plus the total match count. */
+  async listOrdersForStaffPaged(staff: StaffJwtPayload, filters: StaffOrderListFilters, page: number, pageSize: number) {
+    const where = this.staffOrderWhere(staff, filters);
+    const size = Math.min(Math.max(Math.floor(pageSize) || 50, 1), 200);
+    const current = Math.max(Math.floor(page) || 1, 1);
+    const [total, items] = await Promise.all([
+      this.prisma.order.count({ where }),
+      this.prisma.order.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        include: this.staffOrderListInclude,
+        skip: (current - 1) * size,
+        take: size,
+      }),
+    ]);
+    return { items, total, page: current, pageSize: size, pageCount: Math.max(1, Math.ceil(total / size)) };
   }
 
   async exportOrdersCsv(

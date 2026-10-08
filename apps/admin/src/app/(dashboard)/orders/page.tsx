@@ -8,7 +8,7 @@ import { api, getAccessToken } from "../../../lib/api";
 import { toast } from "../../../store/useToastStore";
 import { useSelectedBranch } from "../../../lib/useSelectedBranch";
 import { useMe, hasPermission } from "../../../lib/useMe";
-import { OrderDetailModal, STATUSES, NEXT_STATUS, TERMINAL } from "../../../components/orders/OrderDetailModal";
+import { OrderDetailModal, STATUSES, TERMINAL } from "../../../components/orders/OrderDetailModal";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select";
 import { DateRangePopover } from "../../../components/ui/date-range-popover";
 
@@ -46,13 +46,46 @@ function defaultFromDate() {
   return toDateInput(d);
 }
 
+const STATUS_COLOR: Record<string, string> = {
+  PENDING: "bg-amber-50 text-amber-700",
+  CONFIRMED: "bg-blue-50 text-blue-700",
+  PREPARING: "bg-orange-50 text-orange-700",
+  READY: "bg-purple-50 text-purple-700",
+  OUT_FOR_DELIVERY: "bg-cyan-50 text-cyan-700",
+  DELIVERED: "bg-green-50 text-green-700",
+  COMPLETED: "bg-green-50 text-green-700",
+  CANCELLED: "bg-red-50 text-red-700",
+  REFUNDED: "bg-neutral-200 text-neutral-700",
+};
+
+const TYPE_COLOR: Record<string, string> = {
+  DINE_IN: "bg-blue-50 text-blue-700",
+  WALK_IN: "bg-teal-50 text-teal-700",
+  TAKEAWAY: "bg-orange-50 text-orange-700",
+  DELIVERY: "bg-cyan-50 text-cyan-700",
+  ONLINE_DELIVERY: "bg-indigo-50 text-indigo-700",
+  ONLINE_PICKUP: "bg-purple-50 text-purple-700",
+};
+
+/** 1 … 4 5 6 … 20 — always the first, last and the neighbours of the current page. */
+function pageNumbers(current: number, last: number): (number | "…")[] {
+  if (last <= 7) return Array.from({ length: last }, (_, i) => i + 1);
+  const pages = new Set([1, last, current - 1, current, current + 1]);
+  const sorted = [...pages].filter((n) => n >= 1 && n <= last).sort((a, b) => a - b);
+  const out: (number | "…")[] = [];
+  sorted.forEach((n, i) => {
+    if (i > 0 && n - sorted[i - 1]! > 1) out.push("…");
+    out.push(n);
+  });
+  return out;
+}
+
 export default function OrdersPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { branchId } = useSelectedBranch();
   const { data: me } = useMe();
-  const canRefund = hasPermission(me, "orders.refund");
   const canExport = hasPermission(me, "orders.export");
   const canCancel = hasPermission(me, "orders.cancel");
   const canEdit = hasPermission(me, "orders.edit");
@@ -69,6 +102,8 @@ export default function OrdersPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkTargetStatus, setBulkTargetStatus] = useState("");
   const [bulkRunning, setBulkRunning] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
 
   // Deep-link from the notification bell ("?openOrderId=...") — open the modal once, then strip
   // the param so a page refresh/back-nav doesn't keep re-opening it.
@@ -81,10 +116,16 @@ export default function OrdersPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  // Filters changed → the underlying result set changed, so any prior selection is stale.
+  // Filters changed → the underlying result set changed, so any prior selection is stale and we go back to page 1.
   useEffect(() => {
     setSelected(new Set());
-  }, [branchId, statusFilter, sourceFilter, typeFilter, paymentStatusFilter, search, fromDate, toDate]);
+    setPage(1);
+  }, [branchId, statusFilter, sourceFilter, typeFilter, paymentStatusFilter, search, fromDate, toDate, pageSize]);
+
+  // Selection only ever refers to the rows on screen.
+  useEffect(() => {
+    setSelected(new Set());
+  }, [page]);
 
   function buildQuery() {
     const params = new URLSearchParams();
@@ -99,29 +140,20 @@ export default function OrdersPage() {
     return params.toString();
   }
 
-  const { data: orders } = useQuery({
-    queryKey: ["admin-orders", branchId, statusFilter, sourceFilter, typeFilter, paymentStatusFilter, search, fromDate, toDate],
-    queryFn: () => api.get<Order[]>(`/staff/orders?${buildQuery()}`),
+  const { data: ordersPage } = useQuery({
+    queryKey: ["admin-orders", branchId, statusFilter, sourceFilter, typeFilter, paymentStatusFilter, search, fromDate, toDate, page, pageSize],
+    queryFn: () => api.get<{ items: Order[]; total: number; page: number; pageSize: number; pageCount: number }>(`/staff/orders/page?${buildQuery()}&page=${page}&pageSize=${pageSize}`),
     refetchInterval: 8000,
+    placeholderData: (prev) => prev,
   });
+  const orders = ordersPage?.items;
+  const total = ordersPage?.total ?? 0;
+  const pageCount = ordersPage?.pageCount ?? 1;
 
-  async function advance(order: Order) {
-    const next = NEXT_STATUS[order.status];
-    if (!next) return;
-    await api.patch(`/staff/orders/${order.id}/status`, { status: next });
-    await queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
-  }
-
-  async function cancel(order: Order) {
-    await api.patch(`/staff/orders/${order.id}/status`, { status: "CANCELLED" });
-    await queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
-  }
-
-  async function refund(order: Order) {
-    if (!confirm(`Refund order ${order.orderNumber}? This cannot be undone.`)) return;
-    await api.patch(`/staff/orders/${order.id}/status`, { status: "REFUNDED" });
-    await queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
-  }
+  // New orders arriving or filters narrowing can leave us past the last page — step back.
+  useEffect(() => {
+    if (ordersPage && page > ordersPage.pageCount) setPage(ordersPage.pageCount);
+  }, [ordersPage, page]);
 
   function toggleSelected(id: string) {
     setSelected((prev) => {
@@ -307,7 +339,6 @@ export default function OrdersPage() {
               <th className="px-4 py-2">Status</th>
               <th className="px-4 py-2">Rider</th>
               <th className="px-4 py-2">Date/Time</th>
-              <th className="px-4 py-2"></th>
             </tr>
           </thead>
           <tbody className="divide-y">
@@ -324,35 +355,70 @@ export default function OrdersPage() {
                   <span className={`rounded-full px-2 py-0.5 text-xs ${o.source === "POS" ? "bg-blue-50 text-blue-700" : "bg-purple-50 text-purple-700"}`}>{o.source}</span>
                 </td>
                 <td className="px-4 py-2">{o.branch.name}</td>
-                <td className="px-4 py-2">{o.type.replace(/_/g, " ")}</td>
+                <td className="px-4 py-2">
+                  <span className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium ${TYPE_COLOR[o.type] ?? "bg-neutral-100 text-neutral-600"}`}>{o.type.replace(/_/g, " ")}</span>
+                </td>
                 <td className="px-4 py-2">{formatPaisa(o.grandTotal)}</td>
                 <td className="px-4 py-2 text-xs">{o.paymentMethod} · {o.paymentStatus}</td>
                 <td className="px-4 py-2">
-                  <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs">{o.status}</span>
+                  <span className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_COLOR[o.status] ?? "bg-neutral-100 text-neutral-600"}`}>{o.status.replace(/_/g, " ")}</span>
                 </td>
                 <td className="px-4 py-2 text-xs text-neutral-500">{o.assignedRider?.name ?? "—"}</td>
                 <td className="px-4 py-2 text-xs text-neutral-500 whitespace-nowrap">{new Date(o.createdAt).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</td>
-                <td className="px-4 py-2 space-x-2 whitespace-nowrap">
-                  {NEXT_STATUS[o.status] && (
-                    <button onClick={() => advance(o)} className="text-xs font-medium text-brand-red">
-                      {o.status === "PENDING" && NEXT_STATUS[o.status] === "CONFIRMED" ? "Accept" : `Mark ${NEXT_STATUS[o.status]}`}
-                    </button>
-                  )}
-                  {!TERMINAL.has(o.status) && (
-                    <button onClick={() => cancel(o)} className="text-xs text-neutral-400">Cancel</button>
-                  )}
-                  {canRefund && o.paymentStatus !== "REFUNDED" && o.status !== "REFUNDED" && (
-                    <button onClick={() => refund(o)} className="text-xs text-red-600">Refund</button>
-                  )}
-                </td>
               </tr>
             ))}
             {orders?.length === 0 && (
-              <tr><td colSpan={12} className="px-4 py-8 text-center text-sm text-neutral-400">No orders match these filters.</td></tr>
+              <tr><td colSpan={11} className="px-4 py-8 text-center text-sm text-neutral-400">No orders match these filters.</td></tr>
             )}
           </tbody>
         </table>
       </div>
+
+      {total > 0 && (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm text-neutral-600">
+          <div className="flex items-center gap-3">
+            <span>
+              Showing <span className="font-semibold text-neutral-900">{(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)}</span> of{" "}
+              <span className="font-semibold text-neutral-900">{total}</span> orders
+            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-neutral-500">Per page</span>
+              <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
+                <SelectTrigger className="w-20"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {[50, 100, 200].map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {pageCount > 1 && (
+            <div className="flex items-center gap-1">
+              <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1} className="rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-medium hover:border-brand-red hover:text-brand-red disabled:opacity-40">
+                Previous
+              </button>
+              {pageNumbers(page, pageCount).map((n, i) =>
+                n === "…" ? (
+                  <span key={`gap-${i}`} className="px-1.5 text-neutral-400">…</span>
+                ) : (
+                  <button
+                    key={n}
+                    onClick={() => setPage(n)}
+                    className={`min-w-8 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition ${
+                      n === page ? "border-brand-red bg-brand-red text-white" : "border-neutral-300 hover:border-brand-red hover:text-brand-red"
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ),
+              )}
+              <button onClick={() => setPage((p) => Math.min(pageCount, p + 1))} disabled={page >= pageCount} className="rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-medium hover:border-brand-red hover:text-brand-red disabled:opacity-40">
+                Next
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {detailOrderId && <OrderDetailModal orderId={detailOrderId} onClose={() => setDetailOrderId(null)} onNavigateReceipt={(id) => router.push(`/pos/receipt/${id}`)} />}
     </div>

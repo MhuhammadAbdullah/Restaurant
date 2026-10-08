@@ -20,6 +20,13 @@ export class TablesController {
     return { success: true, data };
   }
 
+  @RequirePermission("tables.view")
+  @Get("overview")
+  async overview(@CurrentStaff() staff: StaffJwtPayload, @Query("branchId") branchId?: string) {
+    const data = await this.tables.overview(staff, branchId);
+    return { success: true, data };
+  }
+
   @RequirePermission("tables.create")
   @Post()
   async create(@CurrentStaff() staff: StaffJwtPayload, @Body(new ZodValidationPipe(createTableSchema)) body: CreateTableInput) {

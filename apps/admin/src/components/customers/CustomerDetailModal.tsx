@@ -77,7 +77,11 @@ export function CustomerDetailModal({ id, onClose }: { id: string; onClose: () =
   const { data: me } = useMe();
   const canAdjustLoyalty = hasPermission(me, "loyalty.adjust");
   const canBlockCustomers = hasPermission(me, "customers.block");
+  const canEditCustomers = hasPermission(me, "customers.edit");
 
+  const [editingEmail, setEditingEmail] = useState(false);
+  const [emailDraft, setEmailDraft] = useState("");
+  const [savingEmail, setSavingEmail] = useState(false);
   const [loyaltyPoints, setLoyaltyPoints] = useState(0);
   const [loyaltyNote, setLoyaltyNote] = useState("");
   const [detailOrderId, setDetailOrderId] = useState<string | null>(null);
@@ -119,6 +123,23 @@ export function CustomerDetailModal({ id, onClose }: { id: string; onClose: () =
       toast.error(e instanceof ApiError ? e.message : "Could not update customer status");
     } finally {
       setTogglingStatus(false);
+    }
+  }
+
+  async function saveEmail() {
+    const email = emailDraft.trim().toLowerCase();
+    if (!email) return;
+    setSavingEmail(true);
+    try {
+      await api.patch(`/staff/customers/${encodeURIComponent(id)}/email`, { email });
+      await queryClient.invalidateQueries({ queryKey: ["staff-customer"] });
+      await queryClient.invalidateQueries({ queryKey: ["staff-customers"] });
+      setEditingEmail(false);
+      toast.success("Email saved.");
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.message : "Could not save the email");
+    } finally {
+      setSavingEmail(false);
     }
   }
 
@@ -169,7 +190,39 @@ export function CustomerDetailModal({ id, onClose }: { id: string; onClose: () =
                           <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">Blocked</span>
                         )}
                       </div>
-                      <p className="mt-1 text-xs text-neutral-500">{detail.phone} {detail.email ? `· ${detail.email}` : ""}</p>
+                      <p className="mt-1 text-xs text-neutral-500">{detail.phone}</p>
+                      {editingEmail ? (
+                        <div className="mt-1.5 flex items-center gap-2">
+                          <input
+                            type="email"
+                            autoFocus
+                            value={emailDraft}
+                            onChange={(e) => setEmailDraft(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && void saveEmail()}
+                            placeholder="name@example.com"
+                            className="w-56 rounded-lg border border-neutral-300 px-2.5 py-1.5 text-xs focus:border-brand-red focus:outline-none"
+                          />
+                          <button onClick={saveEmail} disabled={savingEmail || !emailDraft.trim()} className="rounded-lg bg-brand-red px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">
+                            {savingEmail ? "Saving..." : "Save"}
+                          </button>
+                          <button onClick={() => setEditingEmail(false)} className="text-xs text-neutral-500 hover:text-neutral-800">Cancel</button>
+                        </div>
+                      ) : (
+                        <p className="mt-0.5 flex items-center gap-2 text-xs">
+                          {detail.email ? <span className="text-neutral-500">{detail.email}</span> : <span className="italic text-neutral-400">No email added</span>}
+                          {canEditCustomers && (
+                            <button
+                              onClick={() => {
+                                setEmailDraft(detail.email ?? "");
+                                setEditingEmail(true);
+                              }}
+                              className="font-medium text-brand-red hover:underline"
+                            >
+                              {detail.email ? "Edit" : "Add email"}
+                            </button>
+                          )}
+                        </p>
+                      )}
                       <p className="mt-1 text-xs text-neutral-400">{detail.orderCount} total orders · Since {formatDate(detail.createdAt)}</p>
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-1">

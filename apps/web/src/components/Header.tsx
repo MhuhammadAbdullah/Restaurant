@@ -14,7 +14,7 @@ import { useLocationStore } from "../store/useLocationStore";
 import { ContactPopover } from "./ContactPopover";
 import { CustomerNotificationBell } from "./CustomerNotificationBell";
 import { ThemeToggle } from "./ThemeToggle";
-import { ChevronDownIcon, ComplaintIcon, CloseIcon, PinIcon, UserIcon } from "./icons";
+import { ChevronDownIcon, ComplaintIcon, CloseIcon, PinSolidIcon, UserIcon } from "./icons";
 import { CART_ICON_URL } from "../lib/constants";
 import { Skeleton } from "./skeletons";
 
@@ -32,8 +32,8 @@ type RestaurantInfo = { name: string; logoUrl: string | null; header: HeaderConf
 const DEFAULT_HEADER: HeaderConfig = {
   deliveryButtonLabel: "Delivery from",
   pickupButtonLabel: "Pick-Up from",
-  contactButtonLabel: "Contact",
-  complaintButtonLabel: "Submit a Complaint",
+  contactButtonLabel: "Contact us",
+  complaintButtonLabel: "Submit Your Complaint",
   showCartIcon: true,
   showHamburgerIcon: true,
 };
@@ -47,7 +47,7 @@ export function Header() {
   const openCart = useCartDrawerStore((s) => s.open);
   const customer = useAuthStore((s) => s.customer);
   const openAuthModal = useAuthModalStore((s) => s.open);
-  const { branch, orderType, city, area, openChangeModal } = useLocationStore();
+  const { branch, orderType, area, openChangeModal } = useLocationStore();
   const count = items.reduce((s, i) => s + i.quantity, 0);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -62,67 +62,107 @@ export function Header() {
   if (NO_CHROME_PATHS.includes(pathname)) return null;
 
   const locationSubtitle = branch ? (orderType === "DELIVERY" ? area : branch.area) ?? "" : "";
-  const locationLabel = orderType === "DELIVERY" ? header.deliveryButtonLabel : header.pickupButtonLabel;
-
-  const navButtonClass =
-    "flex items-center gap-1.5 rounded-md bg-white px-3 py-2 text-xs font-medium text-black transition hover:bg-neutral-100 sm:text-sm";
 
   return (
     <>
-      <header className="relative z-20 bg-brand-red">
-        <div className="relative mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-4 sm:px-8">
-          <Link href="/" className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center">
-            {restaurantLoading ? (
-              <Skeleton className="h-10 w-28 rounded-md sm:h-12 sm:w-32" />
-            ) : restaurant?.logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={restaurant.logoUrl} alt={restaurant.name} className="h-14 w-auto object-contain sm:h-16" />
-            ) : (
-              <span className="font-display text-xl text-white sm:text-2xl">{restaurant?.name}</span>
-            )}
-          </Link>
-          <div className="flex items-center gap-2 sm:gap-3">
-            {branch && (
-              <button
-                onClick={openChangeModal}
-                className="flex items-center gap-1 rounded-lg bg-white px-1.5 py-1 text-left text-black transition hover:bg-neutral-100 sm:gap-2.5 sm:px-3.5 sm:py-2"
-              >
-                <PinIcon size={14} className="shrink-0 text-brand-red sm:hidden" />
-                <PinIcon size={20} className="hidden shrink-0 text-brand-red sm:block" />
-                <span className="flex min-w-0 flex-col leading-tight">
-                  <span className="flex items-center gap-0.5 text-xs font-semibold sm:gap-1 sm:text-sm">
-                    <span className="max-w-[62px] truncate sm:max-w-none">{locationLabel}</span>
-                    <ChevronDownIcon size={12} className="shrink-0 text-brand-red sm:hidden" />
-                    <ChevronDownIcon size={14} className="hidden shrink-0 text-brand-red sm:block" />
+      <header className="relative z-20 bg-page">
+        {/* awning scallops along the top edge: equal-size red and white half-dots side by side */}
+        <div
+          aria-hidden="true"
+          className="h-6 w-full"
+          style={{
+            backgroundImage: [
+              "radial-gradient(circle at 25% 0, #ED2320 0 14.5px, transparent 15px)",
+              "radial-gradient(circle at 75% 0, #ffffff 0 14.5px, rgba(0,0,0,0.18) 15px, transparent 20px)",
+            ].join(", "),
+            backgroundSize: "58px 24px",
+            backgroundRepeat: "repeat-x",
+          }}
+        />
+        <div className="mx-auto max-w-7xl px-3 pb-4 pt-7 sm:px-8 sm:pb-6 sm:pt-10">
+          <div className="relative flex h-14 items-center justify-between gap-2 rounded-full bg-surface-alt px-3 sm:h-16 sm:px-8">
+            <div className="flex min-w-0 items-center gap-2 sm:gap-4">
+              {branch && (
+                <button
+                  onClick={openChangeModal}
+                  className="flex min-w-0 items-center gap-1.5 rounded-xl border border-line bg-surface px-2 py-1.5 text-left text-ink transition hover:bg-surface-alt sm:gap-2 sm:px-2.5 sm:py-1.5"
+                >
+                  <PinSolidIcon size={22} className="shrink-0 text-brand-red sm:hidden" />
+                  <PinSolidIcon size={22} className="hidden shrink-0 text-brand-red sm:block" />
+                  <span className="flex min-w-0 flex-col leading-tight">
+                    <span className="flex items-center gap-1 text-xs font-semibold sm:text-sm">
+                      <span className="hidden sm:inline">Change Location</span>
+                      <span className="max-w-[70px] truncate sm:hidden">{locationSubtitle || "Location"}</span>
+                      <ChevronDownIcon size={14} className="ml-auto hidden shrink-0 text-brand-red sm:block" />
+                    </span>
+                    <span className="hidden max-w-[200px] truncate text-[11px] text-muted sm:block">{locationSubtitle}</span>
                   </span>
-                  <span className="block max-w-[90px] truncate text-[10px] text-black/60 sm:max-w-[200px] sm:text-xs">
-                    {locationSubtitle}
-                  </span>
-                </span>
-              </button>
-            )}
-            <ContactPopover triggerClassName={`hidden ${navButtonClass} sm:flex`} />
-          </div>
+                </button>
+              )}
+              <span aria-hidden="true" className="hidden h-7 w-px bg-line sm:block" />
+              <ContactPopover variant="pill" triggerClassName="flex items-center gap-2.5 text-ink" />
+            </div>
 
-          <div className="flex items-center gap-1.5 sm:gap-3">
-            <ContactPopover triggerClassName={`${navButtonClass} sm:hidden`} />
-            {customer && <CustomerNotificationBell />}
-            {header.showCartIcon && (
-              <button onClick={openCart} className="relative text-white" aria-label="Open cart">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={CART_ICON_URL} alt="Cart" className="h-8 w-8 object-contain" />
-                {count > 0 && (
-                  <span className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border-2 border-brand-red bg-white text-[10px] font-semibold text-brand-red">
+            <Link
+              href="/"
+              className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center"
+            >
+              {restaurantLoading ? (
+                <Skeleton className="h-16 w-28 rounded-md sm:h-24 sm:w-40" />
+              ) : restaurant?.logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={restaurant.logoUrl}
+                  alt={restaurant.name}
+                  className="h-20 w-auto max-w-[40vw] object-contain sm:h-[7.5rem]"
+                />
+              ) : (
+                <span className="font-display text-xl text-brand-red sm:text-2xl">{restaurant?.name}</span>
+              )}
+            </Link>
+
+            <div className="flex items-center gap-2 sm:gap-4">
+              <Link
+                href="/complaints"
+                className="hidden items-center gap-3 rounded-xl border border-line bg-surface px-3 py-1.5 text-ink transition hover:bg-surface-alt lg:flex"
+              >
+                <span className="flex flex-col leading-tight">
+                  <span className="text-sm font-semibold">{header.complaintButtonLabel}</span>
+                  <span className="text-[10px] text-muted">From Complaint to Care – Share With Us.</span>
+                </span>
+                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-brand-red/10 text-brand-red">
+                  <ComplaintIcon size={14} />
+                </span>
+              </Link>
+              <span aria-hidden="true" className="hidden h-7 w-px bg-line lg:block" />
+              {customer && <CustomerNotificationBell />}
+              {header.showCartIcon && (
+                <button onClick={openCart} className="relative" aria-label="Open cart">
+                  {/* The glyph is a white PNG, so tint it via a mask: red in light mode, white in dark. */}
+                  <span
+                    role="img"
+                    aria-label="Cart"
+                    className="block h-9 w-9 bg-brand-red dark:bg-white"
+                    style={{
+                      WebkitMask: `url(${CART_ICON_URL}) center / contain no-repeat`,
+                      mask: `url(${CART_ICON_URL}) center / contain no-repeat`,
+                    }}
+                  />
+                  <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-red px-1 text-[11px] font-semibold text-white">
                     {count}
                   </span>
-                )}
-              </button>
-            )}
-            {header.showHamburgerIcon && (
-              <button onClick={() => setMenuOpen(true)} className="text-white" aria-label="Open menu">
-                <FaBars size={22} />
-              </button>
-            )}
+                </button>
+              )}
+              {header.showHamburgerIcon && (
+                <button
+                  onClick={() => setMenuOpen(true)}
+                  className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-red/10 text-brand-red"
+                  aria-label="Open menu"
+                >
+                  <FaBars size={18} />
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -143,7 +183,7 @@ export function Header() {
         aria-label="Menu"
       >
         <div className="flex items-center justify-between">
-          <p className="font-display text-lg text-brand-red">Menu</p>
+          <p className="font-poppins text-lg font-semibold text-brand-black">{restaurant?.name}</p>
           <button onClick={() => setMenuOpen(false)} aria-label="Close menu">
             <CloseIcon size={20} />
           </button>
@@ -174,7 +214,7 @@ export function Header() {
           onClick={() => setMenuOpen(false)}
           className="flex items-center gap-2 rounded-lg border border-line px-3 py-2.5 text-sm"
         >
-          <ComplaintIcon size={16} /> Complaint
+          <ComplaintIcon size={14} /> Complaint
         </Link>
 
         <ThemeToggle className="justify-start" />

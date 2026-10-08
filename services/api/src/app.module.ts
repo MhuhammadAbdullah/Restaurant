@@ -59,8 +59,10 @@ import { validateEnv } from "./config/env.schema";
     KitchenModule,
     ComplaintsModule,
     ReportsModule,
-    StaffModule,
+    // RidersModule must be registered BEFORE StaffModule: StaffController has `GET /staff/:id`, which would
+    // otherwise swallow `GET /staff/riders` (treating "riders" as a staff id → STAFF_NOT_FOUND).
     RidersModule,
+    StaffModule,
     NotificationsModule,
     AuditLogModule,
     RealtimeModule,

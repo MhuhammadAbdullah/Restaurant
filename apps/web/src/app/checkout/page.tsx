@@ -10,8 +10,16 @@ import { useAuthModalStore } from "../../store/useAuthModalStore";
 import { useCartStore } from "../../store/useCartStore";
 import { useLocationStore } from "../../store/useLocationStore";
 import type { CartDealItem, CartProductItem } from "../../lib/types";
-import { ArrowLeftIcon, GiftIcon, TruckIcon, CashIcon, CardIcon, PinIcon, PhoneIcon } from "../../components/icons";
+import { FaCheck, FaFileInvoiceDollar, FaTag } from "react-icons/fa6";
+import { FiShoppingBag } from "react-icons/fi";
+import { ArrowLeftIcon, CalculatorIcon, ChevronDownIcon, GiftIcon, PinIcon, TruckIcon } from "../../components/icons";
 import { Skeleton } from "../../components/skeletons";
+
+const DELIVERY_BIKE_ICON_URL = "https://res.cloudinary.com/dgkd8jw6a/image/upload/v1791459488/Delivery-Bike_l7f4t9.webp";
+const CASH_ICON_URL = "https://res.cloudinary.com/dgkd8jw6a/image/upload/v1791460707/cash-icon_pirfsz.webp";
+const CARDS_ICON_URL = "https://res.cloudinary.com/dgkd8jw6a/image/upload/v1791460716/cards-icon_bi1doe.webp";
+const PICKUP_BAG_ICON_URL = "https://res.cloudinary.com/dgkd8jw6a/image/upload/v1791460268/pickup_jgclok.webp";
+const PICKUP_TILE_ICON_URL = "https://res.cloudinary.com/dgkd8jw6a/image/upload/v1791460276/pickup-icon_auxxw7.webp";
 import { toast } from "../../store/useToastStore";
 
 type Address = { id: string; label: string; city: string; area: string; addressLine: string; isDefault: boolean };
@@ -62,6 +70,8 @@ export default function CheckoutPage() {
   const [isGift, setIsGift] = useState(false);
   const [gift, setGift] = useState({ recipientName: "", recipientPhone: "", recipientAddress: "", recipientCity: "", recipientArea: "", message: "" });
   const [paymentMethod, setPaymentMethod] = useState<"COD" | "ONLINE">("COD");
+  const [showAllItems, setShowAllItems] = useState(false);
+  const [orderPlaced, setOrderPlaced] = useState(false);
   const [changeRequest, setChangeRequest] = useState("");
   const [useLoyalty, setUseLoyalty] = useState(false);
   const [couponCode, setCouponCode] = useState("");
@@ -115,6 +125,18 @@ export default function CheckoutPage() {
       router.push("/");
     }
   }, [hasHydrated, items.length, isBranchOpen, router]);
+
+  // Once the order is accepted the cart is cleared, which would otherwise collapse this page to
+  // nothing until the next route (receipt / payment gateway) finishes loading. Cover that gap.
+  if (orderPlaced) {
+    return (
+      <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center gap-4 bg-page">
+        <span className="h-12 w-12 animate-spin rounded-full border-4 border-brand-red/20 border-t-brand-red" />
+        <p className="text-base font-semibold text-ink">Order placed!</p>
+        <p className="-mt-2 text-sm text-muted">Please wait a moment...</p>
+      </div>
+    );
+  }
 
   if (!hasHydrated || !authHasHydrated || items.length === 0 || !isBranchOpen) {
     return null;
@@ -218,6 +240,7 @@ export default function CheckoutPage() {
         ? await api.post<{ order: { orderNumber: string }; paymentRedirectUrl?: string }>("/orders", body)
         : await api.public.post<{ order: { orderNumber: string }; paymentRedirectUrl?: string }>("/orders/guest", body);
       orderPlacedRef.current = true;
+      setOrderPlaced(true);
       clear();
       if (result.paymentRedirectUrl) {
         toast.info("Redirecting to payment gateway...");
@@ -241,24 +264,72 @@ export default function CheckoutPage() {
     <main className="mx-auto max-w-6xl px-4 py-8 sm:px-8">
       <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
         <div className="rounded-2xl border border-line bg-surface p-5 sm:p-6">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h1 className="text-xl font-semibold text-ink">Checkout</h1>
-              <p className="mt-1 flex items-center gap-1.5 text-sm text-muted">
-                This is a <span className="font-semibold text-ink">{orderType === "DELIVERY" ? "Delivery" : "Pick-Up"} Order</span>
-                <TruckIcon size={16} className="text-brand-red" />
-              </p>
-              <p className="mt-0.5 text-xs text-muted">Just a last step, please enter your details:</p>
-            </div>
+          <div className="flex items-center justify-between gap-4">
+            <h1 className="text-xl font-semibold text-ink">Checkout</h1>
             <button
               type="button"
               onClick={() => setIsGift((g) => !g)}
-              className={`flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold transition ${
-                isGift ? "border-green-600 bg-green-50 text-green-700" : "border-line text-ink hover:border-green-600 hover:text-green-700"
+              className={`flex shrink-0 items-center gap-2.5 rounded-full border px-5 py-2.5 text-sm font-medium transition ${
+                isGift ? "border-green-600 bg-green-50 text-green-700" : "border-line bg-surface text-ink hover:border-green-600"
               }`}
             >
-              Send as a Gift <GiftIcon size={15} />
+              <GiftIcon size={18} className="shrink-0 animate-gift-bounce text-green-600" />
+              Send as a Gift
             </button>
+          </div>
+
+          {orderType !== "DELIVERY" && (
+            <div className="mt-3 rounded-2xl border border-line bg-surface p-4 shadow-sm sm:p-5">
+              <p className="flex items-center gap-2 text-sm text-muted">
+                This is a <span className="font-semibold uppercase text-ink">Takeaway Order</span>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={PICKUP_BAG_ICON_URL} alt="" className="h-7 w-7 object-contain" />
+              </p>
+              <p className="mt-3 text-sm text-muted">You have to collect your order from</p>
+              <p className="mt-1.5 text-base font-semibold text-ink">{branch?.name ?? "your selected branch"}</p>
+              {branch?.address && (
+                <>
+                  <p className="mt-1 text-sm text-muted">
+                    <span className="font-semibold text-muted">Location:</span> {branch.address}
+                  </p>
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(branch.address)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-0.5 inline-flex items-center gap-1.5 text-sm text-ink hover:text-brand-red"
+                  >
+                    View Location <PinIcon size={14} className="text-brand-red" />
+                  </a>
+                </>
+              )}
+              {branch?.phone && (
+                <p className="mt-3 text-sm text-muted">
+                  <span className="font-semibold text-muted">Phone:</span> <span className="text-ink">{branch.phone}</span>
+                </p>
+              )}
+            </div>
+          )}
+          <div className="mt-3 flex items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-alt">
+              {orderType === "DELIVERY" ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={DELIVERY_BIKE_ICON_URL} alt="" className="h-5 w-5 object-contain" />
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={PICKUP_TILE_ICON_URL} alt="" className="h-5 w-5 object-contain" />
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="flex flex-wrap items-center gap-2 text-sm text-muted">
+                This is a
+                <span className="rounded-full bg-brand-red px-3 py-0.5 text-xs font-semibold text-white">
+                  {orderType === "DELIVERY" ? "Delivery" : "Pickup"} Order
+                </span>
+              </p>
+              <p className={`mt-0.5 text-xs text-muted ${orderType === "DELIVERY" ? "" : "uppercase tracking-wide"}`}>
+                {orderType === "DELIVERY" ? "Just a last step, please enter your details:" : "Just a last step, please fill your information below"}
+              </p>
+            </div>
           </div>
 
           {!customer && (
@@ -288,96 +359,95 @@ export default function CheckoutPage() {
 
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <Field label="Mobile Number" required>
-              <input value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} placeholder="03XXXXXXXXX" className="input" required />
+              <input value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} placeholder="03xx-xxxxxxx" className="input" required />
             </Field>
             <Field label="Alternate Mobile Number">
               <input
                 value={contactAlternatePhone}
                 onChange={(e) => setContactAlternatePhone(e.target.value)}
-                placeholder="03XXXXXXXXX"
+                placeholder="03xx-xxxxxxx"
                 className="input"
               />
             </Field>
           </div>
 
-          {orderType === "DELIVERY" && (
-            <div className="mt-4">
-              <Field label="Delivery Address" required>
-                {customer && addressesLoading ? (
-                  <Skeleton className="h-10 w-full rounded-lg" />
-                ) : customer && addresses && addresses.length > 0 ? (
-                  <select value={addressId} onChange={(e) => setAddressId(e.target.value)} className="input">
-                    {addresses.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.label}: {a.addressLine}
-                      </option>
-                    ))}
-                  </select>
-                ) : needsCustomAddress ? (
-                  <p className="text-sm text-muted">
-                    No saved addresses. <a href="/account/addresses" className="text-brand-red">Add one</a> before checking out.
-                  </p>
-                ) : (
-                  <div className="relative">
-                    <input
-                      value={guestAddress.addressLine}
-                      onChange={(e) => setGuestAddress({ ...guestAddress, addressLine: e.target.value })}
-                      placeholder="Enter your complete address"
-                      className="input pr-24"
-                      required
-                    />
-                    {area && (
-                      <span className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-md bg-surface-alt px-2.5 py-1.5 text-xs font-medium text-ink">
-                        {area}
-                      </span>
-                    )}
-                  </div>
-                )}
-              </Field>
-            </div>
+          {orderType === "DELIVERY" ? (
+            <>
+              <div className="mt-4 rounded-2xl border border-line p-4">
+                <Field label="Delivery Address" required>
+                  {customer && addressesLoading ? (
+                    <Skeleton className="h-12 w-full rounded-xl" />
+                  ) : customer && addresses && addresses.length > 0 ? (
+                    <select value={addressId} onChange={(e) => setAddressId(e.target.value)} className="input">
+                      {addresses.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.label}: {a.addressLine}
+                        </option>
+                      ))}
+                    </select>
+                  ) : needsCustomAddress ? (
+                    <p className="text-sm text-muted">
+                      No saved addresses. <a href="/account/addresses" className="text-brand-red">Add one</a> before checking out.
+                    </p>
+                  ) : (
+                    <div className="flex items-stretch overflow-hidden rounded-xl border border-line bg-surface focus-within:border-brand-red">
+                      <input
+                        value={guestAddress.addressLine}
+                        onChange={(e) => setGuestAddress({ ...guestAddress, addressLine: e.target.value })}
+                        placeholder="Enter your complete address"
+                        className="min-w-0 flex-1 bg-transparent px-5 py-3.5 text-sm text-ink placeholder:text-muted placeholder:opacity-70 focus:outline-none"
+                        required
+                      />
+                      {area && (
+                        <span className="flex items-center border-l border-line bg-surface-alt px-5 text-sm font-semibold text-ink">
+                          {area}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </Field>
+              </div>
+
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <Field label="Nearest Landmark">
+                  <input
+                    value={guestAddress.landmark}
+                    onChange={(e) => setGuestAddress({ ...guestAddress, landmark: e.target.value })}
+                    placeholder="any famous place nearby"
+                    className="input"
+                  />
+                </Field>
+                <Field label="Email Address">
+                  <input type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="Enter your email" className="input" />
+                </Field>
+              </div>
+
+              <div className="mt-4">
+                <Field label="Delivery Instructions">
+                  <input
+                    value={specialInstructions}
+                    onChange={(e) => setSpecialInstructions(e.target.value)}
+                    placeholder="Delivery Instructions"
+                    className="input"
+                  />
+                </Field>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="mt-4">
+                <Field label="Pickup Notes">
+                  <input value={specialInstructions} onChange={(e) => setSpecialInstructions(e.target.value)} className="input" />
+                </Field>
+              </div>
+
+              <div className="mt-4">
+                <Field label="Email Address">
+                  <input type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="Enter your email" className="input" />
+                </Field>
+              </div>
+            </>
           )}
-
-          {orderType !== "DELIVERY" && (
-            <div className="mt-4 rounded-lg border border-line bg-surface-alt p-3 text-sm">
-              <p className="flex items-center gap-1.5 font-medium text-ink">
-                <PinIcon size={16} className="text-brand-red" /> Pickup from {branch?.name ?? "your selected branch"}
-              </p>
-              {branch?.address && <p className="mt-1 text-xs text-muted">{branch.address}</p>}
-              {branch?.phone && (
-                <p className="mt-1 flex items-center gap-1 text-xs text-muted">
-                  <PhoneIcon size={11} /> {branch.phone}
-                </p>
-              )}
-              <p className="mt-2 text-xs text-muted">You'll collect this order yourself from the branch, so no delivery address is needed.</p>
-            </div>
-          )}
-
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            {orderType === "DELIVERY" && (
-              <Field label="Nearest Landmark">
-                <input
-                  value={guestAddress.landmark}
-                  onChange={(e) => setGuestAddress({ ...guestAddress, landmark: e.target.value })}
-                  placeholder="any famous place nearby"
-                  className="input"
-                />
-              </Field>
-            )}
-            <Field label="Email Address">
-              <input type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="Enter your email" className="input" />
-            </Field>
-          </div>
-
-          <div className="mt-4">
-            <Field label="Delivery Instructions">
-              <input
-                value={specialInstructions}
-                onChange={(e) => setSpecialInstructions(e.target.value)}
-                placeholder="Delivery Instructions"
-                className="input"
-              />
-            </Field>
-          </div>
 
           {isGift && (
             <div className="mt-4 space-y-3 rounded-lg border border-brand-red/30 p-3">
@@ -400,48 +470,51 @@ export default function CheckoutPage() {
             </div>
           )}
 
-          <div className="mt-5">
-            <p className="text-sm font-medium text-ink">Payment Information</p>
-            <div className="mt-2 grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                disabled={isGift}
-                onClick={() => setPaymentMethod("COD")}
-                className={`flex flex-col items-center gap-2 rounded-xl border-2 py-4 text-sm font-medium text-ink transition disabled:opacity-40 ${
-                  paymentMethod === "COD" ? "border-green-600" : "border-line"
-                }`}
-              >
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-green-600 text-white">
-                  <CashIcon size={16} />
-                </span>
-                Cash on Delivery
-              </button>
-              <button
-                type="button"
-                onClick={() => setPaymentMethod("ONLINE")}
-                className={`flex flex-col items-center gap-2 rounded-xl border-2 py-4 text-sm font-medium text-ink transition ${
-                  paymentMethod === "ONLINE" ? "border-brand-red" : "border-line"
-                }`}
-              >
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-red text-white">
-                  <CardIcon size={16} />
-                </span>
-                Online Payment
-              </button>
+          <div className="mt-6 border-t border-line pt-6">
+            <p className="text-base font-semibold text-ink">Payment Information</p>
+            <div className="mt-4 flex flex-wrap gap-3">
+              {(
+                [
+                  { key: "COD", label: orderType === "DELIVERY" ? "Cash on Delivery" : "Pay at Pickup", icon: CASH_ICON_URL, disabled: isGift },
+                  { key: "ONLINE", label: "Online Payment", icon: CARDS_ICON_URL, disabled: false },
+                ] as const
+              ).map((opt) => {
+                const selected = paymentMethod === opt.key;
+                return (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    disabled={opt.disabled}
+                    onClick={() => setPaymentMethod(opt.key)}
+                    className={`relative flex w-44 flex-col items-center gap-3 rounded-xl border-2 px-4 py-5 text-sm font-medium text-ink transition disabled:opacity-40 ${
+                      selected ? "border-brand-red bg-brand-red/10 shadow-md" : "border-line bg-surface hover:border-brand-red/40"
+                    }`}
+                  >
+                    {selected && (
+                      <span className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-brand-red text-white shadow">
+                        <FaCheck size={11} />
+                      </span>
+                    )}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={opt.icon} alt="" className="h-9 w-auto max-w-[72px] object-contain" />
+                    {opt.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
           {paymentMethod === "COD" && (
             <div className="mt-4">
               <Field label="Change Request">
-                <div className="flex overflow-hidden rounded-lg border border-line">
-                  <span className="flex items-center bg-surface-alt px-3 text-sm text-muted">Rs.</span>
+                <div className="flex overflow-hidden rounded-xl border border-line focus-within:border-brand-red">
+                  <span className="flex items-center bg-surface-alt px-5 text-sm text-muted">Rs.</span>
                   <input
                     type="number"
                     placeholder="500"
                     value={changeRequest}
                     onChange={(e) => setChangeRequest(e.target.value)}
-                    className="w-full border-0 bg-transparent px-3 py-2.5 text-sm text-ink focus:outline-none"
+                    className="w-full border-0 bg-transparent px-3 py-3.5 text-sm text-ink focus:outline-none"
                   />
                 </div>
               </Field>
@@ -451,15 +524,36 @@ export default function CheckoutPage() {
         </div>
 
         <div className="h-fit rounded-2xl border border-line bg-surface p-5 lg:sticky lg:top-6">
-          <div className="space-y-2 text-sm">
-            {items.map((i) => (
-              <div key={i.cartItemId} className="flex justify-between font-medium text-muted">
-                <span>
-                  {i.quantity} x {i.name}
-                </span>
-                <span className="font-semibold text-ink">{formatPaisa(i.kind === "product" ? i.unitPrice * i.quantity : i.dealPrice * i.quantity)}</span>
+          <div className="space-y-3">
+            {(showAllItems ? items : items.slice(0, 3)).map((i) => (
+              <div key={i.cartItemId} className="flex items-center gap-3 rounded-xl border border-line p-3 transition duration-200 hover:border-brand-red/30 hover:shadow-lg">
+                <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-surface-alt">
+                  {i.image && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={i.image} alt="" className="h-full w-full object-cover" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[15px] font-semibold text-ink">
+                    <span className="mr-1.5 text-xs font-semibold text-muted">{i.quantity} x</span>
+                    {i.name}
+                  </p>
+                  <p className="mt-1 font-semibold text-brand-red">
+                    {formatPaisa(i.kind === "product" ? i.unitPrice * i.quantity : i.dealPrice * i.quantity)}
+                  </p>
+                </div>
               </div>
             ))}
+            {items.length > 3 && (
+              <button
+                type="button"
+                onClick={() => setShowAllItems((v) => !v)}
+                className="mx-auto flex items-center gap-1.5 pt-1 text-sm font-medium text-brand-red"
+              >
+                {showAllItems ? "View Less" : `View More (${items.length - 3} more)`}
+                <ChevronDownIcon size={14} className={showAllItems ? "rotate-180" : ""} />
+              </button>
+            )}
           </div>
 
           <div className="mt-4 border-t border-line pt-4">
@@ -495,61 +589,59 @@ export default function CheckoutPage() {
             {couponError && <p className="mt-1.5 text-xs text-red-600">{couponError}</p>}
           </div>
 
-          <div className="mt-4 border-t border-line pt-4">
-            <p className="font-semibold text-ink">Your Order</p>
-            <div className="mt-2 space-y-1.5 text-sm">
-              <div className="flex justify-between font-medium text-muted">
-                <span>Total</span>
-                <span className="font-semibold text-ink">{formatPaisa(subtotal)}</span>
+          <div className="mt-5 rounded-xl border border-line bg-surface-alt p-5">
+            <div className="space-y-4 text-sm font-medium text-ink">
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-3">
+                  <CalculatorIcon size={17} className="text-brand-red" /> Total
+                </span>
+                <span className="font-semibold">{formatPaisa(subtotal)}</span>
               </div>
-              <div className="flex justify-between font-medium text-muted">
-                <span>Tax 15%</span>
-                <span className="font-semibold text-ink">{formatPaisa(estimatedTax)}</span>
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-3">
+                  <FaFileInvoiceDollar size={17} className="text-brand-red" /> Tax (15%)
+                </span>
+                <span className="font-semibold">{formatPaisa(estimatedTax)}</span>
               </div>
               {orderType === "DELIVERY" && (
-                <div className="flex justify-between font-medium text-muted">
-                  <span>Delivery Fee</span>
-                  <span className="font-semibold text-ink">{formatPaisa(deliveryFee)}</span>
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-3">
+                    <TruckIcon size={17} className="text-brand-red" /> Delivery Fee
+                  </span>
+                  <span className="font-semibold">{formatPaisa(deliveryFee)}</span>
                 </div>
               )}
               {appliedCoupon && (
-                <div className="flex justify-between font-medium text-green-700">
-                  <span>Discount ({appliedCoupon.code})</span>
-                  <span>-{formatPaisa(couponDiscount)}</span>
+                <div className="flex items-center justify-between text-green-700">
+                  <span className="flex items-center gap-3">
+                    <FaTag size={16} /> Discount ({appliedCoupon.code})
+                  </span>
+                  <span className="font-semibold">-{formatPaisa(couponDiscount)}</span>
                 </div>
               )}
-              <div className="flex justify-between border-t border-line pt-1.5 text-base font-bold text-ink">
-                <span>Grand Total</span>
-                <span className="text-brand-red">{formatPaisa(estimatedGrandTotal)}</span>
-              </div>
             </div>
-            <p className="mt-2 text-[11px] text-muted">Final total incl. any discounts is calculated when you place the order.</p>
+            <div className="mt-5 flex items-center justify-between border-t border-line pt-5">
+              <span className="text-base font-bold text-ink">Grand Total</span>
+              <span className="text-xl font-bold text-brand-red">{formatPaisa(estimatedGrandTotal)}</span>
+            </div>
           </div>
+          <p className="mt-2 text-[11px] text-muted">Final total incl. any discounts is calculated when you place the order.</p>
 
-          <button
-            onClick={placeOrder}
-            disabled={submitting || (orderType === "DELIVERY" && (needsCustomAddress || guestAddressIncomplete))}
-            className="mt-4 w-full rounded-xl bg-brand-red py-3.5 font-semibold text-white disabled:opacity-60"
-          >
-            {submitting ? "Placing Order..." : "Place Order"}
-          </button>
-          <button onClick={() => router.push("/")} className="mt-3 flex w-full items-center justify-center gap-1.5 text-center text-sm font-medium text-brand-red">
-            <ArrowLeftIcon size={12} /> continue to add more items
-          </button>
+          <div className="mt-5 border-t border-line pt-5">
+            <button
+              onClick={placeOrder}
+              disabled={submitting || (orderType === "DELIVERY" && (needsCustomAddress || guestAddressIncomplete))}
+              className="flex w-full items-center justify-center gap-2.5 rounded-lg bg-brand-red py-3.5 font-semibold text-white shadow-md transition hover:opacity-95 disabled:opacity-60"
+            >
+              <FiShoppingBag size={20} />
+              {submitting ? "Placing Order..." : "Place Order"}
+            </button>
+            <button onClick={() => router.push("/")} className="mt-4 flex w-full items-center justify-center gap-1.5 text-center text-sm font-medium text-brand-red">
+              <ArrowLeftIcon size={12} /> continue to add more items
+            </button>
+          </div>
         </div>
       </div>
-
-      <style jsx global>{`
-        .input {
-          width: 100%;
-          border-radius: 0.5rem;
-          border: 1px solid var(--color-line);
-          padding: 0.6rem 0.75rem;
-          font-size: 0.875rem;
-          background: transparent;
-          color: inherit;
-        }
-      `}</style>
     </main>
   );
 }
@@ -557,9 +649,9 @@ export default function CheckoutPage() {
 function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
     <div>
-      <div className="mb-1 flex items-center justify-between">
-        <label className="block text-sm font-medium text-ink">{label}</label>
-        {required && <span className="text-xs font-semibold text-brand-red">*Required</span>}
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <label className="block text-[15px] font-semibold text-ink">{label}</label>
+        {required && <span className="rounded-full bg-brand-red/10 px-3 py-1 text-xs font-medium text-brand-red">*Required</span>}
       </div>
       {children}
     </div>

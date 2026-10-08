@@ -1,4 +1,5 @@
 import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import type { Prisma } from "@restaurant/database";
 import type { StaffJwtPayload } from "@restaurant/auth";
 import { PrismaService } from "../../common/prisma/prisma.service";
 import { RestaurantContextService } from "../../common/restaurant/restaurant-context.service";
@@ -32,6 +33,13 @@ function collectionStatus(order: { paymentMethod: string; status: string }): "PA
   return isDelivered(order.status) ? "COLLECTED" : "PENDING";
 }
 
+/** Delivered cash-on-delivery orders whose cash an admin has not yet received — the rider is still holding that money. */
+const UNSETTLED_COD_WHERE: Prisma.OrderWhereInput = {
+  paymentMethod: "COD",
+  status: { in: ["DELIVERED", "COMPLETED"] },
+  paymentStatus: { notIn: ["PAID", "REFUNDED"] },
+};
+
 const DELIVERY_SELECT = {
   id: true,
   orderNumber: true,
@@ -56,9 +64,11 @@ const DELIVERY_SELECT = {
   collectionSubmissionId: true,
 } as const;
 
-function toDeliveryDto(o: Record<string, unknown> & { paymentMethod: string; status: string; collectionSubmissionId: string | null }) {
+function toDeliveryDto(o: Record<string, unknown> & { paymentMethod: string; paymentStatus?: string; status: string; collectionSubmissionId: string | null }) {
   return {
     ...o,
+    // For COD this only becomes true once an admin has received the rider's cash (see OrdersService.settleCodCash).
+    isSettled: o.paymentStatus === "PAID",
     collectionStatus: collectionStatus(o as { paymentMethod: string; status: string }),
     isSubmitted: o.collectionSubmissionId !== null,
   };
@@ -134,6 +144,12 @@ export class RidersService {
       this.prisma.order.groupBy({ by: ["assignedRiderId"], where: { assignedRiderId: { in: riderIds } }, _count: { _all: true } }),
       this.prisma.order.groupBy({ by: ["assignedRiderId"], where: { assignedRiderId: { in: riderIds }, status: { in: [...DELIVERED_STATUSES] } }, _count: { _all: true } }),
     ]);
+    const unsettled = await this.prisma.order.groupBy({
+      by: ["assignedRiderId"],
+      where: { assignedRiderId: { in: riderIds }, ...UNSETTLED_COD_WHERE },
+      _sum: { grandTotal: true },
+    });
+    const unsettledById = new Map(unsettled.map((u) => [u.assignedRiderId, u._sum.grandTotal ?? 0]));
     const assignedById = new Map(assignedCounts.map((c) => [c.assignedRiderId, c._count._all]));
     const completedById = new Map(completedCounts.map((c) => [c.assignedRiderId, c._count._all]));
 
@@ -145,6 +161,7 @@ export class RidersService {
       branches: r.branchAssignments.map((a) => a.branch),
       assignedOrders: assignedById.get(r.id) ?? 0,
       completedOrders: completedById.get(r.id) ?? 0,
+      unsettledAmount: unsettledById.get(r.id) ?? 0,
     }));
   }
 
@@ -227,13 +244,13 @@ export class RidersService {
 
     const orders = await this.prisma.order.findMany({
       where: { assignedRiderId: riderId, riderAssignedAt: dateRange },
-      select: { status: true, paymentMethod: true, grandTotal: true, collectionSubmissionId: true },
+      select: { status: true, paymentMethod: true, paymentStatus: true, grandTotal: true, collectionSubmissionId: true },
     });
 
     const cod = orders.filter((o) => o.paymentMethod === "COD" && !isCancelled(o.status));
     const codDelivered = cod.filter((o) => isDelivered(o.status));
     const codPending = cod.filter((o) => !isDelivered(o.status));
-    const codDeliveredUnsubmitted = codDelivered.filter((o) => !o.collectionSubmissionId);
+    const codDeliveredUnsubmitted = codDelivered.filter((o) => !o.collectionSubmissionId && o.paymentStatus !== "PAID");
     const paidOrders = orders.filter((o) => o.paymentMethod !== "COD" && !isCancelled(o.status));
 
     return {
@@ -243,6 +260,8 @@ export class RidersService {
       collectedAmount: codDeliveredUnsubmitted.reduce((s, o) => s + o.grandTotal, 0),
       pendingAmount: codPending.reduce((s, o) => s + o.grandTotal, 0),
       alreadySubmittedAmount: codDelivered.filter((o) => o.collectionSubmissionId).reduce((s, o) => s + o.grandTotal, 0),
+      settledAmount: codDelivered.filter((o) => o.paymentStatus === "PAID").reduce((s, o) => s + o.grandTotal, 0),
+      unsettledAmount: codDelivered.filter((o) => o.paymentStatus !== "PAID").reduce((s, o) => s + o.grandTotal, 0),
       paidOrderCount: paidOrders.length,
       paidAmount: paidOrders.reduce((s, o) => s + o.grandTotal, 0),
     };
@@ -266,7 +285,7 @@ export class RidersService {
     const dateRange = dateStr ? this.resolveDateRange({ date: dateStr }) : undefined;
     const [codDeliveredUnsubmitted, codPending] = await Promise.all([
       this.prisma.order.findMany({
-        where: { assignedRiderId: staff.sub, paymentMethod: "COD", status: { in: [...DELIVERED_STATUSES] }, collectionSubmissionId: null, ...(dateRange ? { riderAssignedAt: dateRange } : {}) },
+        where: { assignedRiderId: staff.sub, paymentMethod: "COD", status: { in: [...DELIVERED_STATUSES] }, paymentStatus: { notIn: ["PAID", "REFUNDED"] }, collectionSubmissionId: null, ...(dateRange ? { riderAssignedAt: dateRange } : {}) },
         select: { id: true, grandTotal: true },
       }),
       this.prisma.order.findMany({
@@ -300,6 +319,50 @@ export class RidersService {
       });
       return submission;
     });
+  }
+
+  /**
+   * Every delivered COD order (any date) whose cash this rider still owes the restaurant, oldest first.
+   * This is the fraud-control view: an order only leaves this list when an admin confirms they received the cash.
+   */
+  async unsettled(staff: StaffJwtPayload, riderId: string) {
+    await this.assertRiderAccess(staff, riderId);
+    const orders = await this.prisma.order.findMany({
+      where: { assignedRiderId: riderId, ...UNSETTLED_COD_WHERE },
+      select: {
+        id: true,
+        orderNumber: true,
+        grandTotal: true,
+        paymentStatus: true,
+        updatedAt: true,
+        contactName: true,
+        customer: { select: { name: true } },
+        collectionSubmissionId: true,
+        payments: { select: { status: true, amount: true } },
+      },
+      orderBy: { updatedAt: "asc" },
+      take: 500,
+    });
+
+    const rows = orders.map((o) => {
+      const paid = o.payments.filter((p) => p.status === "PAID").reduce((s, p) => s + p.amount, 0);
+      return {
+        id: o.id,
+        orderNumber: o.orderNumber,
+        customerName: o.contactName ?? o.customer?.name ?? "Guest",
+        amount: Math.max(0, o.grandTotal - paid),
+        deliveredAt: o.updatedAt,
+        handedIn: o.collectionSubmissionId !== null,
+      };
+    });
+    return {
+      orderCount: rows.length,
+      totalAmount: rows.reduce((s, r) => s + r.amount, 0),
+      handedInAmount: rows.filter((r) => r.handedIn).reduce((s, r) => s + r.amount, 0),
+      notHandedInAmount: rows.filter((r) => !r.handedIn).reduce((s, r) => s + r.amount, 0),
+      oldestDeliveredAt: rows[0]?.deliveredAt ?? null,
+      orders: rows,
+    };
   }
 
   async collectionSubmissions(staff: StaffJwtPayload, riderId: string, filters: { from?: string; to?: string } = {}) {

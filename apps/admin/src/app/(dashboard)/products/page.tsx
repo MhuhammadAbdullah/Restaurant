@@ -15,6 +15,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 
 const PAGE_SIZE = 20;
 
+type ProductTag = "HOUSE_FAVORITE" | "NEW_ARRIVAL" | "BEST_SELLER";
+const PRODUCT_TAG_LABELS: Record<ProductTag, string> = {
+  HOUSE_FAVORITE: "House Favorite",
+  NEW_ARRIVAL: "New Arrival",
+  BEST_SELLER: "Best Seller",
+};
 type Category = { id: string; name: string; mainPageLimit: number | null };
 type ChoiceOption = { id: string; name: string; status: "ACTIVE" | "INACTIVE" };
 type ChoiceGroup = { id: string; name: string; isRequired: boolean; minSelect: number; maxSelect: number; options: ChoiceOption[] };
@@ -28,6 +34,7 @@ type Product = {
   status: "ACTIVE" | "INACTIVE";
   isFeatured: boolean;
   isPopular: boolean;
+  tag: ProductTag | null;
   isCartRecommendable: boolean;
   showOnMainPage: boolean;
   mainPageSortOrder: number;
@@ -56,6 +63,7 @@ const EMPTY_FORM = {
   images: [] as string[],
   isFeatured: false,
   isPopular: false,
+  tag: "NONE" as ProductTag | "NONE",
   isCartRecommendable: false,
   showOnMainPage: false,
   mainPageSortOrder: 0,
@@ -132,6 +140,7 @@ export default function ProductsPage() {
       images: detail.images.map((i) => i.url),
       isFeatured: p.isFeatured,
       isPopular: p.isPopular,
+      tag: p.tag ?? "NONE",
       isCartRecommendable: p.isCartRecommendable,
       showOnMainPage: p.showOnMainPage,
       mainPageSortOrder: p.mainPageSortOrder,
@@ -170,6 +179,7 @@ export default function ProductsPage() {
         images: form.images,
         isFeatured: form.isFeatured,
         isPopular: form.isPopular,
+        tag: form.tag === "NONE" ? null : form.tag,
         isCartRecommendable: form.isCartRecommendable,
         showOnMainPage: form.showOnMainPage,
         mainPageSortOrder: form.mainPageSortOrder,
@@ -412,6 +422,19 @@ export default function ProductsPage() {
               </div>
 
               <textarea placeholder="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="input w-full" rows={2} />
+
+              <div>
+                <p className="mb-1 text-xs font-medium text-neutral-500">Card Tag (badge shown on the product card)</p>
+                <Select value={form.tag} onValueChange={(v) => setForm({ ...form, tag: v as ProductTag | "NONE" })}>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="No tag" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="NONE">No tag</SelectItem>
+                    {(Object.keys(PRODUCT_TAG_LABELS) as ProductTag[]).map((t) => (
+                      <SelectItem key={t} value={t}>{PRODUCT_TAG_LABELS[t]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>

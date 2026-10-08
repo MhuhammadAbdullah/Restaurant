@@ -10,6 +10,19 @@ function assertBranchAccess(staff: StaffJwtPayload, branchId: string) {
   }
 }
 
+/** Date-only strings (YYYY-MM-DD) are local calendar days, so a selected day always spans 00:00-24:00. */
+function parseDay(v: string): Date {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
+  return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(v);
+}
+function nextDay(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1);
+}
+function localDateKey(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 export type FinanceReportFilters = {
   branchId?: string;
   from?: string;
@@ -43,9 +56,49 @@ export type FinanceReportRow = {
   refundAmount: number;
   transactionRef: string;
   paymentAttempts: number;
+  /** A real, recognised sale: not cancelled/refunded and not an online order whose payment never cleared. */
+  isSale: boolean;
+};
+
+/** Accounting view of the recognised sales in the period. Net sales = item subtotal minus every discount; tax and delivery fees are shown separately. */
+export type SalesSummary = {
+  orders: number;
+  subtotal: number;
+  discounts: number;
+  netSales: number;
+  deliveryFees: number;
+  tax: number;
+  totalBilled: number;
+  averageOrderValue: number;
+};
+
+export type BreakdownRow = {
+  key: string;
+  label: string;
+  orders: number;
+  netSales: number;
+  tax: number;
+  totalBilled: number;
+  collected: number;
+  outstanding: number;
+};
+export type DailyRow = BreakdownRow & { refunds: number };
+
+/** COD cash owed to the restaurant: held by riders after delivery vs. still on its way. */
+export type CodReceivable = {
+  withRiders: number;
+  withRidersOrders: number;
+  inTransit: number;
+  inTransitOrders: number;
+  aging: { label: string; orders: number; amount: number }[];
 };
 
 export type FinanceReport = {
+  salesSummary: SalesSummary;
+  byMethod: BreakdownRow[];
+  byBranch: BreakdownRow[];
+  byDay: DailyRow[];
+  codReceivable: CodReceivable;
   rows: FinanceReportRow[];
   orderSummary: { totalOrderAttempts: number; successfulOrders: number; codOrders: number; onlineOrders: number };
   paymentSummary: { paid: number; pending: number; failed: number; expired: number; cancelled: number; refunded: number; partiallyPaid: number };
@@ -79,7 +132,7 @@ export class FinanceReportService {
   async getReport(staff: StaffJwtPayload, filters: FinanceReportFilters): Promise<FinanceReport> {
     if (filters.branchId) assertBranchAccess(staff, filters.branchId);
     const restaurantId = await this.restaurantContext.getRestaurantId();
-    const toExclusive = filters.to ? new Date(new Date(filters.to).getTime() + 24 * 60 * 60 * 1000) : undefined;
+    const toExclusive = filters.to ? nextDay(parseDay(filters.to)) : undefined;
 
     const orders = await this.prisma.order.findMany({
       where: {
@@ -89,7 +142,7 @@ export class FinanceReportService {
         type: filters.type as never,
         paymentMethod: filters.paymentMethod as never,
         paymentStatus: filters.paymentStatus as never,
-        createdAt: filters.from || toExclusive ? { gte: filters.from ? new Date(filters.from) : undefined, lt: toExclusive } : undefined,
+        createdAt: filters.from || toExclusive ? { gte: filters.from ? parseDay(filters.from) : undefined, lt: toExclusive } : undefined,
         ...(filters.search
           ? {
               OR: [
@@ -118,6 +171,7 @@ export class FinanceReportService {
       const outstandingAmount = o.paymentMethod === "COD" ? Math.max(o.grandTotal - collectedAmount, 0) : 0;
       const refundAmount = o.status === "REFUNDED" ? collectedAmount : 0;
       const latest = [...o.payments].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+      const isSale = o.status !== "CANCELLED" && o.status !== "REFUNDED" && !(o.paymentMethod === "ONLINE" && HIDDEN_ONLINE_STATUSES.has(o.paymentStatus));
       return {
         orderId: o.id,
         orderNumber: o.orderNumber,
@@ -140,6 +194,7 @@ export class FinanceReportService {
         refundAmount,
         transactionRef: latest?.transactionRef ?? "",
         paymentAttempts: o.payments.length,
+        isSale,
       };
     });
 
@@ -148,7 +203,80 @@ export class FinanceReportService {
     const otherRows = rows.filter((r) => r.paymentMethod !== "COD" && r.paymentMethod !== "ONLINE");
     const sum = (arr: FinanceReportRow[], key: keyof FinanceReportRow) => arr.reduce((s, r) => s + (r[key] as number), 0);
 
+    const sales = rows.filter((r) => r.isSale);
+    const subtotalSum = sum(sales, "subtotal");
+    const discountSum = sum(sales, "discount");
+    const salesSummary: SalesSummary = {
+      orders: sales.length,
+      subtotal: subtotalSum,
+      discounts: discountSum,
+      netSales: subtotalSum - discountSum,
+      deliveryFees: sum(sales, "deliveryFee"),
+      tax: sum(sales, "tax"),
+      totalBilled: sum(sales, "grandTotal"),
+      averageOrderValue: sales.length ? Math.round(sum(sales, "grandTotal") / sales.length) : 0,
+    };
+
+    const emptyRow = (key: string, label: string): BreakdownRow => ({ key, label, orders: 0, netSales: 0, tax: 0, totalBilled: 0, collected: 0, outstanding: 0 });
+    const addTo = (target: BreakdownRow, r: FinanceReportRow) => {
+      target.orders += 1;
+      target.netSales += r.subtotal - r.discount;
+      target.tax += r.tax;
+      target.totalBilled += r.grandTotal;
+      target.collected += r.collectedAmount;
+      target.outstanding += r.outstandingAmount;
+    };
+    const group = (keyOf: (r: FinanceReportRow) => { key: string; label: string }) => {
+      const m = new Map<string, BreakdownRow>();
+      for (const r of sales) {
+        const { key, label } = keyOf(r);
+        const row = m.get(key) ?? emptyRow(key, label);
+        addTo(row, r);
+        m.set(key, row);
+      }
+      return [...m.values()];
+    };
+    const byMethod = group((r) => ({ key: r.paymentMethod, label: r.paymentMethod })).sort((a, b) => b.totalBilled - a.totalBilled);
+    const byBranch = group((r) => ({ key: r.branchName, label: r.branchName })).sort((a, b) => b.totalBilled - a.totalBilled);
+
+    const dayMap = new Map<string, DailyRow>();
+    for (const r of rows) {
+      const key = localDateKey(new Date(r.createdAt));
+      const day = dayMap.get(key) ?? { ...emptyRow(key, key), refunds: 0 };
+      if (r.isSale) addTo(day, r);
+      day.refunds += r.refundAmount;
+      dayMap.set(key, day);
+    }
+    const byDay = [...dayMap.values()].sort((a, b) => a.key.localeCompare(b.key));
+
+    const codOwed = sales.filter((r) => r.paymentMethod === "COD" && r.outstandingAmount > 0);
+    const heldByRiders = codOwed.filter((r) => r.orderStatus === "DELIVERED" || r.orderStatus === "COMPLETED");
+    const inTransitCod = codOwed.filter((r) => r.orderStatus !== "DELIVERED" && r.orderStatus !== "COMPLETED");
+    const now = Date.now();
+    const ageDays = (r: FinanceReportRow) => Math.floor((now - new Date(r.createdAt).getTime()) / 86_400_000);
+    const buckets: { label: string; test: (days: number) => boolean }[] = [
+      { label: "Today / yesterday", test: (d) => d <= 1 },
+      { label: "2–3 days", test: (d) => d >= 2 && d <= 3 },
+      { label: "4–7 days", test: (d) => d >= 4 && d <= 7 },
+      { label: "Over 7 days", test: (d) => d > 7 },
+    ];
+    const codReceivable: CodReceivable = {
+      withRiders: sum(heldByRiders, "outstandingAmount"),
+      withRidersOrders: heldByRiders.length,
+      inTransit: sum(inTransitCod, "outstandingAmount"),
+      inTransitOrders: inTransitCod.length,
+      aging: buckets.map((b) => {
+        const list = heldByRiders.filter((r) => b.test(ageDays(r)));
+        return { label: b.label, orders: list.length, amount: sum(list, "outstandingAmount") };
+      }),
+    };
+
     return {
+      salesSummary,
+      byMethod,
+      byBranch,
+      byDay,
+      codReceivable,
       rows,
       orderSummary: {
         totalOrderAttempts: rows.length,
