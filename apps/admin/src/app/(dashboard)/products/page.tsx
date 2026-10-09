@@ -15,6 +15,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 
 const PAGE_SIZE = 20;
 
+type SortKey = "name" | "category" | "price" | "main" | "cart" | "status";
+
 type ProductTag = "HOUSE_FAVORITE" | "NEW_ARRIVAL" | "BEST_SELLER";
 const PRODUCT_TAG_LABELS: Record<ProductTag, string> = {
   HOUSE_FAVORITE: "House Favorite",
@@ -71,6 +73,18 @@ const EMPTY_FORM = {
   addonIds: [] as string[],
 };
 
+function SectionTitle({ n, title, hint }: { n: number; title: string; hint: string }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-red text-xs font-semibold text-white">{n}</span>
+      <div>
+        <p className="text-sm font-semibold text-neutral-900">{title}</p>
+        <p className="text-xs text-neutral-500">{hint}</p>
+      </div>
+    </div>
+  );
+}
+
 export default function ProductsPage() {
   const queryClient = useQueryClient();
   const { data: me } = useMe();
@@ -115,12 +129,82 @@ export default function ProductsPage() {
     });
   }, [products, search, categoryFilter, statusFilter, featuredFilter, popularFilter, discountFilter]);
 
+  const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" } | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+
+  const sortedProducts = useMemo(() => {
+    if (!sort) return filteredProducts;
+    const val = (p: Product): string | number => {
+      switch (sort.key) {
+        case "name": return p.name.toLowerCase();
+        case "category": return p.category.name.toLowerCase();
+        case "price": return p.discountPrice ?? p.basePrice;
+        case "main": return p.showOnMainPage ? 1 : 0;
+        case "cart": return p.isCartRecommendable ? 1 : 0;
+        case "status": return p.status === "ACTIVE" ? 1 : 0;
+      }
+    };
+    const m = sort.dir === "asc" ? 1 : -1;
+    return [...filteredProducts].sort((a, b) => {
+      const x = val(a);
+      const y = val(b);
+      return (x < y ? -1 : x > y ? 1 : a.name.localeCompare(b.name)) * m;
+    });
+  }, [filteredProducts, sort]);
+
+  function toggleSort(key: SortKey) {
+    setSort((s) => (!s || s.key !== key ? { key, dir: "asc" } : s.dir === "asc" ? { key, dir: "desc" } : null));
+  }
+
   useEffect(() => {
     setPage(1);
+    setSelected(new Set());
   }, [search, categoryFilter, statusFilter, featuredFilter, popularFilter, discountFilter]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE));
-  const pagedProducts = filteredProducts.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(sortedProducts.length / PAGE_SIZE));
+  const pagedProducts = sortedProducts.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const allPageSelected = pagedProducts.length > 0 && pagedProducts.every((p) => selected.has(p.id));
+  const somePageSelected = pagedProducts.some((p) => selected.has(p.id));
+
+  function toggleOne(id: string) {
+    setSelected((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  }
+  function toggleAllPage() {
+    setSelected((s) => {
+      const n = new Set(s);
+      if (allPageSelected) pagedProducts.forEach((p) => n.delete(p.id));
+      else pagedProducts.forEach((p) => n.add(p.id));
+      return n;
+    });
+  }
+
+  async function runBulk(label: string, fn: (id: string) => Promise<unknown>) {
+    const ids = [...selected];
+    setBulkBusy(true);
+    try {
+      const results = await Promise.allSettled(ids.map(fn));
+      const failed = results.filter((r) => r.status === "rejected").length;
+      await queryClient.invalidateQueries({ queryKey: ["admin-products"] });
+      if (failed === 0) toast.success(`${label}: ${ids.length} product${ids.length === 1 ? "" : "s"}.`);
+      else toast.error(`${label}: ${ids.length - failed} done, ${failed} failed.`);
+      setSelected(new Set());
+    } finally {
+      setBulkBusy(false);
+      setBulkDeleteOpen(false);
+    }
+  }
+  const bulkStatus = (status: "ACTIVE" | "INACTIVE") =>
+    runBulk(status === "ACTIVE" ? "Activated" : "Deactivated", (id) => api.patch(`/catalog/products/${id}`, { status }));
+  const bulkCart = (on: boolean) =>
+    runBulk(on ? "Added to cart recommendations" : "Removed from cart recommendations", (id) => api.patch(`/catalog/products/${id}`, { isCartRecommendable: on }));
+  const bulkDelete = () => runBulk("Deleted", (id) => api.delete(`/catalog/products/${id}`));
 
   function startCreate() {
     setEditingId(null);
@@ -322,22 +406,87 @@ export default function ProductsPage() {
         <ResultsSummary count={filteredProducts.length} total={products?.length ?? 0} itemLabel="product" />
       </div>
 
+      {selected.size > 0 && (
+        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm">
+          <span className="font-semibold text-neutral-900">{selected.size} selected</span>
+          <button type="button" onClick={() => setSelected(new Set())} className="text-xs text-neutral-500 underline">
+            Clear
+          </button>
+          <span className="mx-1 hidden h-5 w-px bg-red-200 sm:block" />
+          {canEdit && (
+            <>
+              <button disabled={bulkBusy} onClick={() => bulkStatus("ACTIVE")} className="rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium hover:bg-neutral-50 disabled:opacity-60">
+                Set Active
+              </button>
+              <button disabled={bulkBusy} onClick={() => bulkStatus("INACTIVE")} className="rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium hover:bg-neutral-50 disabled:opacity-60">
+                Set Inactive
+              </button>
+              <button disabled={bulkBusy} onClick={() => bulkCart(true)} className="rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium hover:bg-neutral-50 disabled:opacity-60">
+                Add to Cart Rec.
+              </button>
+              <button disabled={bulkBusy} onClick={() => bulkCart(false)} className="rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium hover:bg-neutral-50 disabled:opacity-60">
+                Remove from Cart Rec.
+              </button>
+            </>
+          )}
+          {canDelete && (
+            <button disabled={bulkBusy} onClick={() => setBulkDeleteOpen(true)} className="ml-auto rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-60">
+              Delete
+            </button>
+          )}
+          {bulkBusy && <span className="text-xs text-neutral-500">Working...</span>}
+        </div>
+      )}
+
       <div className="mt-3 overflow-x-auto rounded-xl border border-neutral-200">
         <table className="w-full text-sm">
           <thead className="bg-neutral-50 text-left text-xs uppercase text-neutral-500">
             <tr>
-              <th className="px-4 py-2">Name</th>
-              <th className="px-4 py-2">Category</th>
-              <th className="px-4 py-2">Price</th>
-              <th className="px-4 py-2">Main Page</th>
-              <th className="px-4 py-2">Cart Rec.</th>
-              <th className="px-4 py-2">Status</th>
+              <th className="w-10 px-4 py-2">
+                <input
+                  type="checkbox"
+                  aria-label="Select all on this page"
+                  checked={allPageSelected}
+                  ref={(el) => {
+                    if (el) el.indeterminate = !allPageSelected && somePageSelected;
+                  }}
+                  onChange={toggleAllPage}
+                  disabled={pagedProducts.length === 0}
+                  className="h-4 w-4 accent-[#ED2320]"
+                />
+              </th>
+              {(
+                [
+                  ["name", "Name"],
+                  ["category", "Category"],
+                  ["price", "Price"],
+                  ["main", "Main Page"],
+                  ["cart", "Cart Rec."],
+                  ["status", "Status"],
+                ] as [SortKey, string][]
+              ).map(([key, label]) => {
+                const active = sort?.key === key;
+                return (
+                  <th key={key} className="px-4 py-2" aria-sort={active ? (sort!.dir === "asc" ? "ascending" : "descending") : "none"}>
+                    <button type="button" onClick={() => toggleSort(key)} className={`inline-flex items-center gap-1.5 uppercase ${active ? "text-neutral-900" : "hover:text-neutral-800"}`}>
+                      {label}
+                      <span className="flex flex-col leading-none">
+                        <span className={`text-[8px] ${active && sort!.dir === "asc" ? "text-brand-red" : "text-neutral-300"}`}>▲</span>
+                        <span className={`text-[8px] ${active && sort!.dir === "desc" ? "text-brand-red" : "text-neutral-300"}`}>▼</span>
+                      </span>
+                    </button>
+                  </th>
+                );
+              })}
               <th className="px-4 py-2">Action</th>
             </tr>
           </thead>
           <tbody className="divide-y">
             {pagedProducts.map((p) => (
-              <tr key={p.id}>
+              <tr key={p.id} className={selected.has(p.id) ? "bg-red-50/60" : undefined}>
+                <td className="px-4 py-2">
+                  <input type="checkbox" aria-label={`Select ${p.name}`} checked={selected.has(p.id)} onChange={() => toggleOne(p.id)} className="h-4 w-4 accent-[#ED2320]" />
+                </td>
                 <td className="px-4 py-2 font-medium">{p.name}</td>
                 <td className="px-4 py-2">{p.category.name}</td>
                 <td className="px-4 py-2">
@@ -380,14 +529,14 @@ export default function ProductsPage() {
             ))}
             {products?.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-neutral-400">
+                <td colSpan={8} className="px-4 py-6 text-center text-neutral-400">
                   No products yet.
                 </td>
               </tr>
             )}
             {(products?.length ?? 0) > 0 && filteredProducts.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-neutral-400">
+                <td colSpan={8} className="px-4 py-6 text-center text-neutral-400">
                   No products match your search/filters.
                 </td>
               </tr>
@@ -409,52 +558,57 @@ export default function ProductsPage() {
             </div>
 
             <form onSubmit={submit} className="modal-scroll min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
-              <div className="grid grid-cols-2 gap-3">
-                <input placeholder="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="input" required />
-                <Select value={form.categoryId || undefined} onValueChange={(v) => setForm({ ...form, categoryId: v })}>
-                  <SelectTrigger className="w-full"><SelectValue placeholder="Select Category" /></SelectTrigger>
-                  <SelectContent>
-                    {categories?.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <textarea placeholder="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="input w-full" rows={2} />
-
-              <div>
-                <p className="mb-1 text-xs font-medium text-neutral-500">Card Tag (badge shown on the product card)</p>
-                <Select value={form.tag} onValueChange={(v) => setForm({ ...form, tag: v as ProductTag | "NONE" })}>
-                  <SelectTrigger className="w-full"><SelectValue placeholder="No tag" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="NONE">No tag</SelectItem>
-                    {(Object.keys(PRODUCT_TAG_LABELS) as ProductTag[]).map((t) => (
-                      <SelectItem key={t} value={t}>{PRODUCT_TAG_LABELS[t]}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="mb-1 text-xs font-medium text-neutral-500">Regular Price (Rs.)</p>
-                  <input type="number" value={form.basePrice} onChange={(e) => setForm({ ...form, basePrice: Number(e.target.value) })} className="input w-full" required />
+              <section className="space-y-3 rounded-xl border border-neutral-200 p-4">
+                <SectionTitle n={1} title="Basic details" hint="Name, category and description customers will see." />
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <p className="mb-1 text-xs font-medium text-neutral-500">Product name *</p>
+                    <input placeholder="e.g. Zinger Burger" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="input w-full" required />
+                  </div>
+                  <div>
+                    <p className="mb-1 text-xs font-medium text-neutral-500">Category *</p>
+                    <Select value={form.categoryId || undefined} onValueChange={(v) => setForm({ ...form, categoryId: v })}>
+                      <SelectTrigger className="w-full"><SelectValue placeholder="Select Category" /></SelectTrigger>
+                      <SelectContent>
+                        {categories?.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <div>
-                  <p className="mb-1 text-xs font-medium text-neutral-500">Discount Price (optional)</p>
-                  <input type="number" value={form.discountPrice} onChange={(e) => setForm({ ...form, discountPrice: e.target.value })} className="input w-full" />
+                  <p className="mb-1 text-xs font-medium text-neutral-500">Description</p>
+                  <textarea placeholder="Short description shown on the product card" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="input w-full" rows={3} />
                 </div>
-              </div>
+              </section>
 
-              <div>
-                <p className="mb-1 text-xs font-medium text-neutral-500">Images</p>
+              <section className="space-y-3 rounded-xl border border-neutral-200 p-4">
+                <SectionTitle n={2} title="Pricing" hint="Leave the discount empty if there is no offer." />
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <p className="mb-1 text-xs font-medium text-neutral-500">Regular Price (Rs.) *</p>
+                    <input type="number" min={0} value={form.basePrice} onChange={(e) => setForm({ ...form, basePrice: Number(e.target.value) })} className="input w-full" required />
+                  </div>
+                  <div>
+                    <p className="mb-1 text-xs font-medium text-neutral-500">Discount Price (optional)</p>
+                    <input type="number" min={0} value={form.discountPrice} onChange={(e) => setForm({ ...form, discountPrice: e.target.value })} className="input w-full" />
+                    {form.discountPrice.trim() && Number(form.discountPrice) < form.basePrice && form.basePrice > 0 && (
+                      <p className="mt-1 text-xs text-green-600">{Math.round((1 - Number(form.discountPrice) / form.basePrice) * 100)}% off</p>
+                    )}
+                  </div>
+                </div>
+              </section>
+
+              <section className="space-y-3 rounded-xl border border-neutral-200 p-4">
+                <SectionTitle n={3} title="Images" hint="The first image is the main one." />
                 {form.images.length > 0 && (
-                  <div className="mb-2 flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2">
                     {form.images.map((url, i) => (
-                      <div key={url + i} className="relative h-16 w-16 shrink-0">
+                      <div key={url + i} className="relative h-20 w-20 shrink-0">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={url} alt="" className="h-full w-full rounded-lg object-cover" />
+                        <img src={url} alt="" className="h-full w-full rounded-lg border border-neutral-200 object-cover" />
+                        {i === 0 && <span className="absolute bottom-1 left-1 rounded bg-black/70 px-1 text-[9px] font-medium text-white">Main</span>}
                         <button
                           type="button"
                           onClick={() => setForm({ ...form, images: form.images.filter((_, j) => j !== i) })}
@@ -472,33 +626,50 @@ export default function ProductsPage() {
                   value=""
                   onChange={(url) => url && setForm((f) => ({ ...f, images: [...f.images, url] }))}
                 />
+              </section>
+
+              <section className="space-y-3 rounded-xl border border-neutral-200 p-4">
+                <SectionTitle n={4} title="Visibility & badges" hint="Where this product is promoted." />
+              <div>
+                <p className="mb-1 text-xs font-medium text-neutral-500">Card Tag (badge shown on the product card)</p>
+                <Select value={form.tag} onValueChange={(v) => setForm({ ...form, tag: v as ProductTag | "NONE" })}>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="No tag" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="NONE">No tag</SelectItem>
+                    {(Object.keys(PRODUCT_TAG_LABELS) as ProductTag[]).map((t) => (
+                      <SelectItem key={t} value={t}>{PRODUCT_TAG_LABELS[t]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
-              <div className="flex flex-wrap items-center gap-4 text-sm">
-                <label className="flex items-center gap-2">
-                  <input type="checkbox" checked={form.isFeatured} onChange={(e) => setForm({ ...form, isFeatured: e.target.checked })} /> Featured
-                </label>
-                <label className="flex items-center gap-2">
-                  <input type="checkbox" checked={form.isPopular} onChange={(e) => setForm({ ...form, isPopular: e.target.checked })} /> Popular
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={form.isCartRecommendable}
-                    onChange={(e) => setForm({ ...form, isCartRecommendable: e.target.checked })}
-                  />{" "}
-                  Show in Cart Recommendations
-                </label>
-                <label className="flex items-center gap-2">
-                  <input type="checkbox" checked={form.showOnMainPage} onChange={(e) => setForm({ ...form, showOnMainPage: e.target.checked })} /> Show on Main Page
-                </label>
-                {form.showOnMainPage && (
-                  <span className="text-xs text-neutral-400">
-                    {selectedCategory?.mainPageLimit != null ? `This category shows up to ${selectedCategory.mainPageLimit} main-page products.` : "No main-page limit set for this category."}
-                  </span>
-                )}
+              <div className="grid gap-2 sm:grid-cols-2">
+                {(
+                  [
+                    ["isFeatured", "Featured", "Highlight on the storefront"],
+                    ["isPopular", "Popular", "Show in Popular Items"],
+                    ["isCartRecommendable", "Cart Recommendations", "Suggest to customers in the cart"],
+                    ["showOnMainPage", "Main Page", "Show on the storefront main page"],
+                  ] as ["isFeatured" | "isPopular" | "isCartRecommendable" | "showOnMainPage", string, string][]
+                ).map(([key, label, hint]) => (
+                  <label key={key} className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 ${form[key] ? "border-brand-red bg-red-50" : "border-neutral-200 hover:bg-neutral-50"}`}>
+                    <input type="checkbox" checked={form[key]} onChange={(e) => setForm({ ...form, [key]: e.target.checked })} className="mt-0.5 h-4 w-4 accent-[#ED2320]" />
+                    <span>
+                      <span className="block text-sm font-medium text-neutral-900">{label}</span>
+                      <span className="block text-xs text-neutral-500">{hint}</span>
+                    </span>
+                  </label>
+                ))}
               </div>
+              {form.showOnMainPage && (
+                <p className="text-xs text-neutral-500">
+                  {selectedCategory?.mainPageLimit != null ? `This category shows up to ${selectedCategory.mainPageLimit} main-page products.` : "No main-page limit set for this category."}
+                </p>
+              )}
+              </section>
 
+              <section className="space-y-4 rounded-xl border border-neutral-200 p-4">
+                <SectionTitle n={5} title="Options & add-ons" hint="Sizes, flavours and extras customers can pick." />
               <div>
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-medium text-neutral-500">Choice Sections</p>
@@ -595,7 +766,9 @@ export default function ProductsPage() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 pt-1">
+              </section>
+
+              <div className="sticky bottom-[-1.25rem] z-10 -mx-5 -mb-5 flex items-center gap-3 border-t border-neutral-200 bg-white px-5 py-3">
                 <button type="submit" className="rounded-lg bg-brand-red px-4 py-2 text-sm font-medium text-white disabled:opacity-60" disabled={saving}>
                   {saving ? "Saving..." : editingId ? "Save Changes" : "Create Product"}
                 </button>
@@ -619,6 +792,32 @@ export default function ProductsPage() {
       )}
       {pickerOpen === "addons" && (
         <EntityPickerModal title="Select Add-ons" items={addonPickerItems} selectedIds={form.addonIds} onToggle={toggleAddon} onClose={() => setPickerOpen(null)} />
+      )}
+
+      {bulkDeleteOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-neutral-200 px-5 py-4">
+              <p className="text-base font-semibold text-neutral-900">Delete {selected.size} products</p>
+              <button type="button" onClick={() => setBulkDeleteOpen(false)} aria-label="Close" className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-red text-white hover:opacity-90">
+                <CloseIcon size={14} />
+              </button>
+            </div>
+            <div className="p-5">
+              <p className="text-sm text-neutral-600">
+                Delete the <span className="font-medium text-neutral-900">{selected.size}</span> selected product{selected.size === 1 ? "" : "s"}? This cannot be undone.
+              </p>
+              <div className="mt-5 flex items-center gap-3">
+                <button type="button" onClick={bulkDelete} disabled={bulkBusy} className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60">
+                  {bulkBusy ? "Deleting..." : "Delete"}
+                </button>
+                <button type="button" onClick={() => setBulkDeleteOpen(false)} className="rounded-lg border border-brand-red bg-red-50 px-4 py-2 text-sm font-medium text-brand-red hover:bg-red-100">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {deleteTarget && (

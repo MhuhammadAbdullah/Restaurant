@@ -153,6 +153,19 @@ export default function CategoriesPage() {
         )}
       </div>
 
+      <div className="mt-4 grid grid-cols-3 gap-3">
+        {[
+          ["Total", categories?.length ?? 0],
+          ["Active", (categories ?? []).filter((c) => c.status === "ACTIVE").length],
+          ["Inactive", (categories ?? []).filter((c) => c.status === "INACTIVE").length],
+        ].map(([label, n]) => (
+          <div key={label as string} className="rounded-xl border border-neutral-200 bg-white px-4 py-3">
+            <p className="text-xs text-neutral-500">{label}</p>
+            <p className="text-xl font-semibold text-neutral-900">{n}</p>
+          </div>
+        ))}
+      </div>
+
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <FilterBar>
           <SearchInput value={search} onChange={setSearch} placeholder="Search categories..." />
@@ -197,22 +210,32 @@ export default function CategoriesPage() {
           onReorder={reorder}
           disabled={!canEdit || isFiltering}
           renderItem={(c) => (
-            <div className="flex items-center gap-3 rounded-xl border border-neutral-200 bg-white p-3">
+            <div className={`flex items-center gap-3 rounded-xl border bg-white p-3 shadow-sm transition-shadow hover:shadow-md ${c.status === "INACTIVE" ? "border-neutral-200 opacity-70" : "border-neutral-200"}`}>
+              <span className="hidden h-7 w-7 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-xs font-semibold text-neutral-500 sm:flex">
+                {(categories ?? []).findIndex((x) => x.id === c.id) + 1}
+              </span>
               {c.image ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={c.image} alt="" className="h-12 w-12 shrink-0 rounded-lg object-cover" />
+                <img src={c.image} alt="" draggable={false} className="h-14 w-14 shrink-0 rounded-lg border border-neutral-200 object-cover" />
               ) : (
-                <div className="h-12 w-12 shrink-0 rounded-lg bg-neutral-100" />
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-dashed border-neutral-300 bg-neutral-50 text-[10px] text-neutral-400">No image</div>
               )}
               <div className="min-w-0 flex-1">
-                <p className="font-medium text-neutral-900">{c.name}</p>
-                <p className="text-xs text-neutral-400">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="truncate font-semibold text-neutral-900">{c.name}</p>
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${c.status === "ACTIVE" ? "bg-green-50 text-green-700" : "bg-neutral-100 text-neutral-500"}`}>
+                    {c.status === "ACTIVE" ? "Active" : "Inactive"}
+                  </span>
+                  {c.banner && <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-medium text-neutral-500">Banner</span>}
+                </div>
+                {c.description && <p className="mt-0.5 truncate text-xs text-neutral-500">{c.description}</p>}
+                <p className="mt-0.5 text-xs text-neutral-400">
                   {c.mainPageLimit != null ? `Main page limit: ${c.mainPageLimit}` : "No main page limit"}
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-3">
-                <button onClick={() => setMainPageTarget(c)} className="text-xs font-medium text-brand-red hover:opacity-80">
-                  Products
+                <button onClick={() => setMainPageTarget(c)} className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-medium text-brand-red hover:bg-red-100">
+                  Main page products
                 </button>
                 <StatusToggle active={c.status === "ACTIVE"} onClick={() => toggleStatus(c)} disabled={!canEdit} />
                 {canEdit && (
@@ -246,8 +269,14 @@ export default function CategoriesPage() {
             </div>
 
             <form onSubmit={submit} className="modal-scroll min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
-              <input placeholder="Category name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="input w-full" required />
-              <input placeholder="Description (optional)" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="input w-full" />
+              <div>
+                <p className="mb-1 text-xs font-medium text-neutral-500">Category name *</p>
+                <input placeholder="e.g. Burgers" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="input w-full" required />
+              </div>
+              <div>
+                <p className="mb-1 text-xs font-medium text-neutral-500">Description</p>
+                <input placeholder="Optional short description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="input w-full" />
+              </div>
 
               <ImageUploadField label="Category Image (square, 1:1)" folder="categories" shape="square" hint="Square 1:1 · e.g. 600×600" value={form.image} onChange={(url) => setForm({ ...form, image: url })} />
               <ImageUploadField label="Banner Image (landscape)" folder="categories" shape="landscape" hint="Landscape · e.g. 1680×600" value={form.banner} onChange={(url) => setForm({ ...form, banner: url })} />
@@ -276,7 +305,7 @@ export default function CategoriesPage() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 pt-1">
+              <div className="sticky bottom-[-1.25rem] z-10 -mx-5 -mb-5 flex items-center gap-3 border-t border-neutral-200 bg-white px-5 py-3">
                 <button type="submit" className="rounded-lg bg-brand-red px-4 py-2 text-sm font-medium text-white disabled:opacity-60" disabled={saving}>
                   {saving ? "Saving..." : editingId ? "Save Changes" : "Create Category"}
                 </button>

@@ -42,6 +42,18 @@ const EMPTY_ADDON_FORM = {
   status: "ACTIVE" as "ACTIVE" | "INACTIVE",
 };
 
+function SectionTitle({ n, title, hint }: { n: number; title: string; hint: string }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-red text-xs font-semibold text-white">{n}</span>
+      <div>
+        <p className="text-sm font-semibold text-neutral-900">{title}</p>
+        <p className="text-xs text-neutral-500">{hint}</p>
+      </div>
+    </div>
+  );
+}
+
 export default function AddonsPage() {
   const queryClient = useQueryClient();
   const { data: me } = useMe();
@@ -51,10 +63,8 @@ export default function AddonsPage() {
 
   const { data: groups } = useQuery({ queryKey: ["addon-groups"], queryFn: () => api.get<AddonGroup[]>("/catalog/addon-groups") });
   const [filterGroupId, setFilterGroupId] = useState<string>("");
-  const { data: addons } = useQuery({
-    queryKey: ["addons", filterGroupId],
-    queryFn: () => api.get<Addon[]>(`/catalog/addons${filterGroupId ? `?addonGroupId=${filterGroupId}` : ""}`),
-  });
+  const { data: allAddons } = useQuery({ queryKey: ["addons", ""], queryFn: () => api.get<Addon[]>("/catalog/addons") });
+  const addons = useMemo(() => (allAddons ?? []).filter((a) => !filterGroupId || a.addonGroupId === filterGroupId), [allAddons, filterGroupId]);
   const { data: products } = useQuery({ queryKey: ["admin-products-lite"], queryFn: () => api.get<CatalogProduct[]>("/catalog/products") });
 
   const [search, setSearch] = useState("");
@@ -63,7 +73,7 @@ export default function AddonsPage() {
   const isFiltering = search.trim() !== "" || statusFilter !== "" || discountFilter !== "";
 
   const filteredAddons = useMemo(() => {
-    return (addons ?? []).filter((a) => {
+    return addons.filter((a) => {
       const q = search.trim().toLowerCase();
       if (q && !a.name.toLowerCase().includes(q) && !a.product.name.toLowerCase().includes(q)) return false;
       if (statusFilter && a.status !== statusFilter) return false;
@@ -216,7 +226,7 @@ export default function AddonsPage() {
               onClick={() => setFilterGroupId("")}
               className={`block w-full rounded-lg px-3 py-1.5 text-left text-sm ${filterGroupId === "" ? "bg-brand-red/10 font-medium text-brand-red" : "text-neutral-600 hover:bg-neutral-50"}`}
             >
-              All Add-ons
+              All Add-ons <span className="text-xs text-neutral-400">({allAddons?.length ?? 0})</span>
             </button>
             {groups?.map((g) => (
               <div key={g.id} className={`group flex items-center gap-1 rounded-lg px-1 ${filterGroupId === g.id ? "bg-brand-red/10" : "hover:bg-neutral-50"}`}>
@@ -224,7 +234,7 @@ export default function AddonsPage() {
                   onClick={() => setFilterGroupId(g.id)}
                   className={`flex-1 truncate rounded-lg px-2 py-1.5 text-left text-sm ${filterGroupId === g.id ? "font-medium text-brand-red" : "text-neutral-600"}`}
                 >
-                  {g.name}
+                  {g.name} <span className="text-xs font-normal text-neutral-400">({(allAddons ?? []).filter((a) => a.addonGroupId === g.id).length})</span>
                 </button>
                 {canEdit && (
                   <button onClick={() => startEditCategory(g)} aria-label="Rename category" className="p-1 text-neutral-400 opacity-0 hover:text-brand-red group-hover:opacity-100">
@@ -267,6 +277,18 @@ export default function AddonsPage() {
         </div>
 
         <div>
+          <div className="mb-3 grid grid-cols-3 gap-3">
+            {[
+              ["Add-ons", addons.length],
+              ["Active", addons.filter((a) => a.status === "ACTIVE").length],
+              ["Discounted", addons.filter((a) => a.discountPrice != null).length],
+            ].map(([label, n]) => (
+              <div key={label as string} className="rounded-xl border border-neutral-200 bg-white px-4 py-3">
+                <p className="text-xs text-neutral-500">{label}</p>
+                <p className="text-xl font-semibold text-neutral-900">{n}</p>
+              </div>
+            ))}
+          </div>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <FilterBar>
               <SearchInput value={search} onChange={setSearch} placeholder="Search add-ons..." />
@@ -305,7 +327,7 @@ export default function AddonsPage() {
             )}
           </div>
           <div className="mt-2">
-            <ResultsSummary count={filteredAddons.length} total={addons?.length ?? 0} itemLabel="add-on" />
+            <ResultsSummary count={filteredAddons.length} total={addons.length} itemLabel="add-on" />
           </div>
 
           {isFiltering && <p className="mt-1 text-xs text-amber-600">Clear search/filters to drag-reorder add-ons.</p>}
@@ -315,49 +337,54 @@ export default function AddonsPage() {
               items={filteredAddons}
               onReorder={reorder}
               disabled={!canEdit || isFiltering}
-              renderItem={(a) => (
-                <div className="flex items-center gap-3 rounded-xl border border-neutral-200 bg-white p-3">
-                  {a.image ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={a.image} alt="" className="h-12 w-12 shrink-0 rounded-lg object-cover" />
-                  ) : (
-                    <div className="h-12 w-12 shrink-0 rounded-lg bg-neutral-100" />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium text-neutral-900">
-                      {a.name} <span className="font-normal text-neutral-400">({a.product.name})</span>
-                    </p>
-                    <p className="text-xs text-neutral-500">
-                      {a.discountPrice != null ? (
-                        <>
-                          <span className="text-neutral-400 line-through">{formatPaisa(a.price)}</span>{" "}
-                          <span className="font-medium text-brand-red">{formatPaisa(a.discountPrice)}</span>
-                        </>
-                      ) : (
-                        formatPaisa(a.price)
+              renderItem={(a) => {
+                const pct = a.discountPrice != null && a.price > 0 ? Math.round((1 - a.discountPrice / a.price) * 100) : 0;
+                const groupName = groups?.find((g) => g.id === a.addonGroupId)?.name;
+                return (
+                  <div className={`flex items-center gap-3 rounded-xl border border-neutral-200 bg-white p-3 shadow-sm transition-shadow hover:shadow-md ${a.status === "INACTIVE" ? "opacity-70" : ""}`}>
+                    {a.image ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={a.image} alt="" draggable={false} className="h-14 w-14 shrink-0 rounded-lg border border-neutral-200 object-cover" />
+                    ) : (
+                      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-dashed border-neutral-300 bg-neutral-50 text-[10px] text-neutral-400">No image</div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="truncate font-semibold text-neutral-900">{a.name}</p>
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${a.status === "ACTIVE" ? "bg-green-50 text-green-700" : "bg-neutral-100 text-neutral-500"}`}>
+                          {a.status === "ACTIVE" ? "Active" : "Inactive"}
+                        </span>
+                        {pct > 0 && <span className="rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-brand-red">{pct}% off</span>}
+                      </div>
+                      <p className="mt-0.5 truncate text-xs text-neutral-500">
+                        {groupName && <span className="font-medium text-neutral-600">{groupName}</span>}
+                        {groupName && " · "}Product: {a.product.name} · Max {a.maxQuantity}
+                      </p>
+                      {a.description && <p className="truncate text-xs text-neutral-400">{a.description}</p>}
+                    </div>
+                    <div className="shrink-0 text-right">
+                      {a.discountPrice != null && <span className="block text-xs text-neutral-400 line-through">{formatPaisa(a.price)}</span>}
+                      <span className="text-base font-bold text-brand-red">{formatPaisa(a.discountPrice ?? a.price)}</span>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-3 border-l border-neutral-100 pl-3">
+                      <StatusToggle active={a.status === "ACTIVE"} onClick={() => toggleStatus(a)} disabled={!canEdit} />
+                      {canEdit && (
+                        <button onClick={() => startEdit(a)} aria-label="Edit add-on" className="text-neutral-500 hover:text-brand-red">
+                          <EditIcon size={17} />
+                        </button>
                       )}
-                      {" · max "}
-                      {a.maxQuantity}
-                    </p>
+                      {canDelete && (
+                        <button onClick={() => setDeleteTarget(a)} aria-label="Delete add-on" className="text-neutral-500 hover:text-red-600">
+                          <TrashIcon size={17} />
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex shrink-0 items-center gap-3">
-                    <StatusToggle active={a.status === "ACTIVE"} onClick={() => toggleStatus(a)} disabled={!canEdit} />
-                    {canEdit && (
-                      <button onClick={() => startEdit(a)} aria-label="Edit add-on" className="text-neutral-500 hover:text-brand-red">
-                        <EditIcon size={17} />
-                      </button>
-                    )}
-                    {canDelete && (
-                      <button onClick={() => setDeleteTarget(a)} aria-label="Delete add-on" className="text-neutral-500 hover:text-red-600">
-                        <TrashIcon size={17} />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
+                );
+              }}
             />
-            {addons?.length === 0 && <p className="rounded-xl border border-dashed border-neutral-300 p-6 text-center text-sm text-neutral-400">No add-ons yet.</p>}
-            {(addons?.length ?? 0) > 0 && filteredAddons.length === 0 && (
+            {addons.length === 0 && <p className="rounded-xl border border-dashed border-neutral-300 p-6 text-center text-sm text-neutral-400">No add-ons yet.</p>}
+            {addons.length > 0 && filteredAddons.length === 0 && (
               <p className="rounded-xl border border-dashed border-neutral-300 p-6 text-center text-sm text-neutral-400">No add-ons match your search/filters.</p>
             )}
           </div>
@@ -366,7 +393,7 @@ export default function AddonsPage() {
 
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex shrink-0 items-center justify-between border-b border-neutral-200 px-5 py-4">
               <p className="text-base font-semibold text-neutral-900">{editingId ? "Edit Add-on" : "New Add-on"}</p>
               <button type="button" onClick={closeForm} aria-label="Close" className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-red text-white hover:opacity-90">
@@ -374,79 +401,82 @@ export default function AddonsPage() {
               </button>
             </div>
 
-            <form onSubmit={submit} className="modal-scroll min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
-              <Select value={form.addonGroupId || undefined} onValueChange={(v) => setForm({ ...form, addonGroupId: v })}>
-                <SelectTrigger className="w-full"><SelectValue placeholder="Select Category" /></SelectTrigger>
-                <SelectContent>
-                  {groups?.map((g) => (
-                    <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <div>
-                <p className="mb-1 text-xs font-medium text-neutral-500">Product</p>
-                <Select value={form.productId || undefined} onValueChange={selectProduct}>
-                  <SelectTrigger className="w-full"><SelectValue placeholder="Select an existing product" /></SelectTrigger>
-                  <SelectContent>
-                    {products?.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>{p.name} ({p.category.name})</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="mt-1 text-xs text-neutral-400">Add-ons are always for an existing product. Create the product first under Products if it doesn&apos;t exist yet.</p>
-              </div>
-
-              <ImageUploadField label="Image (optional)" folder="addons" value={form.image} onChange={(url) => setForm({ ...form, image: url })} />
-
-              <div>
-                <p className="mb-1 text-xs font-medium text-neutral-500">Display Name</p>
-                <input
-                  placeholder="Display name shown in this add-on category"
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className="input w-full"
-                  required
-                />
-                <p className="mt-1 text-xs text-neutral-400">Defaults to the product&apos;s own name. Edit freely; it won&apos;t rename the product itself.</p>
-              </div>
-              <input placeholder="Description (optional)" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="input w-full" />
-
-              <div className="grid grid-cols-3 gap-3">
+            <form onSubmit={submit} className="modal-scroll min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
+              <section className="space-y-3 rounded-xl border border-neutral-200 p-4">
+                <SectionTitle n={1} title="Add-on details" hint="Which product this extra is, and where it is listed." />
                 <div>
-                  <p className="mb-1 text-xs font-medium text-neutral-500">Price (Rs.)</p>
-                  <input type="number" value={form.price} onChange={(e) => setForm({ ...form, price: Number(e.target.value) })} className="input w-full" required />
+                  <p className="mb-1 text-xs font-medium text-neutral-500">Category *</p>
+                  <Select value={form.addonGroupId || undefined} onValueChange={(v) => setForm({ ...form, addonGroupId: v })}>
+                    <SelectTrigger className="w-full"><SelectValue placeholder="Select Category" /></SelectTrigger>
+                    <SelectContent>
+                      {groups?.map((g) => (
+                        <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
-                  <p className="mb-1 text-xs font-medium text-neutral-500">Discount Price</p>
-                  <input type="number" value={form.discountPrice} onChange={(e) => setForm({ ...form, discountPrice: e.target.value })} className="input w-full" placeholder="Optional" />
+                  <p className="mb-1 text-xs font-medium text-neutral-500">Product *</p>
+                  <Select value={form.productId || undefined} onValueChange={selectProduct}>
+                    <SelectTrigger className="w-full"><SelectValue placeholder="Select an existing product" /></SelectTrigger>
+                    <SelectContent>
+                      {products?.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>{p.name} ({p.category.name})</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="mt-1 text-xs text-neutral-400">Add-ons are always for an existing product. Create it under Products first if needed.</p>
                 </div>
                 <div>
-                  <p className="mb-1 text-xs font-medium text-neutral-500">Max Quantity</p>
-                  <input type="number" min={1} value={form.maxQuantity} onChange={(e) => setForm({ ...form, maxQuantity: Number(e.target.value) })} className="input w-full" />
+                  <p className="mb-1 text-xs font-medium text-neutral-500">Display name *</p>
+                  <input placeholder="Name customers see" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="input w-full" required />
+                  <p className="mt-1 text-xs text-neutral-400">Defaults to the product name. Editing it won&apos;t rename the product.</p>
                 </div>
-              </div>
+                <div>
+                  <p className="mb-1 text-xs font-medium text-neutral-500">Description</p>
+                  <input placeholder="Optional" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="input w-full" />
+                </div>
+              </section>
 
-              {form.price > 0 && form.discountPrice.trim() && !isNaN(Number(form.discountPrice)) && (
-                <p className="text-xs text-neutral-500">
-                  Preview:{" "}
-                  <span className="text-neutral-400 line-through">{formatPaisa(Math.round(form.price * 100))}</span>{" "}
-                  <span className="font-medium text-brand-red">{formatPaisa(effectivePrice(Math.round(form.price * 100), Math.round(Number(form.discountPrice) * 100)))}</span>{" "}
-                  <span className="text-green-700">
-                    ({discountPercent(Math.round(form.price * 100), Math.round(Number(form.discountPrice) * 100))}% OFF)
+              <section className="space-y-3 rounded-xl border border-neutral-200 p-4">
+                <SectionTitle n={2} title="Pricing & limits" hint="What the customer pays and how many they can add." />
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div>
+                    <p className="mb-1 text-xs font-medium text-neutral-500">Price (Rs.) *</p>
+                    <input type="number" min={0} value={form.price} onChange={(e) => setForm({ ...form, price: Number(e.target.value) })} className="input w-full" required />
+                  </div>
+                  <div>
+                    <p className="mb-1 text-xs font-medium text-neutral-500">Discount price</p>
+                    <input type="number" min={0} value={form.discountPrice} onChange={(e) => setForm({ ...form, discountPrice: e.target.value })} className="input w-full" placeholder="Optional" />
+                  </div>
+                  <div>
+                    <p className="mb-1 text-xs font-medium text-neutral-500">Max quantity</p>
+                    <input type="number" min={1} value={form.maxQuantity} onChange={(e) => setForm({ ...form, maxQuantity: Number(e.target.value) })} className="input w-full" />
+                  </div>
+                </div>
+                {form.price > 0 && form.discountPrice.trim() && !isNaN(Number(form.discountPrice)) && (
+                  <p className="rounded-lg bg-neutral-50 px-3 py-2 text-xs text-neutral-600">
+                    Preview:{" "}
+                    <span className="text-neutral-400 line-through">{formatPaisa(Math.round(form.price * 100))}</span>{" "}
+                    <span className="font-medium text-brand-red">{formatPaisa(effectivePrice(Math.round(form.price * 100), Math.round(Number(form.discountPrice) * 100)))}</span>{" "}
+                    <span className="text-green-700">({discountPercent(Math.round(form.price * 100), Math.round(Number(form.discountPrice) * 100))}% OFF)</span>
+                  </p>
+                )}
+              </section>
+
+              <section className="space-y-3 rounded-xl border border-neutral-200 p-4">
+                <SectionTitle n={3} title="Image & status" hint="Optional picture, and whether customers can see it." />
+                <ImageUploadField label="Image (optional)" folder="addons" value={form.image} onChange={(url) => setForm({ ...form, image: url })} />
+                <label className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 ${form.status === "ACTIVE" ? "border-brand-red bg-red-50" : "border-neutral-200 hover:bg-neutral-50"}`}>
+                  <input type="checkbox" checked={form.status === "ACTIVE"} onChange={(e) => setForm({ ...form, status: e.target.checked ? "ACTIVE" : "INACTIVE" })} className="mt-0.5 h-4 w-4 accent-[#ED2320]" />
+                  <span>
+                    <span className="block text-sm font-medium text-neutral-900">Active</span>
+                    <span className="block text-xs text-neutral-500">Inactive add-ons are hidden from customers.</span>
                   </span>
-                </p>
-              )}
+                </label>
+              </section>
 
-              <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as "ACTIVE" | "INACTIVE" })}>
-                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ACTIVE">Active</SelectItem>
-                  <SelectItem value="INACTIVE">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <div className="flex items-center gap-3 pt-1">
+              <div className="sticky bottom-[-1.25rem] z-10 -mx-5 -mb-5 flex items-center gap-3 border-t border-neutral-200 bg-white px-5 py-3">
                 <button type="submit" className="rounded-lg bg-brand-red px-4 py-2 text-sm font-medium text-white disabled:opacity-60" disabled={saving}>
                   {saving ? "Saving..." : editingId ? "Save Changes" : "Create Add-on"}
                 </button>
