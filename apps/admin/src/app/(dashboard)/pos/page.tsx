@@ -133,6 +133,8 @@ export default function PosPage() {
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerAltPhone, setCustomerAltPhone] = useState("");
   const [deliveryNote, setDeliveryNote] = useState("");
+  const [orderNote, setOrderNote] = useState("");
+  const [noteOpen, setNoteOpen] = useState(false);
 
   // ---- Catalog browsing ----
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
@@ -400,6 +402,8 @@ export default function PosPage() {
     setCustomerEmail("");
     setCustomerAltPhone("");
     setDeliveryNote("");
+    setOrderNote("");
+    setNoteOpen(false);
     setTableId("");
     setDeliveryAddress({ city: "", area: "", addressLine: "", landmark: "" });
     setCouponInput("");
@@ -450,7 +454,8 @@ export default function PosPage() {
           customerPhone: customerPhone || undefined,
           customerAlternatePhone: orderType === "DELIVERY" ? customerAltPhone.trim() || undefined : undefined,
           customerEmail: customerEmail.trim() || undefined,
-          specialInstructions: orderType === "DELIVERY" ? deliveryNote.trim() || undefined : undefined,
+          specialInstructions:
+            [orderNote.trim(), orderType === "DELIVERY" && deliveryNote.trim() ? `Rider: ${deliveryNote.trim()}` : ""].filter(Boolean).join(" | ").slice(0, 500) || undefined,
           deliveryAddress: orderType === "DELIVERY" ? deliveryAddress : undefined,
           items: buildItems(),
           couponCode: appliedCoupon?.code,
@@ -1008,10 +1013,20 @@ export default function PosPage() {
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {cart.map((l) => (
+                    {cart.map((l) => {
+                      const img =
+                        l.kind === "product"
+                          ? (() => {
+                              const p = products?.find((x) => x.id === l.productId);
+                              return p?.images.find((i) => i.isPrimary)?.url ?? p?.images[0]?.url;
+                            })()
+                          : deals?.find((x) => x.id === l.dealId)?.image;
+                      return (
                       <div key={l.key} className="rounded-xl border border-neutral-200 p-2.5 text-sm">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
+                        <div className="flex items-start justify-between gap-2.5">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          {img ? <img src={img} alt="" className="h-12 w-12 shrink-0 rounded-lg border border-neutral-200 object-cover" /> : <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-neutral-300"><FaCartShopping size={14} /></div>}
+                          <div className="min-w-0 flex-1">
                             <p className="font-medium text-neutral-900">{l.name}</p>
                             {l.kind === "product" && l.choices.length > 0 && <p className="text-xs text-neutral-500">{l.choices.map((c) => c.name).join(", ")}</p>}
                             {l.kind === "product" && l.addons.length > 0 && <p className="text-xs text-neutral-500">+ {l.addons.map((a) => `${a.name} x${a.quantity}`).join(", ")}</p>}
@@ -1032,7 +1047,8 @@ export default function PosPage() {
                           </div>
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -1057,6 +1073,28 @@ export default function PosPage() {
                   </>
                 ) : (
                   <>
+                    {noteOpen || orderNote ? (
+                      <div className="mb-2.5">
+                        <div className="mb-1 flex items-center justify-between">
+                          <p className="text-xs font-medium text-neutral-500">Order note</p>
+                          <button onClick={() => { setOrderNote(""); setNoteOpen(false); }} className="text-[11px] text-neutral-400 hover:text-red-600">Remove</button>
+                        </div>
+                        <textarea
+                          value={orderNote}
+                          onChange={(e) => setOrderNote(e.target.value)}
+                          maxLength={300}
+                          rows={2}
+                          autoFocus={noteOpen && !orderNote}
+                          placeholder="e.g. No onions, less spicy, call on arrival..."
+                          className={`${fieldClass} resize-none`}
+                        />
+                        <p className="mt-0.5 text-right text-[10px] text-neutral-400">{orderNote.length}/300</p>
+                      </div>
+                    ) : (
+                      <button onClick={() => setNoteOpen(true)} className="mb-2 mr-4 inline-flex items-center gap-1.5 text-xs font-medium text-brand-red hover:underline">
+                        <FaPenToSquare size={12} /> Add order note
+                      </button>
+                    )}
                     {showCouponField ? (
                       <div className="flex gap-2">
                         <input

@@ -1437,6 +1437,8 @@ model AuditLog {
   userAgent    String?
   createdAt    DateTime   @default(now())
 
+  // Day-wise archive reads filter by restaurant + day range.
+  @@index([restaurantId, createdAt])
   @@map("audit_logs")
 }
 

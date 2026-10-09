@@ -104,6 +104,11 @@ export default function OrdersPage() {
   const [bulkRunning, setBulkRunning] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
+  // Sorting runs on the server (the list is paginated), so it orders the whole result set, not just this page.
+  const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" }>({ key: "date", dir: "desc" });
+  function toggleSort(key: string) {
+    setSort((s) => (s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: key === "date" || key === "amount" ? "desc" : "asc" }));
+  }
 
   // Deep-link from the notification bell ("?openOrderId=...") — open the modal once, then strip
   // the param so a page refresh/back-nav doesn't keep re-opening it.
@@ -120,7 +125,7 @@ export default function OrdersPage() {
   useEffect(() => {
     setSelected(new Set());
     setPage(1);
-  }, [branchId, statusFilter, sourceFilter, typeFilter, paymentStatusFilter, search, fromDate, toDate, pageSize]);
+  }, [branchId, statusFilter, sourceFilter, typeFilter, paymentStatusFilter, search, fromDate, toDate, pageSize, sort]);
 
   // Selection only ever refers to the rows on screen.
   useEffect(() => {
@@ -141,8 +146,8 @@ export default function OrdersPage() {
   }
 
   const { data: ordersPage } = useQuery({
-    queryKey: ["admin-orders", branchId, statusFilter, sourceFilter, typeFilter, paymentStatusFilter, search, fromDate, toDate, page, pageSize],
-    queryFn: () => api.get<{ items: Order[]; total: number; page: number; pageSize: number; pageCount: number }>(`/staff/orders/page?${buildQuery()}&page=${page}&pageSize=${pageSize}`),
+    queryKey: ["admin-orders", branchId, statusFilter, sourceFilter, typeFilter, paymentStatusFilter, search, fromDate, toDate, page, pageSize, sort],
+    queryFn: () => api.get<{ items: Order[]; total: number; page: number; pageSize: number; pageCount: number }>(`/staff/orders/page?${buildQuery()}&page=${page}&pageSize=${pageSize}&sortBy=${sort.key}&sortDir=${sort.dir}`),
     refetchInterval: 8000,
     placeholderData: (prev) => prev,
   });
@@ -329,16 +334,20 @@ export default function OrdersPage() {
                   aria-label="Select all orders"
                 />
               </th>
-              <th className="px-4 py-2">Order #</th>
-              <th className="px-4 py-2">Customer</th>
-              <th className="px-4 py-2">Source</th>
-              <th className="px-4 py-2">Branch</th>
-              <th className="px-4 py-2">Type</th>
-              <th className="px-4 py-2">Amount</th>
-              <th className="px-4 py-2">Payment</th>
-              <th className="px-4 py-2">Status</th>
-              <th className="px-4 py-2">Rider</th>
-              <th className="px-4 py-2">Date/Time</th>
+              {([["orderNumber","Order #"],["customer","Customer"],["source","Source"],["branch","Branch"],["type","Type"],["amount","Amount"],["payment","Payment"],["status","Status"],["rider","Rider"],["date","Date/Time"]] as [string, string][]).map(([key, label]) => {
+                const active = sort.key === key;
+                return (
+                  <th key={key} className="whitespace-nowrap px-4 py-2" aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
+                    <button type="button" onClick={() => toggleSort(key)} className={`inline-flex items-center gap-1.5 uppercase ${active ? "text-neutral-900" : "hover:text-neutral-800"}`}>
+                      {label}
+                      <span className="flex flex-col leading-none">
+                        <span className={`text-[8px] ${active && sort.dir === "asc" ? "text-brand-red" : "text-neutral-300"}`}>▲</span>
+                        <span className={`text-[8px] ${active && sort.dir === "desc" ? "text-brand-red" : "text-neutral-300"}`}>▼</span>
+                      </span>
+                    </button>
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody className="divide-y">

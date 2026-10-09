@@ -159,6 +159,9 @@ export class StaffController {
         requestMeta,
       );
     }
+    if (body.password) {
+      await this.auditLogs.recordForStaff(staff, "staff.passwordReset", "StaffUser", id, undefined, requestMeta);
+    }
     if (body.name !== undefined || body.email !== undefined || body.phone !== undefined) {
       await this.auditLogs.recordForStaff(
         staff,
@@ -170,7 +173,9 @@ export class StaffController {
       );
     }
 
-    return { success: true, data: after };
+    // Never send credential hashes back to the browser.
+    const { passwordHash: _ph, refreshTokenHash: _rh, ...safe } = after;
+    return { success: true, data: safe };
   }
 
   @RequirePermission("staff.delete")

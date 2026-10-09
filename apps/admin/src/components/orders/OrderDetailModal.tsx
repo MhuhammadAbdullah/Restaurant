@@ -491,7 +491,7 @@ export function OrderDetailModal({ orderId, onClose, onNavigateReceipt }: { orde
       address && `Address: ${address}`,
       `Amount: Rs. ${(order.grandTotal / 100).toFixed(0)}`,
       `Items: ${itemsSummary}`,
-      order.specialInstructions && `Delivery Instructions: ${order.specialInstructions}`,
+      order.specialInstructions && `Order Note: ${order.specialInstructions}`,
     ].filter(Boolean);
     return lines.join("\n");
   }
@@ -811,7 +811,7 @@ export function OrderDetailModal({ orderId, onClose, onNavigateReceipt }: { orde
                       <p className="text-xs font-semibold uppercase text-neutral-500">Instructions</p>
                       <div className="mt-1.5 space-y-1.5 text-xs">
                         {order.specialInstructions && (
-                          <p><span className="font-medium text-neutral-700">Delivery Instructions:</span> <span className="text-neutral-600">{order.specialInstructions}</span></p>
+                          <p><span className="font-medium text-neutral-700">Order Note:</span> <span className="text-neutral-600">{order.specialInstructions}</span></p>
                         )}
                         {order.changeRequestAmount != null && (
                           <p><span className="font-medium text-neutral-700">Cash Change Requested:</span> <span className="text-neutral-600">{formatPaisa(order.changeRequestAmount)}</span></p>

@@ -1725,15 +1725,40 @@ export class OrdersService {
   }
 
   /** Server-side pagination for the Orders page: one page of rows plus the total match count. */
-  async listOrdersForStaffPaged(staff: StaffJwtPayload, filters: StaffOrderListFilters, page: number, pageSize: number) {
+  async listOrdersForStaffPaged(
+    staff: StaffJwtPayload,
+    filters: StaffOrderListFilters,
+    page: number,
+    pageSize: number,
+    sortBy?: string,
+    sortDir?: string,
+  ) {
     const where = this.staffOrderWhere(staff, filters);
+    const dir: Prisma.SortOrder = sortDir === "asc" ? "asc" : "desc";
+    // Whitelisted columns only; newest-first is always the tie-breaker so paging stays stable.
+    const primary: Prisma.OrderOrderByWithRelationInput[] = (() => {
+      switch (sortBy) {
+        case "orderNumber": return [{ orderNumber: dir }];
+        case "customer": return [{ customer: { name: dir } }, { contactName: dir }];
+        case "source": return [{ source: dir }];
+        case "branch": return [{ branch: { name: dir } }];
+        case "type": return [{ type: dir }];
+        case "amount": return [{ grandTotal: dir }];
+        case "payment": return [{ paymentMethod: dir }, { paymentStatus: dir }];
+        case "status": return [{ status: dir }];
+        case "rider": return [{ assignedRider: { name: dir } }];
+        case "date": return [{ createdAt: dir }];
+        default: return [];
+      }
+    })();
+    const orderBy: Prisma.OrderOrderByWithRelationInput[] = [...primary, { createdAt: "desc" }];
     const size = Math.min(Math.max(Math.floor(pageSize) || 50, 1), 200);
     const current = Math.max(Math.floor(page) || 1, 1);
     const [total, items] = await Promise.all([
       this.prisma.order.count({ where }),
       this.prisma.order.findMany({
         where,
-        orderBy: { createdAt: "desc" },
+        orderBy,
         include: this.staffOrderListInclude,
         skip: (current - 1) * size,
         take: size,

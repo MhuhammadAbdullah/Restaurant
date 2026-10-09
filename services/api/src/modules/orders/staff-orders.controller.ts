@@ -89,12 +89,16 @@ export class StaffOrdersController {
     @Query("to") to?: string,
     @Query("page") page?: string,
     @Query("pageSize") pageSize?: string,
+    @Query("sortBy") sortBy?: string,
+    @Query("sortDir") sortDir?: string,
   ) {
     const data = await this.orders.listOrdersForStaffPaged(
       staff,
       { branchId, status, source, type, paymentStatus, search, from, to },
       Number(page) || 1,
       Number(pageSize) || 50,
+      sortBy,
+      sortDir,
     );
     return { success: true, data };
   }

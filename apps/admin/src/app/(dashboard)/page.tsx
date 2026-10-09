@@ -128,6 +128,7 @@ function KpiCard({
   label,
   value,
   change,
+  note,
   lowerIsBetter,
 }: {
   icon: (p: { size?: number; className?: string }) => React.ReactElement;
@@ -135,6 +136,8 @@ function KpiCard({
   label: string;
   value: string;
   change: number | null;
+  /** What the change is measured against, or why there is none. */
+  note: string;
   lowerIsBetter?: boolean;
 }) {
   const good = change == null ? null : lowerIsBetter ? change <= 0 : change >= 0;
@@ -145,16 +148,21 @@ function KpiCard({
           <Icon size={18} />
         </span>
         {change != null && (
-          <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${good ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"}`}>
+          <span title={note} className={`rounded-full px-2 py-0.5 text-xs font-semibold ${good ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"}`}>
             {change >= 0 ? "▲" : "▼"} {Math.abs(change).toFixed(1)}%
           </span>
         )}
       </div>
       <p className="mt-2 text-xs text-neutral-500">{label}</p>
       <p className="mt-0.5 text-2xl font-semibold text-neutral-900">{value}</p>
-      <p className="text-xs text-neutral-400">{change == null ? "No data in the previous period" : "vs previous period"}</p>
     </div>
   );
+}
+
+/** How the period right before the selected one is called: "yesterday" for a single day, else "the previous N days". */
+function previousPeriodName(from: string, to: string): string {
+  const days = Math.round((new Date(`${to}T00:00:00`).getTime() - new Date(`${from}T00:00:00`).getTime()) / 86_400_000) + 1;
+  return days === 1 ? "yesterday" : `the previous ${days} days`;
 }
 
 export default function DashboardPage() {
@@ -248,6 +256,27 @@ export default function DashboardPage() {
 
   const totals = analytics?.totals;
   const previous = analytics?.previous;
+  /** "Today's Revenue", "Last 7 Days Orders", "This Month's ...", or "... (1 Jul – 9 Oct)" for a custom range. */
+  const kpiLabel = (base: string) => {
+    switch (period) {
+      case "today": return `Today's ${base}`;
+      case "7d": return `Last 7 Days ${base}`;
+      case "30d": return `Last 30 Days ${base}`;
+      case "month": return `This Month's ${base}`;
+      default: {
+        const fmt = (v: string) => new Date(`${v}T00:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+        return `${base} (${fmt(range.from)}${range.from === range.to ? "" : ` – ${fmt(range.to)}`})`;
+      }
+    }
+  };
+  const prevName = previousPeriodName(range.from, range.to);
+  /** "vs yesterday" / "vs previous 7 days", or an honest reason when there is nothing to compare against. */
+  const compareNote = (change: number | null) =>
+    !previous || previous.orders === 0
+      ? `No orders ${prevName === "yesterday" ? "yesterday" : `in ${prevName}`}`
+      : change == null
+        ? `None ${prevName === "yesterday" ? "yesterday" : `in ${prevName}`}`
+        : `vs ${prevName === "yesterday" ? "yesterday" : prevName.replace("the ", "")}`;
 
   return (
     <div>
@@ -312,8 +341,8 @@ export default function DashboardPage() {
       {/* Overview — fixed windows (today / week / month) and account-wide counters */}
       <h2 className="mt-4 text-sm font-semibold text-neutral-700">Overview</h2>
       {!data ? (
-        <div className="mt-2 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-7">
-          {Array.from({ length: 7 }).map((_, i) => (
+        <div className="mt-2 grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="rounded-xl border border-neutral-200 p-4">
               <Skeleton className="h-8 w-8 rounded-full" />
               <Skeleton className="mt-3 h-3 w-16" />
@@ -322,11 +351,8 @@ export default function DashboardPage() {
           ))}
         </div>
       ) : (
-        <div className="mt-2 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+        <div className="mt-2 grid grid-cols-2 gap-4 lg:grid-cols-4">
           <StatCard icon={StoreIcon} color="text-blue-600 bg-blue-50" label="Branches" value={`${data.branches.active}/${data.branches.total}`} />
-          <StatCard icon={BanknoteIcon} color="text-green-600 bg-green-50" label="Today's Revenue" value={formatPaisa(data.revenue.today)} />
-          <StatCard icon={TrendingUpIcon} color="text-emerald-600 bg-emerald-50" label="Week Revenue" value={formatPaisa(data.revenue.week)} />
-          <StatCard icon={BarChartIcon} color="text-teal-600 bg-teal-50" label="Month Revenue" value={formatPaisa(data.revenue.month)} />
           <StatCard icon={UsersIcon} color="text-purple-600 bg-purple-50" label="Total Customers" value={String(data.customers.total)} sub={`+${data.customers.newToday} today`} />
           <StatCard icon={AlertCircleIcon} color="text-red-600 bg-red-50" label="Open Complaints" value={String(data.complaints.open)} warn={data.complaints.open > 0} />
           <StatCard icon={StarIcon} color="text-pink-600 bg-pink-50" label="Loyalty Points Issued" value={String(data.loyaltyPointsIssued)} />
@@ -345,21 +371,23 @@ export default function DashboardPage() {
           ))
         ) : (
           <>
-            <KpiCard icon={BanknoteIcon} color="text-red-600 bg-red-50" label="Revenue" value={formatPaisa(totals.revenue)} change={pctChange(totals.revenue, previous.revenue)} />
-            <KpiCard icon={ShoppingBagIcon} color="text-blue-600 bg-blue-50" label="Orders" value={String(totals.orders)} change={pctChange(totals.orders, previous.orders)} />
+            <KpiCard icon={BanknoteIcon} color="text-red-600 bg-red-50" label={kpiLabel("Revenue")} value={formatPaisa(totals.revenue)} change={pctChange(totals.revenue, previous.revenue)} note={compareNote(pctChange(totals.revenue, previous.revenue))} />
+            <KpiCard icon={ShoppingBagIcon} color="text-blue-600 bg-blue-50" label={kpiLabel("Orders")} value={String(totals.orders)} change={pctChange(totals.orders, previous.orders)} note={compareNote(pctChange(totals.orders, previous.orders))} />
             <KpiCard
               icon={CalculatorIcon}
               color="text-teal-600 bg-teal-50"
-              label="Avg. Order Value"
+              label={kpiLabel("Avg. Order Value")}
               value={formatPaisa(totals.avgOrderValue)}
               change={pctChange(totals.avgOrderValue, previous.avgOrderValue)}
+              note={compareNote(pctChange(totals.avgOrderValue, previous.avgOrderValue))}
             />
             <KpiCard
               icon={XCircleIcon}
               color="text-neutral-600 bg-neutral-100"
-              label="Cancelled / Refunded"
+              label={kpiLabel("Cancelled / Refunded")}
               value={String(totals.cancelled)}
               change={pctChange(totals.cancelled, previous.cancelled)}
+              note={compareNote(pctChange(totals.cancelled, previous.cancelled))}
               lowerIsBetter
             />
           </>

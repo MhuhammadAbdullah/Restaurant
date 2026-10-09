@@ -27,6 +27,7 @@ export function ImageUploadField({
   hideLabel,
   shape,
   hint,
+  icon,
 }: {
   label: string;
   folder: "restaurant" | "banners" | "products" | "categories" | "deals" | "choices" | "addons";
@@ -44,6 +45,8 @@ export function ImageUploadField({
   shape?: "square" | "landscape";
   /** Short guidance under the upload prompt, e.g. the recommended size. */
   hint?: string;
+  /** Small fluid tile for icon grids: fills its container (max 120px), shows the whole icon uncropped on white. */
+  icon?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -84,7 +87,7 @@ export function ImageUploadField({
   }
 
   return (
-    <div>
+    <div className={icon ? "w-full min-w-0" : undefined}>
       {!hideLabel && <p className="mb-1 text-xs font-medium text-neutral-500">{label}</p>}
 
       <div
@@ -96,15 +99,15 @@ export function ImageUploadField({
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
         className={`group relative flex cursor-pointer items-center justify-center overflow-hidden rounded-xl border-2 border-dashed transition ${
-          shape === "square" ? "aspect-square w-44" : shape === "landscape" ? "aspect-[21/9] w-full bg-neutral-50" : compact ? "h-32 w-32" : "h-40 w-full"
+          icon ? "mx-auto aspect-square w-full max-w-[120px] bg-white" : shape === "square" ? "aspect-square w-44" : shape === "landscape" ? "aspect-[21/9] w-full bg-neutral-50" : compact ? "h-32 w-32" : "h-40 w-full"
         } ${dragOver ? "border-brand-red bg-red-50" : "border-neutral-300 hover:border-brand-red hover:bg-neutral-50"}`}
       >
         {value ? (
           <>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={value} alt="" className={`h-full w-full ${shape === "landscape" ? "object-contain" : "object-cover"}`} />
+            <img src={value} alt="" className={`h-full w-full ${shape === "landscape" ? "object-contain" : icon ? "object-contain p-2" : "object-cover"}`} />
             <div className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition group-hover:bg-black/50 group-hover:opacity-100">
-              <span className="rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-neutral-900">Click or drop to replace</span>
+              <span className="rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-neutral-900">{icon ? "Replace" : "Click or drop to replace"}</span>
             </div>
             <button
               type="button"
@@ -127,12 +130,12 @@ export function ImageUploadField({
             <p className="text-sm">Uploading...</p>
           </div>
         ) : (
-          <div className={`flex flex-col items-center text-center text-neutral-400 ${compact && !shape ? "gap-1 px-2" : "gap-1.5 px-4"}`}>
-            <svg width={compact ? 20 : 28} height={compact ? 20 : 28} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <div className={`flex flex-col items-center text-center text-neutral-400 ${(compact && !shape) || icon ? "gap-1 px-2" : "gap-1.5 px-4"}`}>
+            <svg width={compact || icon ? 20 : 28} height={compact || icon ? 20 : 28} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 16V4M12 4l-4 4M12 4l4 4" />
               <path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
             </svg>
-            {compact && !shape ? (
+            {(compact && !shape) || icon ? (
               <p className="text-xs font-medium text-neutral-500">Upload</p>
             ) : (
               <>
@@ -157,9 +160,9 @@ export function ImageUploadField({
       <button
         type="button"
         onClick={() => setShowUrlField((s) => !s)}
-        className="mt-1.5 text-xs text-neutral-400 underline hover:text-neutral-600"
+        className={`mt-1.5 text-xs text-neutral-400 underline hover:text-neutral-600 ${icon ? "block w-full text-center" : ""}`}
       >
-        {showUrlField ? "Hide URL field" : "Paste an image URL instead"}
+        {showUrlField ? "Hide URL field" : icon ? "Paste URL" : "Paste an image URL instead"}
       </button>
       {showUrlField && (
         <input

@@ -24,8 +24,6 @@ import {
  */
 export const BRAND = "#ED2320";
 export const CATEGORICAL = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948"] as const;
-/** One-hue red ramp for part-to-whole slices — alternating dark/light so neighbours always separate; the legend carries identity. */
-const RED_RAMP = ["#ED2320", "#7F1210", "#F58A87", "#B3201C", "#FAC4C2", "#D4413D"] as const;
 const INK = "#0b0b0b";
 const INK_2 = "#52514e";
 const MUTED = "#898781";
@@ -33,21 +31,24 @@ const GRID = "#e1e0d9";
 const AXIS = "#c3c2b7";
 const DEEMPHASIS = "#d9d8d3";
 
+/** Soft red family: red, blush, maroon, coral, pale peach, dusty rose-brown — alternating light/dark so adjacent slices separate. */
+const SOFT_RED = ["#E5484D", "#F9B8B5", "#A83232", "#F59A8B", "#FCD9D2", "#7C5555"] as const;
+
 export const TYPE_META: Record<string, { label: string; color: string }> = {
-  ONLINE_DELIVERY: { label: "Online Delivery", color: RED_RAMP[0] },
-  ONLINE_PICKUP: { label: "Online Pickup", color: RED_RAMP[1] },
-  DINE_IN: { label: "Dine-in", color: RED_RAMP[2] },
-  WALK_IN: { label: "Walk-in", color: RED_RAMP[3] },
-  TAKEAWAY: { label: "Takeaway", color: RED_RAMP[4] },
-  DELIVERY: { label: "POS Delivery", color: RED_RAMP[5] },
+  ONLINE_DELIVERY: { label: "Online Delivery", color: SOFT_RED[0] },
+  ONLINE_PICKUP: { label: "Online Pickup", color: SOFT_RED[1] },
+  DINE_IN: { label: "Dine-in", color: SOFT_RED[2] },
+  WALK_IN: { label: "Walk-in", color: SOFT_RED[3] },
+  TAKEAWAY: { label: "Takeaway", color: SOFT_RED[4] },
+  DELIVERY: { label: "POS Delivery", color: SOFT_RED[5] },
 };
 
 export const PAYMENT_META: Record<string, { label: string; color: string }> = {
-  COD: { label: "Cash on Delivery", color: RED_RAMP[0] },
-  ONLINE: { label: "Online Payment", color: RED_RAMP[1] },
-  CASH: { label: "Cash", color: RED_RAMP[2] },
-  CARD: { label: "Card", color: RED_RAMP[3] },
-  QR: { label: "QR", color: RED_RAMP[4] },
+  COD: { label: "Cash on Delivery", color: SOFT_RED[0] },
+  ONLINE: { label: "Online Payment", color: SOFT_RED[1] },
+  CASH: { label: "Cash", color: SOFT_RED[2] },
+  CARD: { label: "Card", color: SOFT_RED[3] },
+  QR: { label: "QR", color: SOFT_RED[4] },
 };
 
 export const STATUS_LABEL: Record<string, string> = {
@@ -93,7 +94,7 @@ function ChartTooltip({
   const point = payload?.[0]?.payload;
   if (!active || !point) return null;
   return (
-    <div className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs shadow-lg">
+    <div className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs opacity-100 shadow-xl ring-1 ring-black/5">
       <p className="mb-1 font-semibold text-neutral-900">{title(point)}</p>
       {rows(point).map((r) => (
         <p key={r.label} className="flex items-center justify-between gap-4 text-neutral-600">
@@ -174,6 +175,7 @@ export function RevenueTrendChart({ data, granularity }: { data: TrendPoint[]; g
           />
           <YAxis tickFormatter={compactMoney} tick={axisTick} axisLine={false} tickLine={false} width={56} />
           <Tooltip
+            wrapperStyle={{ zIndex: 1000 }}
             cursor={{ stroke: AXIS, strokeWidth: 1 }}
             content={
               <ChartTooltip
@@ -218,6 +220,7 @@ export function OrdersTrendChart({ data, granularity }: { data: TrendPoint[]; gr
           />
           <YAxis allowDecimals={false} tick={axisTick} axisLine={false} tickLine={false} width={32} />
           <Tooltip
+            wrapperStyle={{ zIndex: 1000 }}
             cursor={{ fill: "rgba(11,11,11,0.04)" }}
             content={
               <ChartTooltip
@@ -267,6 +270,7 @@ export function DonutChart({ slices, centerLabel, formatValue }: { slices: Slice
               ))}
             </Pie>
             <Tooltip
+              wrapperStyle={{ zIndex: 1000 }}
               content={
                 <ChartTooltip
                   title={(p) => String(p.label)}
@@ -279,7 +283,7 @@ export function DonutChart({ slices, centerLabel, formatValue }: { slices: Slice
             />
           </PieChart>
         </ResponsiveContainer>
-        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+        <div className="pointer-events-none absolute inset-0 z-0 flex flex-col items-center justify-center">
           <span className="text-xl font-semibold text-neutral-900">{fmt(total)}</span>
           <span className="text-[11px] text-neutral-400">{centerLabel}</span>
         </div>
@@ -336,6 +340,7 @@ export function HorizontalBars({
             tickFormatter={(v: string) => (v.length > 17 ? `${v.slice(0, 16)}…` : v)}
           />
           <Tooltip
+            wrapperStyle={{ zIndex: 1000 }}
             cursor={{ fill: "rgba(11,11,11,0.04)" }}
             content={
               <ChartTooltip
@@ -359,8 +364,19 @@ export function HorizontalBars({
   );
 }
 
-/** Bars are red; cancelled/refunded drop to neutral ink so the unsuccessful outcomes read apart from the rest. */
-export const STATUS_BAR_COLOR = (status: string) => (status === "CANCELLED" || status === "REFUNDED" ? INK_2 : BRAND);
+/** Red ramp from light to deep as an order moves forward (Pending -> Completed); cancelled/refunded are neutral gray. */
+const STATUS_COLORS: Record<string, string> = {
+  PENDING: "#FBD5D2",
+  CONFIRMED: "#F7B1AC",
+  PREPARING: "#F28B85",
+  READY: "#E9625C",
+  OUT_FOR_DELIVERY: "#DD3F3A",
+  DELIVERED: "#C42B27",
+  COMPLETED: "#9E1D1A",
+  CANCELLED: "#6B7280",
+  REFUNDED: "#9CA3AF",
+};
+export const STATUS_BAR_COLOR = (status: string) => STATUS_COLORS[status] ?? INK_2;
 
 // ---------------------------------------------------------------------------------------------
 
@@ -382,6 +398,7 @@ export function PeakHoursChart({ data }: { data: { hour: number; orders: number 
             <XAxis dataKey="hour" tickFormatter={hourLabel} tick={axisTick} axisLine={{ stroke: AXIS }} tickLine={false} interval={2} />
             <YAxis allowDecimals={false} tick={axisTick} axisLine={false} tickLine={false} width={32} />
             <Tooltip
+              wrapperStyle={{ zIndex: 1000 }}
               cursor={{ fill: "rgba(11,11,11,0.04)" }}
               content={
                 <ChartTooltip

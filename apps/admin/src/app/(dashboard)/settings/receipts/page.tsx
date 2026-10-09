@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatPaisa } from "@restaurant/utils";
 import { api, ApiError } from "../../../../lib/api";
@@ -21,14 +22,26 @@ type RestaurantInfo = {
   kitchenReceiptFooterText: string | null;
 };
 
-function SettingsCard({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
+const LIMITS = { tax: 60, thanks: 200, footer: 500, kitchenHeader: 200, kitchenFooter: 200 };
+const THANK_YOU_IDEAS = ["Thank you for dining with us!", "Thank you! Visit us again soon.", "We hope you enjoyed your meal!", "Shukriya! Phir milenge."];
+
+function SectionCard({ n, title, description, children }: { n: number; title: string; description: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
-      <p className="text-sm font-semibold text-neutral-900">{title}</p>
-      {description && <p className="mt-0.5 text-xs text-neutral-500">{description}</p>}
+    <section className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+      <div className="flex items-center gap-3">
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-red text-xs font-semibold text-white">{n}</span>
+        <div>
+          <p className="text-sm font-semibold text-neutral-900">{title}</p>
+          <p className="text-xs text-neutral-500">{description}</p>
+        </div>
+      </div>
       <div className="mt-4 space-y-3">{children}</div>
-    </div>
+    </section>
   );
+}
+
+function Counter({ value, max }: { value: string; max: number }) {
+  return <span className={`text-[11px] ${value.length > max * 0.9 ? "text-amber-600" : "text-neutral-400"}`}>{value.length}/{max}</span>;
 }
 
 // Sample line items so the preview looks like a real receipt without needing a real order.
@@ -40,23 +53,9 @@ const PREVIEW_SUBTOTAL = PREVIEW_ITEMS.reduce((s, i) => s + i.price * i.qty, 0);
 const PREVIEW_TAX = Math.round(PREVIEW_SUBTOTAL * 0.05);
 const PREVIEW_TOTAL = PREVIEW_SUBTOTAL + PREVIEW_TAX;
 
-function ReceiptPreview({
-  logoUrl,
-  name,
-  taxNumber,
-  phone,
-  thankYouMessage,
-  footerText,
-}: {
-  logoUrl: string;
-  name: string;
-  taxNumber: string;
-  phone: string;
-  thankYouMessage: string;
-  footerText: string;
-}) {
+function ReceiptPreview({ logoUrl, name, taxNumber, phone, thankYouMessage, footerText }: { logoUrl: string; name: string; taxNumber: string; phone: string; thankYouMessage: string; footerText: string }) {
   return (
-    <div className="rounded-xl border border-neutral-200 bg-white p-6 font-mono text-sm shadow-sm">
+    <div className="font-mono text-sm">
       <div className="text-center">
         {logoUrl && (
           // eslint-disable-next-line @next/next/no-img-element
@@ -67,43 +66,36 @@ function ReceiptPreview({
         {phone && <p className="text-xs text-neutral-600">{phone}</p>}
         {taxNumber && <p className="text-xs text-neutral-500">Tax #: {taxNumber}</p>}
       </div>
-
       <div className="my-3 border-t border-dashed border-neutral-300" />
-
       <div className="space-y-0.5 text-xs">
         <p>Order #: POS-000123</p>
         <p>Date: {new Date().toLocaleString()}</p>
         <p>Customer: Sample Customer</p>
       </div>
-
       <div className="my-3 border-t border-dashed border-neutral-300" />
-
       <div className="space-y-2">
         {PREVIEW_ITEMS.map((item) => (
           <div key={item.name}>
-            <div className="flex justify-between text-xs">
+            <div className="flex justify-between gap-2 text-xs">
               <span>{item.qty}x {item.name}</span>
-              <span>{formatPaisa(item.price * item.qty)}</span>
+              <span className="shrink-0">{formatPaisa(item.price * item.qty)}</span>
             </div>
             {item.note && <p className="pl-3 text-[11px] text-neutral-500">+ {item.note}</p>}
           </div>
         ))}
       </div>
-
       <div className="my-3 border-t border-dashed border-neutral-300" />
-
       <div className="space-y-0.5 text-xs">
         <div className="flex justify-between"><span>Subtotal</span><span>{formatPaisa(PREVIEW_SUBTOTAL)}</span></div>
         <div className="flex justify-between"><span>Tax</span><span>{formatPaisa(PREVIEW_TAX)}</span></div>
         <div className="flex justify-between border-t border-neutral-300 pt-1 text-sm font-bold"><span>Grand Total</span><span>{formatPaisa(PREVIEW_TOTAL)}</span></div>
       </div>
-
       {(thankYouMessage || footerText) && (
         <>
           <div className="my-3 border-t border-dashed border-neutral-300" />
           <div className="text-center text-xs text-neutral-600">
             {thankYouMessage && <p className="font-medium">{thankYouMessage}</p>}
-            {footerText && <p className="mt-1">{footerText}</p>}
+            {footerText && <p className="mt-1 whitespace-pre-line">{footerText}</p>}
           </div>
         </>
       )}
@@ -113,7 +105,7 @@ function ReceiptPreview({
 
 function KitchenTicketPreview({ headerText, restaurantName, footerText }: { headerText: string; restaurantName: string; footerText: string }) {
   return (
-    <div className="rounded-xl border border-neutral-200 bg-white p-6 font-mono text-sm shadow-sm">
+    <div className="font-mono text-sm">
       <p className="text-center text-base font-bold">{headerText || restaurantName || "Kitchen Copy"}</p>
       <div className="my-3 border-t border-dashed border-neutral-300" />
       <div className="space-y-0.5 text-xs">
@@ -144,23 +136,58 @@ export default function ReceiptSettingsPage() {
 
   const { data: restaurant } = useQuery({ queryKey: ["cms-restaurant"], queryFn: () => api.get<RestaurantInfo>("/cms/restaurant") });
 
+  const [tab, setTab] = useState<"customer" | "kitchen">("customer");
+  const [paper, setPaper] = useState<"58" | "80">("80");
   const [receiptLogoUrl, setReceiptLogoUrl] = useState("");
   const [taxNumber, setTaxNumber] = useState("");
   const [thankYouMessage, setThankYouMessage] = useState("");
   const [footerText, setFooterText] = useState("");
   const [kitchenHeader, setKitchenHeader] = useState("");
   const [kitchenFooter, setKitchenFooter] = useState("");
+  const [saved, setSaved] = useState("");
   const [saving, setSaving] = useState(false);
+
+  const snapshot = useMemo(
+    () => JSON.stringify({ receiptLogoUrl, taxNumber, thankYouMessage, footerText, kitchenHeader, kitchenFooter }),
+    [receiptLogoUrl, taxNumber, thankYouMessage, footerText, kitchenHeader, kitchenFooter],
+  );
+  const dirty = saved !== "" && snapshot !== saved;
+  const customerDirty = useMemo(() => {
+    if (!saved) return false;
+    const s = JSON.parse(saved);
+    return s.receiptLogoUrl !== receiptLogoUrl || s.taxNumber !== taxNumber || s.thankYouMessage !== thankYouMessage || s.footerText !== footerText;
+  }, [saved, receiptLogoUrl, taxNumber, thankYouMessage, footerText]);
+  const kitchenDirty = dirty && (() => { const s = JSON.parse(saved); return s.kitchenHeader !== kitchenHeader || s.kitchenFooter !== kitchenFooter; })();
 
   useEffect(() => {
     if (!restaurant) return;
-    setReceiptLogoUrl(restaurant.receiptLogoUrl ?? "");
-    setTaxNumber(restaurant.receiptTaxNumber ?? "");
-    setThankYouMessage(restaurant.receiptThankYouMessage ?? "");
-    setFooterText(restaurant.receiptFooterText ?? "");
-    setKitchenHeader(restaurant.kitchenReceiptHeaderText ?? "");
-    setKitchenFooter(restaurant.kitchenReceiptFooterText ?? "");
+    const next = {
+      receiptLogoUrl: restaurant.receiptLogoUrl ?? "",
+      taxNumber: restaurant.receiptTaxNumber ?? "",
+      thankYouMessage: restaurant.receiptThankYouMessage ?? "",
+      footerText: restaurant.receiptFooterText ?? "",
+      kitchenHeader: restaurant.kitchenReceiptHeaderText ?? "",
+      kitchenFooter: restaurant.kitchenReceiptFooterText ?? "",
+    };
+    setReceiptLogoUrl(next.receiptLogoUrl);
+    setTaxNumber(next.taxNumber);
+    setThankYouMessage(next.thankYouMessage);
+    setFooterText(next.footerText);
+    setKitchenHeader(next.kitchenHeader);
+    setKitchenFooter(next.kitchenFooter);
+    setSaved(JSON.stringify(next));
   }, [restaurant]);
+
+  function reset() {
+    if (!saved) return;
+    const s = JSON.parse(saved);
+    setReceiptLogoUrl(s.receiptLogoUrl);
+    setTaxNumber(s.taxNumber);
+    setThankYouMessage(s.thankYouMessage);
+    setFooterText(s.footerText);
+    setKitchenHeader(s.kitchenHeader);
+    setKitchenFooter(s.kitchenFooter);
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -168,11 +195,11 @@ export default function ReceiptSettingsPage() {
     try {
       await api.patch("/cms/restaurant", {
         receiptLogoUrl: receiptLogoUrl || null,
-        receiptTaxNumber: taxNumber || null,
-        receiptThankYouMessage: thankYouMessage || null,
-        receiptFooterText: footerText || null,
-        kitchenReceiptHeaderText: kitchenHeader || null,
-        kitchenReceiptFooterText: kitchenFooter || null,
+        receiptTaxNumber: taxNumber.trim() || null,
+        receiptThankYouMessage: thankYouMessage.trim() || null,
+        receiptFooterText: footerText.trim() || null,
+        kitchenReceiptHeaderText: kitchenHeader.trim() || null,
+        kitchenReceiptFooterText: kitchenFooter.trim() || null,
       });
       await queryClient.invalidateQueries({ queryKey: ["cms-restaurant"] });
       toast.success("Receipt settings saved.");
@@ -189,8 +216,8 @@ export default function ReceiptSettingsPage() {
     <div>
       <h1 className="text-xl font-semibold text-neutral-900">Receipts</h1>
       <p className="mt-1 text-sm text-neutral-500">
-        Branding for customer and kitchen receipts printed from the POS. Restaurant name and phone are reused from{" "}
-        <span className="font-medium">Website → Header &amp; Branding</span>; branch name/address/phone come from each branch automatically.
+        What prints on customer receipts and kitchen tickets from the POS. The restaurant name and phone come from{" "}
+        <Link href="/settings/header" className="font-medium underline">Header &amp; Branding</Link>; branch name, address and phone come from each branch.
       </p>
 
       {!canManage && (
@@ -199,64 +226,131 @@ export default function ReceiptSettingsPage() {
         </p>
       )}
 
-      <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <form onSubmit={submit}>
-          <fieldset disabled={!canManage} className="space-y-4 disabled:opacity-70">
-            <SettingsCard
-              title="Receipt Logo"
-              description="Optional; falls back to your header logo if left empty. A simplified black & white mark often prints cleanest on a thermal receipt printer."
-            >
-              <ImageUploadField label="Receipt Logo" folder="restaurant" value={receiptLogoUrl} onChange={setReceiptLogoUrl} />
-            </SettingsCard>
+      <div className="mt-5 grid max-w-md grid-cols-2 gap-2">
+        {(
+          [
+            ["customer", "Customer receipt", customerDirty],
+            ["kitchen", "Kitchen ticket", kitchenDirty],
+          ] as ["customer" | "kitchen", string, boolean][]
+        ).map(([key, label, d]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setTab(key)}
+            className={`flex items-center justify-between rounded-xl border px-4 py-3 text-left text-sm font-semibold transition ${tab === key ? "border-brand-red bg-red-50 text-brand-red" : "border-neutral-200 bg-white text-neutral-800 hover:bg-neutral-50"}`}
+          >
+            {label}
+            {d && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">Unsaved</span>}
+          </button>
+        ))}
+      </div>
 
-            <SettingsCard title="Tax / Registration Number" description="Printed under the restaurant name on the customer receipt, if provided.">
-              <input value={taxNumber} onChange={(e) => setTaxNumber(e.target.value)} placeholder="e.g. NTN 1234567-8" className="input w-full" />
-            </SettingsCard>
+      <form onSubmit={submit} className="mt-4">
+        <fieldset disabled={!canManage} className="grid grid-cols-1 gap-5 disabled:opacity-70 xl:grid-cols-[minmax(0,1fr)_420px]">
+          <div className="space-y-4">
+            {tab === "customer" ? (
+              <>
+                <SectionCard n={1} title="Logo & registration" description="Printed at the top of the customer receipt.">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-[190px_1fr]">
+                    <ImageUploadField label="Receipt logo" folder="restaurant" value={receiptLogoUrl} onChange={setReceiptLogoUrl} shape="square" hint="Black & white prints cleanest" />
+                    <div className="space-y-3">
+                      <p className="rounded-lg bg-neutral-50 px-3 py-2 text-xs text-neutral-600">
+                        {receiptLogoUrl ? "Using this receipt logo." : restaurant?.logoUrl ? "No receipt logo set, so your header logo is used." : "No logo set, so receipts print without one."}
+                        {" "}A simple black &amp; white mark usually looks best on a thermal printer.
+                      </p>
+                      <div>
+                        <div className="mb-1 flex items-center justify-between">
+                          <p className="text-xs font-medium text-neutral-500">Tax / registration number</p>
+                          <Counter value={taxNumber} max={LIMITS.tax} />
+                        </div>
+                        <input value={taxNumber} onChange={(e) => setTaxNumber(e.target.value.slice(0, LIMITS.tax))} placeholder="e.g. NTN 1234567-8" className="input w-full" />
+                        <p className="mt-1 text-xs text-neutral-400">Printed under the restaurant name. Leave empty to hide.</p>
+                      </div>
+                    </div>
+                  </div>
+                </SectionCard>
 
-            <SettingsCard title="Customer Receipt" description="Shown at the bottom of the printed customer receipt.">
-              <div>
-                <p className="mb-1 text-xs font-medium text-neutral-500">Thank You Message</p>
-                <input value={thankYouMessage} onChange={(e) => setThankYouMessage(e.target.value)} placeholder="Thank you for dining with us!" className="input w-full" />
-              </div>
-              <div>
-                <p className="mb-1 text-xs font-medium text-neutral-500">Footer Text</p>
-                <textarea value={footerText} onChange={(e) => setFooterText(e.target.value)} placeholder="Terms, return policy, or any closing note" className="input w-full" rows={3} />
-              </div>
-            </SettingsCard>
+                <SectionCard n={2} title="Closing message" description="Shown at the bottom of every customer receipt.">
+                  <div>
+                    <div className="mb-1 flex items-center justify-between">
+                      <p className="text-xs font-medium text-neutral-500">Thank-you message</p>
+                      <Counter value={thankYouMessage} max={LIMITS.thanks} />
+                    </div>
+                    <input value={thankYouMessage} onChange={(e) => setThankYouMessage(e.target.value.slice(0, LIMITS.thanks))} placeholder="Thank you for dining with us!" className="input w-full" />
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {THANK_YOU_IDEAS.map((idea) => (
+                        <button key={idea} type="button" onClick={() => setThankYouMessage(idea)} className="rounded-full border border-neutral-300 px-2.5 py-1 text-[11px] text-neutral-600 hover:border-brand-red hover:text-brand-red">
+                          {idea}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="mb-1 flex items-center justify-between">
+                      <p className="text-xs font-medium text-neutral-500">Footer text</p>
+                      <Counter value={footerText} max={LIMITS.footer} />
+                    </div>
+                    <textarea value={footerText} onChange={(e) => setFooterText(e.target.value.slice(0, LIMITS.footer))} placeholder="Return policy, website, social handle or any closing note" className="input w-full" rows={3} />
+                  </div>
+                </SectionCard>
+              </>
+            ) : (
+              <SectionCard n={1} title="Kitchen ticket text" description="Keep it short: kitchen staff need preparation info, not marketing copy.">
+                <div>
+                  <div className="mb-1 flex items-center justify-between">
+                    <p className="text-xs font-medium text-neutral-500">Header text</p>
+                    <Counter value={kitchenHeader} max={LIMITS.kitchenHeader} />
+                  </div>
+                  <input value={kitchenHeader} onChange={(e) => setKitchenHeader(e.target.value.slice(0, LIMITS.kitchenHeader))} placeholder="e.g. Kitchen Copy" className="input w-full" />
+                  <p className="mt-1 text-xs text-neutral-400">If empty, the restaurant name is printed.</p>
+                </div>
+                <div>
+                  <div className="mb-1 flex items-center justify-between">
+                    <p className="text-xs font-medium text-neutral-500">Footer text</p>
+                    <Counter value={kitchenFooter} max={LIMITS.kitchenFooter} />
+                  </div>
+                  <input value={kitchenFooter} onChange={(e) => setKitchenFooter(e.target.value.slice(0, LIMITS.kitchenFooter))} placeholder="Optional, e.g. Check allergies before serving" className="input w-full" />
+                </div>
+              </SectionCard>
+            )}
+          </div>
 
-            <SettingsCard title="Kitchen Ticket" description="Shown on the kitchen ticket, so keep this short: kitchen staff need prep info, not marketing copy.">
-              <div>
-                <p className="mb-1 text-xs font-medium text-neutral-500">Header Text</p>
-                <input value={kitchenHeader} onChange={(e) => setKitchenHeader(e.target.value)} placeholder="e.g. Kitchen Copy" className="input w-full" />
+          <aside className="xl:sticky xl:top-4 xl:self-start">
+            <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-neutral-900">Live preview</p>
+                <div className="flex overflow-hidden rounded-lg border border-neutral-300 text-[11px] font-medium">
+                  {(["58", "80"] as const).map((w) => (
+                    <button key={w} type="button" onClick={() => setPaper(w)} className={`px-2.5 py-1 ${paper === w ? "bg-brand-red text-white" : "bg-white text-neutral-600"}`}>
+                      {w} mm
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div>
-                <p className="mb-1 text-xs font-medium text-neutral-500">Footer Text</p>
-                <input value={kitchenFooter} onChange={(e) => setKitchenFooter(e.target.value)} className="input w-full" />
+              <div className="mt-3 rounded-lg bg-neutral-100 px-3 py-5">
+                <div className={`mx-auto bg-white p-4 shadow-md ${paper === "58" ? "max-w-[230px]" : "max-w-[320px]"}`} style={{ borderRadius: 2 }}>
+                  {tab === "customer" ? (
+                    <ReceiptPreview logoUrl={previewLogo} name={restaurant?.name ?? ""} taxNumber={taxNumber} phone={restaurant?.contactPhone ?? ""} thankYouMessage={thankYouMessage} footerText={footerText} />
+                  ) : (
+                    <KitchenTicketPreview headerText={kitchenHeader} restaurantName={restaurant?.name ?? ""} footerText={kitchenFooter} />
+                  )}
+                </div>
               </div>
-            </SettingsCard>
+              <p className="mt-2 text-[11px] text-neutral-400">Sample order data. Paper width only changes this preview; the printer decides the real width.</p>
+            </div>
+          </aside>
 
-            <button className="rounded-lg bg-brand-red px-4 py-2 text-sm font-medium text-white disabled:opacity-60" disabled={saving}>
+          <div className="sticky bottom-0 z-10 -mx-1 flex items-center gap-3 rounded-xl border border-neutral-200 bg-white px-4 py-3 shadow-lg xl:col-span-2">
+            <button className="rounded-lg bg-brand-red px-4 py-2 text-sm font-medium text-white disabled:opacity-60" disabled={saving || !dirty}>
               {saving ? "Saving..." : "Save Changes"}
             </button>
-          </fieldset>
-        </form>
-
-        <div className="lg:sticky lg:top-4 lg:self-start">
-          <p className="mb-2 text-xs font-semibold uppercase text-neutral-500">Live Preview</p>
-          <div className="space-y-4">
-            <ReceiptPreview
-              logoUrl={previewLogo}
-              name={restaurant?.name ?? ""}
-              taxNumber={taxNumber}
-              phone={restaurant?.contactPhone ?? ""}
-              thankYouMessage={thankYouMessage}
-              footerText={footerText}
-            />
-            <KitchenTicketPreview headerText={kitchenHeader} restaurantName={restaurant?.name ?? ""} footerText={kitchenFooter} />
+            <button type="button" onClick={reset} disabled={!dirty || saving} className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50">
+              Reset
+            </button>
+            <span className={`text-xs ${dirty ? "font-medium text-amber-600" : "text-neutral-400"}`}>{dirty ? "You have unsaved changes" : "All changes saved"}</span>
           </div>
-          <p className="mt-2 text-xs text-neutral-400">Preview uses sample order data; layout matches the real printed receipt.</p>
-        </div>
-      </div>
+        </fieldset>
+      </form>
 
       <style jsx global>{`
         .input {

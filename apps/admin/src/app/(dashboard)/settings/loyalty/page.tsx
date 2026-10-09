@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "../../../../lib/api";
 import { useMe, hasPermission } from "../../../../lib/useMe";
 import { toast } from "../../../../store/useToastStore";
+import { Switch } from "../../../../components/ui/switch";
 
 type LoyaltyConfig = {
   enabled: boolean;
@@ -16,14 +17,35 @@ type LoyaltyConfig = {
 
 type RestaurantInfo = { name: string; loyalty: LoyaltyConfig };
 
-function SettingsCard({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
+type FormState = { enabled: boolean; signupBonusPoints: number; earnRateRupees: number; redemptionValueRupees: number; expiryDays: number };
+
+const EXPIRY_PRESETS: [number, string][] = [
+  [0, "Never"],
+  [30, "30 days"],
+  [90, "3 months"],
+  [180, "6 months"],
+  [365, "1 year"],
+];
+
+const rs = (n: number) => `Rs. ${Number.isInteger(n) ? n.toLocaleString() : n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+
+function SectionCard({ n, title, description, children }: { n: number; title: string; description: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
-      <p className="text-sm font-semibold text-neutral-900">{title}</p>
-      {description && <p className="mt-0.5 text-xs text-neutral-500">{description}</p>}
+    <section className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+      <div className="flex items-center gap-3">
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-red text-xs font-semibold text-white">{n}</span>
+        <div>
+          <p className="text-sm font-semibold text-neutral-900">{title}</p>
+          <p className="text-xs text-neutral-500">{description}</p>
+        </div>
+      </div>
       <div className="mt-4 space-y-3">{children}</div>
-    </div>
+    </section>
   );
+}
+
+function NumberField({ value, onChange, min, step, className }: { value: number; onChange: (v: number) => void; min: number; step?: string; className?: string }) {
+  return <input type="number" min={min} step={step} value={Number.isFinite(value) ? value : ""} onChange={(e) => onChange(Number(e.target.value))} className={`input ${className ?? "w-28"}`} />;
 }
 
 export default function LoyaltySettingsPage() {
@@ -33,34 +55,55 @@ export default function LoyaltySettingsPage() {
 
   const { data: restaurant } = useQuery({ queryKey: ["cms-restaurant"], queryFn: () => api.get<RestaurantInfo>("/cms/restaurant") });
 
-  const [enabled, setEnabled] = useState(true);
-  const [signupBonusPoints, setSignupBonusPoints] = useState(0);
-  const [earnRateRupees, setEarnRateRupees] = useState(100);
-  const [redemptionValueRupees, setRedemptionValueRupees] = useState(1);
-  const [expiryDays, setExpiryDays] = useState(0);
+  const [form, setForm] = useState<FormState>({ enabled: true, signupBonusPoints: 0, earnRateRupees: 100, redemptionValueRupees: 1, expiryDays: 0 });
+  const [saved, setSaved] = useState<FormState | null>(null);
   const [saving, setSaving] = useState(false);
+  const [sampleOrder, setSampleOrder] = useState(2500);
 
   useEffect(() => {
     if (!restaurant?.loyalty) return;
     const l = restaurant.loyalty;
-    setEnabled(l.enabled);
-    setSignupBonusPoints(l.signupBonusPoints);
-    setEarnRateRupees(l.earnRatePaisaPerPoint / 100);
-    setRedemptionValueRupees(l.redemptionValuePaisaPerPoint / 100);
-    setExpiryDays(l.expiryDays);
+    const next: FormState = {
+      enabled: l.enabled,
+      signupBonusPoints: l.signupBonusPoints,
+      earnRateRupees: l.earnRatePaisaPerPoint / 100,
+      redemptionValueRupees: l.redemptionValuePaisaPerPoint / 100,
+      expiryDays: l.expiryDays,
+    };
+    setForm(next);
+    setSaved(next);
   }, [restaurant]);
+
+  const set = <K extends keyof FormState>(key: K, value: FormState[K]) => setForm((f) => ({ ...f, [key]: value }));
+  const dirty = useMemo(() => !!saved && JSON.stringify(form) !== JSON.stringify(saved), [form, saved]);
+
+  const earnValid = form.earnRateRupees >= 0.01;
+  const redeemValid = form.redemptionValueRupees >= 0.01;
+  const bonusValid = Number.isInteger(form.signupBonusPoints) && form.signupBonusPoints >= 0;
+  const expiryValid = Number.isInteger(form.expiryDays) && form.expiryDays >= 0;
+  const valid = earnValid && redeemValid && bonusValid && expiryValid;
+
+  // Worked example for the "what customers see" panel
+  const pointsEarned = earnValid ? Math.floor(sampleOrder / form.earnRateRupees) : 0;
+  const pointsWorth = pointsEarned * form.redemptionValueRupees;
+  const cashbackPct = earnValid && redeemValid ? (form.redemptionValueRupees / form.earnRateRupees) * 100 : 0;
+  const bonusWorth = form.signupBonusPoints * form.redemptionValueRupees;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (!valid) {
+      toast.error("Please fix the highlighted fields first");
+      return;
+    }
     setSaving(true);
     try {
       await api.patch("/cms/restaurant", {
         loyalty: {
-          enabled,
-          signupBonusPoints,
-          earnRatePaisaPerPoint: Math.round(earnRateRupees * 100),
-          redemptionValuePaisaPerPoint: Math.round(redemptionValueRupees * 100),
-          expiryDays,
+          enabled: form.enabled,
+          signupBonusPoints: form.signupBonusPoints,
+          earnRatePaisaPerPoint: Math.round(form.earnRateRupees * 100),
+          redemptionValuePaisaPerPoint: Math.round(form.redemptionValueRupees * 100),
+          expiryDays: form.expiryDays,
         },
       });
       await queryClient.invalidateQueries({ queryKey: ["cms-restaurant"] });
@@ -75,9 +118,7 @@ export default function LoyaltySettingsPage() {
   return (
     <div>
       <h1 className="text-xl font-semibold text-neutral-900">Loyalty Program</h1>
-      <p className="mt-1 text-sm text-neutral-500">
-        Controls how customers earn and redeem loyalty points across the website, POS, and dine-in orders.
-      </p>
+      <p className="mt-1 text-sm text-neutral-500">Reward customers with points on every order and let them spend the points as discount. Applies to the website, POS and dine-in.</p>
 
       {!canManage && (
         <p className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
@@ -85,82 +126,142 @@ export default function LoyaltySettingsPage() {
         </p>
       )}
 
-      <form onSubmit={submit} className="mt-4 max-w-3xl">
-        <fieldset disabled={!canManage} className="space-y-4 disabled:opacity-70">
-          <div className="rounded-xl border-2 border-brand-red/20 bg-brand-red/5 p-5 shadow-sm">
-            <p className="text-sm font-semibold text-neutral-900">Loyalty Program</p>
-            <p className="mt-0.5 text-xs text-neutral-500">
-              Master switch. When off, no points are earned on registration or any order (online, POS, dine-in), customers can&apos;t
-              redeem points at checkout, and &quot;Loyalty Points&quot; is hidden from their account, regardless of their existing
-              balance. Admins can still manually adjust a customer&apos;s points from the Customers page either way.
-            </p>
-            <label className="mt-4 flex items-center gap-2 text-sm font-medium text-neutral-900">
-              <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
-              {enabled ? "Loyalty program is ON" : "Loyalty program is OFF"}
-            </label>
+      <form onSubmit={submit} className="mt-4">
+        <fieldset disabled={!canManage} className="grid grid-cols-1 gap-5 disabled:opacity-70 xl:grid-cols-[minmax(0,1fr)_400px]">
+          <div className="space-y-4">
+            <div className={`rounded-xl border-2 p-5 shadow-sm ${form.enabled ? "border-green-200 bg-green-50/60" : "border-neutral-200 bg-neutral-50"}`}>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="flex items-center gap-2 text-sm font-semibold text-neutral-900">
+                    Loyalty program
+                    <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${form.enabled ? "bg-green-100 text-green-700" : "bg-neutral-200 text-neutral-600"}`}>{form.enabled ? "ON" : "OFF"}</span>
+                  </p>
+                  <p className="mt-1 max-w-xl text-xs text-neutral-500">
+                    {form.enabled
+                      ? "Customers earn points on registration and paid orders, and can redeem them at checkout."
+                      : "No points are earned or redeemed, and “Loyalty Points” is hidden from customer accounts, whatever their balance is. Existing balances are kept. Admins can still adjust points from the Customers page."}
+                  </p>
+                </div>
+                <Switch checked={form.enabled} onCheckedChange={(v) => set("enabled", v)} aria-label="Loyalty program on or off" />
+              </div>
+            </div>
+
+            <div className={`space-y-4 ${form.enabled ? "" : "pointer-events-none opacity-50"}`}>
+              <SectionCard n={1} title="Earning points" description="How customers collect points.">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <p className="mb-1 text-xs font-medium text-neutral-500">Spend → 1 point</p>
+                    <div className="flex items-center gap-2 text-sm text-neutral-700">
+                      <span>Rs.</span>
+                      <NumberField value={form.earnRateRupees} onChange={(v) => set("earnRateRupees", v)} min={0.01} step="0.01" />
+                      <span>= 1 point</span>
+                    </div>
+                    {!earnValid && <p className="mt-1 text-xs text-red-600">Must be at least Rs. 0.01</p>}
+                    <p className="mt-1 text-xs text-neutral-400">Counted on every paid order by a logged-in customer.</p>
+                  </div>
+                  <div>
+                    <p className="mb-1 text-xs font-medium text-neutral-500">Signup bonus</p>
+                    <div className="flex items-center gap-2 text-sm text-neutral-700">
+                      <NumberField value={form.signupBonusPoints} onChange={(v) => set("signupBonusPoints", Math.floor(v))} min={0} />
+                      <span>points</span>
+                    </div>
+                    {!bonusValid && <p className="mt-1 text-xs text-red-600">Enter a whole number, 0 or more</p>}
+                    <p className="mt-1 text-xs text-neutral-400">{form.signupBonusPoints > 0 ? `Worth ${rs(bonusWorth)} on a customer's first order.` : "0 = no bonus."}</p>
+                  </div>
+                </div>
+              </SectionCard>
+
+              <SectionCard n={2} title="Spending points" description="How much discount points are worth at checkout.">
+                <div>
+                  <p className="mb-1 text-xs font-medium text-neutral-500">Point value</p>
+                  <div className="flex items-center gap-2 text-sm text-neutral-700">
+                    <span>1 point = Rs.</span>
+                    <NumberField value={form.redemptionValueRupees} onChange={(v) => set("redemptionValueRupees", v)} min={0.01} step="0.01" />
+                    <span>discount</span>
+                  </div>
+                  {!redeemValid && <p className="mt-1 text-xs text-red-600">Must be at least Rs. 0.01</p>}
+                </div>
+                {earnValid && redeemValid && (
+                  <p className={`rounded-lg px-3 py-2 text-xs ${cashbackPct > 10 ? "bg-amber-50 text-amber-800" : "bg-neutral-50 text-neutral-600"}`}>
+                    Customers effectively get <b>{cashbackPct.toFixed(cashbackPct < 1 ? 2 : 1)}%</b> back on what they spend.
+                    {cashbackPct > 10 && " That is quite generous; double-check the earning rate and point value."}
+                  </p>
+                )}
+              </SectionCard>
+
+              <SectionCard n={3} title="Points expiry" description="How long points stay valid after they are earned.">
+                <div className="flex flex-wrap gap-2">
+                  {EXPIRY_PRESETS.map(([days, label]) => (
+                    <button
+                      key={days}
+                      type="button"
+                      onClick={() => set("expiryDays", days)}
+                      className={`rounded-full border px-3 py-1.5 text-xs font-medium ${form.expiryDays === days ? "border-brand-red bg-red-50 text-brand-red" : "border-neutral-300 text-neutral-600 hover:bg-neutral-50"}`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2 text-sm text-neutral-700">
+                  <span>Custom:</span>
+                  <NumberField value={form.expiryDays} onChange={(v) => set("expiryDays", Math.floor(v))} min={0} className="w-24" />
+                  <span>days</span>
+                </div>
+                {!expiryValid && <p className="text-xs text-red-600">Enter a whole number, 0 or more</p>}
+                <p className="text-xs text-neutral-400">{form.expiryDays === 0 ? "Points never expire." : `Points expire ${form.expiryDays} days after being earned.`}</p>
+              </SectionCard>
+            </div>
           </div>
 
-          <div className={`grid grid-cols-1 gap-4 sm:grid-cols-2 ${!enabled ? "opacity-50" : ""}`}>
-            <SettingsCard title="Signup Bonus" description="Points automatically credited the moment a new customer registers.">
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  min={0}
-                  value={signupBonusPoints}
-                  onChange={(e) => setSignupBonusPoints(Math.max(0, Number(e.target.value)))}
-                  className="input w-24"
-                />
-                <span className="text-sm text-neutral-500">points on registration</span>
-              </div>
-            </SettingsCard>
+          <aside className="xl:sticky xl:top-4 xl:self-start">
+            <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+              <p className="text-sm font-semibold text-neutral-900">How it will work</p>
+              {!form.enabled ? (
+                <p className="mt-3 rounded-lg bg-neutral-50 p-4 text-center text-sm text-neutral-500">Loyalty is off. Customers won&apos;t see or earn any points.</p>
+              ) : (
+                <div className="mt-3 space-y-3 text-sm">
+                  <div className="rounded-lg border border-neutral-200 p-3">
+                    <p className="text-xs font-medium text-neutral-500">If a customer orders for</p>
+                    <div className="mt-1 flex items-center gap-2">
+                      <span className="text-neutral-700">Rs.</span>
+                      <input type="number" min={0} value={sampleOrder} onChange={(e) => setSampleOrder(Math.max(0, Number(e.target.value)))} className="input w-28" />
+                    </div>
+                    <p className="mt-2 text-neutral-800">
+                      They earn <b className="text-brand-red">{pointsEarned.toLocaleString()} point{pointsEarned === 1 ? "" : "s"}</b>
+                      <span className="text-neutral-500"> (worth {rs(pointsWorth)})</span>
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-neutral-200 p-3">
+                    <p className="text-xs font-medium text-neutral-500">Next order</p>
+                    <p className="mt-1 text-neutral-800">
+                      Using all {pointsEarned.toLocaleString()} points gives <b className="text-brand-red">{rs(pointsWorth)}</b> off.
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-neutral-200 p-3">
+                    <p className="text-xs font-medium text-neutral-500">New customer</p>
+                    <p className="mt-1 text-neutral-800">
+                      {form.signupBonusPoints > 0 ? (
+                        <>Gets <b className="text-brand-red">{form.signupBonusPoints.toLocaleString()} points</b> on signup ({rs(bonusWorth)} value).</>
+                      ) : (
+                        "No signup bonus."
+                      )}
+                    </p>
+                  </div>
+                  <p className="text-xs text-neutral-400">{form.expiryDays === 0 ? "Points never expire." : `Unused points expire after ${form.expiryDays} days.`}</p>
+                </div>
+              )}
+            </div>
+          </aside>
 
-            <SettingsCard title="Earning Rate" description="Applies to every paid order (online, POS, and dine-in) for a logged-in customer.">
-              <div className="flex items-center gap-2 text-sm text-neutral-700">
-                <span>Rs.</span>
-                <input
-                  type="number"
-                  min={1}
-                  step="0.01"
-                  value={earnRateRupees}
-                  onChange={(e) => setEarnRateRupees(Math.max(0.01, Number(e.target.value)))}
-                  className="input w-24"
-                />
-                <span>spent = 1 point</span>
-              </div>
-            </SettingsCard>
-
-            <SettingsCard title="Redemption Value" description="How much discount 1 point is worth when redeemed at checkout.">
-              <div className="flex items-center gap-2 text-sm text-neutral-700">
-                <span>1 point = Rs.</span>
-                <input
-                  type="number"
-                  min={0.01}
-                  step="0.01"
-                  value={redemptionValueRupees}
-                  onChange={(e) => setRedemptionValueRupees(Math.max(0.01, Number(e.target.value)))}
-                  className="input w-24"
-                />
-                <span>discount</span>
-              </div>
-            </SettingsCard>
-
-            <SettingsCard title="Points Expiry" description="How long after earning a point remains valid. 0 = never expire.">
-              <div className="flex items-center gap-2 text-sm text-neutral-700">
-                <input
-                  type="number"
-                  min={0}
-                  value={expiryDays}
-                  onChange={(e) => setExpiryDays(Math.max(0, Number(e.target.value)))}
-                  className="input w-24"
-                />
-                <span>days {expiryDays === 0 && <span className="text-neutral-400">(never expire)</span>}</span>
-              </div>
-            </SettingsCard>
+          <div className="sticky bottom-0 z-10 -mx-1 flex items-center gap-3 rounded-xl border border-neutral-200 bg-white px-4 py-3 shadow-lg xl:col-span-2">
+            <button className="rounded-lg bg-brand-red px-4 py-2 text-sm font-medium text-white disabled:opacity-60" disabled={saving || !dirty}>
+              {saving ? "Saving..." : "Save Changes"}
+            </button>
+            <button type="button" onClick={() => saved && setForm(saved)} disabled={!dirty || saving} className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50">
+              Reset
+            </button>
+            <span className={`text-xs ${dirty ? "font-medium text-amber-600" : "text-neutral-400"}`}>{dirty ? "You have unsaved changes" : "All changes saved"}</span>
           </div>
-
-          <button className="rounded-lg bg-brand-red px-4 py-2 text-sm font-medium text-white disabled:opacity-60" disabled={saving}>
-            {saving ? "Saving..." : "Save Changes"}
-          </button>
         </fieldset>
       </form>
 
