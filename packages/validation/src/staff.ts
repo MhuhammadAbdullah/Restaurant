@@ -20,5 +20,7 @@ export const updateStaffUserSchema = z.object({
   branchIds: z.array(idSchema).optional(),
   allBranchesAccess: z.boolean().optional(),
   status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
+  /** Admin-set replacement password; signs the staff member out everywhere. */
+  password: z.string().min(8).max(128).optional(),
 });
 export type UpdateStaffUserInput = z.infer<typeof updateStaffUserSchema>;

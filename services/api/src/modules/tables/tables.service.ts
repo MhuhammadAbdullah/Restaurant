@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import type { CreateTableInput, UpdateTableInput } from "@restaurant/validation";
 import type { StaffJwtPayload } from "@restaurant/auth";
 import { PrismaService } from "../../common/prisma/prisma.service";
@@ -67,8 +67,14 @@ export class TablesService {
     });
   }
 
+  private async assertNumberFree(branchId: string, number: string, exceptId?: string) {
+    const clash = await this.prisma.restaurantTable.findFirst({ where: { branchId, number, ...(exceptId ? { id: { not: exceptId } } : {}) }, select: { id: true } });
+    if (clash) throw new ConflictException({ code: "TABLE_NUMBER_TAKEN", message: `Table ${number} already exists in this branch` });
+  }
+
   async create(staff: StaffJwtPayload, input: CreateTableInput) {
     assertBranchAccess(staff, input.branchId);
+    await this.assertNumberFree(input.branchId, input.number);
     return this.prisma.restaurantTable.create({ data: input });
   }
 
@@ -80,12 +86,15 @@ export class TablesService {
   }
 
   async update(staff: StaffJwtPayload, id: string, input: UpdateTableInput) {
-    await this.getOwned(staff, id);
+    const table = await this.getOwned(staff, id);
+    if (input.number && input.number !== table.number) await this.assertNumberFree(table.branchId, input.number, id);
     return this.prisma.restaurantTable.update({ where: { id }, data: input });
   }
 
   async remove(staff: StaffJwtPayload, id: string) {
     await this.getOwned(staff, id);
+    const open = await this.prisma.order.count({ where: { tableId: id, status: { notIn: ["DELIVERED", "COMPLETED", "CANCELLED", "REFUNDED"] } } });
+    if (open > 0) throw new ConflictException({ code: "TABLE_HAS_OPEN_ORDER", message: "This table has an open bill. Settle or cancel it before deleting the table." });
     await this.prisma.restaurantTable.delete({ where: { id } });
     return { deleted: true };
   }

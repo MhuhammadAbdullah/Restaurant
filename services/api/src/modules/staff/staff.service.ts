@@ -136,6 +136,7 @@ export class StaffService {
         roleId: input.roleId,
         allBranchesAccess: input.allBranchesAccess,
         status: input.status,
+        ...(input.password ? { passwordHash: await hashPassword(input.password) } : {}),
       },
       include: { role: true, branchAssignments: { include: { branch: true } } },
     });
@@ -153,7 +154,7 @@ export class StaffService {
     const branchIdsChanged =
       input.branchIds !== undefined &&
       JSON.stringify([...input.branchIds].sort()) !== JSON.stringify(staff.branchAssignments.map((a) => a.branchId).sort());
-    if (roleChanged || branchAccessChanged || branchIdsChanged) {
+    if (roleChanged || branchAccessChanged || branchIdsChanged || !!input.password) {
       await this.staffAuth.logout(id);
     }
 
