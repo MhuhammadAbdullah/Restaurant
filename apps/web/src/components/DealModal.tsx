@@ -264,7 +264,7 @@ export function DealModal({ deal, onClose }: { deal: Deal; onClose: () => void }
                       isOpen={isOpen}
                       onToggle={onToggle}
                     >
-                      <div className="grid grid-cols-2 gap-2 py-2">
+                      <div className="grid grid-cols-1 gap-2 py-2">
                         {section.choiceGroup.options.map((opt) => (
                           <ChoiceOptionCard
                             key={opt.id}
