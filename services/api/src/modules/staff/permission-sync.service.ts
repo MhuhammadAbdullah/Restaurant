@@ -1,3 +1,4 @@
+import { IS_SERVERLESS } from "../../common/serverless";
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { PERMISSION_CATALOG } from "@restaurant/auth";
 import { PrismaService } from "../../common/prisma/prisma.service";
@@ -13,7 +14,13 @@ export class PermissionSyncService implements OnModuleInit {
 
   constructor(private readonly prisma: PrismaService) {}
 
+  /** Skipped on Vercel (it would run on every cold start); the cron job calls sync() instead. */
   async onModuleInit() {
+    if (IS_SERVERLESS) return;
+    await this.sync();
+  }
+
+  async sync() {
     try {
       const existing = new Set((await this.prisma.permission.findMany({ select: { key: true } })).map((p) => p.key));
       const missing = PERMISSION_CATALOG.filter((p) => !existing.has(p.key));

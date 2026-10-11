@@ -1,0 +1,16 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
+  "buildCommand": "cd ../.. && pnpm --filter @restaurant/database run generate && pnpm turbo run build --filter=@restaurant/api...",
+  "outputDirectory": "public",
+  "functions": {
+    "api/index.js": {
+      "includeFiles": "dist/**",
+      "maxDuration": 30,
+      "memory": 1024
+    }
+  },
+  "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }],
+  "crons": [{ "path": "/api/v1/cron/run", "schedule": "0 2 * * *" }]
+}

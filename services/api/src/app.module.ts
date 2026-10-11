@@ -6,6 +6,8 @@ import { APP_GUARD } from "@nestjs/core";
 import { PrismaModule } from "./common/prisma/prisma.module";
 import { EmailModule } from "./common/email/email.module";
 import { EmailsModule } from "./modules/emails/emails.module";
+import { CronModule } from "./modules/cron/cron.module";
+import { IS_SERVERLESS } from "./common/serverless";
 import { RetentionModule } from "./modules/retention/retention.module";
 import { LoyaltyModule } from "./modules/loyalty/loyalty.module";
 import { HealthModule } from "./health/health.module";
@@ -42,7 +44,9 @@ import { validateEnv } from "./config/env.schema";
         limit: 120,
       },
     ]),
-    ScheduleModule.forRoot(),
+    // Timers do not survive between requests on Vercel; there the jobs run through CronModule (/cron/run).
+    ...(IS_SERVERLESS ? [] : [ScheduleModule.forRoot()]),
+    CronModule,
     PrismaModule,
     EmailModule,
     EmailsModule,

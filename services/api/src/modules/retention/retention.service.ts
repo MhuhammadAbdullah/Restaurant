@@ -1,3 +1,4 @@
+import { IS_SERVERLESS } from "../../common/serverless";
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { PrismaService } from "../../common/prisma/prisma.service";
 
@@ -16,6 +17,7 @@ export class RetentionService implements OnModuleInit, OnModuleDestroy {
   constructor(private readonly prisma: PrismaService) {}
 
   onModuleInit() {
+    if (IS_SERVERLESS) return;
     this.first = setTimeout(() => void this.purge(), FIRST_RUN_DELAY_MS);
     this.timer = setInterval(() => void this.purge(), RUN_EVERY_MS);
     this.first.unref?.();
