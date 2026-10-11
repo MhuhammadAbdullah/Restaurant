@@ -35,7 +35,42 @@ const PLATFORM_META: Record<SocialPlatformKey, { label: string; icon: (p: { size
   whatsapp: { label: "WhatsApp", icon: (p) => <FaWhatsapp {...p} />, placeholder: "https://wa.me/923001234567" },
 };
 
-const DAY_PRESETS = ["Monday - Sunday", "Monday - Friday", "Monday - Saturday", "Saturday - Sunday", "Friday - Saturday"];
+const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const DAY_PRESETS = ["Monday - Sunday", "Monday - Friday", "Monday - Saturday", "Saturday - Sunday", "Friday - Saturday", ...WEEKDAYS];
+
+type HourRow =
+  | { kind: "time"; days: string; open: string; close: string; closed: boolean }
+  | { kind: "text"; text: string };
+
+/** "9:30 AM" -> "09:30" */
+function to24h(t: string): string {
+  const m = /^(\d{1,2}):(\d{2})\s*([AP]M)$/i.exec(t.trim());
+  if (!m) return "";
+  let h = Number(m[1]) % 12;
+  if (m[3]!.toUpperCase() === "PM") h += 12;
+  return `${String(h).padStart(2, "0")}:${m[2]}`;
+}
+
+/** One line per row in the stored text: "Monday - Sunday: 11:00 AM - 11:00 PM". Lines we can't read stay as free text. */
+function parseHours(text: string): HourRow[] {
+  return text
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((line): HourRow => {
+      const t = /^(.*?):\s*(\d{1,2}:\d{2}\s*[AP]M)\s*-\s*(\d{1,2}:\d{2}\s*[AP]M)$/i.exec(line);
+      if (t) return { kind: "time", days: t[1]!.trim(), open: to24h(t[2]!), close: to24h(t[3]!), closed: false };
+      const c = /^(.*?):\s*closed$/i.exec(line);
+      if (c) return { kind: "time", days: c[1]!.trim(), open: "11:00", close: "23:00", closed: true };
+      return { kind: "text", text: line };
+    });
+}
+function serializeHours(rows: HourRow[]): string {
+  return rows
+    .map((r) => (r.kind === "text" ? r.text.trim() : r.closed ? `${r.days}: Closed` : `${r.days}: ${to12h(r.open)} - ${to12h(r.close)}`))
+    .filter(Boolean)
+    .join("\n");
+}
 
 type SocialRow = { platform: SocialPlatformKey; url: string };
 
@@ -88,7 +123,6 @@ export default function FooterSettingsPage() {
   const [socialRows, setSocialRows] = useState<SocialRow[]>([]);
   const [saved, setSaved] = useState("");
   const [saving, setSaving] = useState(false);
-  const [builder, setBuilder] = useState({ days: DAY_PRESETS[0]!, open: "11:00", close: "23:00" });
 
   const snapshot = useMemo(() => JSON.stringify({ tagline, timingText, footerLogoUrl, useAsProductFallback, socialRows }), [tagline, timingText, footerLogoUrl, useAsProductFallback, socialRows]);
   const dirty = saved !== "" && snapshot !== saved;
@@ -130,10 +164,19 @@ export default function FooterSettingsPage() {
   function removeSocialRow(index: number) {
     setSocialRows((rows) => rows.filter((_, i) => i !== index));
   }
-  function addTimingLine() {
-    const line = `${builder.days}: ${to12h(builder.open)} - ${to12h(builder.close)}`;
-    setTimingText((t) => (t.trim() ? `${t.trim()}\n${line}` : line).slice(0, TIMING_MAX));
+  const hourRows = useMemo(() => parseHours(timingText), [timingText]);
+  function setHourRows(rows: HourRow[]) {
+    setTimingText(serializeHours(rows));
   }
+  function updateHourRow(i: number, patch: Partial<Extract<HourRow, { kind: "time" }>> | { text: string }) {
+    setHourRows(hourRows.map((r, j) => (j === i ? ({ ...r, ...patch } as HourRow) : r)));
+  }
+  function addHourRow() {
+    const used = new Set(hourRows.map((r) => (r.kind === "time" ? r.days : "")));
+    const days = DAY_PRESETS.find((d) => !used.has(d)) ?? DAY_PRESETS[0]!;
+    setHourRows([...hourRows, { kind: "time", days, open: "11:00", close: "23:00", closed: false }]);
+  }
+  const timingTooLong = serializeHours(hourRows).length > TIMING_MAX;
 
   const rowError = (row: SocialRow) => (row.url.trim() && !isValidUrl(row.url.trim()) ? "Enter a full link starting with https://" : null);
   const duplicate = (row: SocialRow, i: number) => socialRows.findIndex((r) => r.platform === row.platform) !== i;
@@ -143,6 +186,10 @@ export default function FooterSettingsPage() {
     e.preventDefault();
     if (hasErrors) {
       toast.error("Fix the highlighted social links first");
+      return;
+    }
+    if (timingTooLong) {
+      toast.error("Opening hours are too long. Remove a row or shorten the text.");
       return;
     }
     setSaving(true);
@@ -207,29 +254,55 @@ export default function FooterSettingsPage() {
               <p className="text-right text-[11px] text-neutral-400">{tagline.length}/{TAGLINE_MAX}</p>
             </SectionCard>
 
-            <SectionCard n={3} title="Opening hours" description="Each line is shown on its own row in the footer's Our Timing column.">
-              <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3">
-                <p className="mb-2 text-xs font-medium text-neutral-500">Quick add a line</p>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_110px_110px_auto]">
-                  <div className="col-span-2 sm:col-span-1">
-                    <Select value={builder.days} onValueChange={(v) => setBuilder({ ...builder, days: v })}>
-                      <SelectTrigger className="w-full bg-white"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {DAY_PRESETS.map((d) => (
-                          <SelectItem key={d} value={d}>{d}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+            <SectionCard n={3} title="Opening hours" description="Each row becomes one line in the footer's Our Timing column.">
+              <div className="space-y-2">
+                {hourRows.length > 0 && (
+                  <div className="hidden grid-cols-[minmax(10rem,1fr)_9.5rem_1rem_9.5rem_5.5rem_2rem] items-end gap-2 px-1 text-[11px] font-medium text-neutral-400 sm:grid">
+                    <span>Days</span><span>Opens</span><span /><span>Closes</span><span>Closed</span><span />
                   </div>
-                  <input type="time" value={builder.open} onChange={(e) => setBuilder({ ...builder, open: e.target.value })} className="input bg-white" aria-label="Opens" />
-                  <input type="time" value={builder.close} onChange={(e) => setBuilder({ ...builder, close: e.target.value })} className="input bg-white" aria-label="Closes" />
-                  <button type="button" onClick={addTimingLine} className="col-span-2 rounded-lg border border-brand-red bg-white px-3 py-2 text-sm font-medium text-brand-red hover:bg-red-50 sm:col-span-1">
-                    + Add
-                  </button>
-                </div>
+                )}
+                {hourRows.map((r, i) =>
+                  r.kind === "text" ? (
+                    <div key={i} className="flex items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50 p-2">
+                      <input value={r.text} onChange={(e) => updateHourRow(i, { text: e.target.value })} className="input h-10 min-w-0 flex-1 bg-white" aria-label="Opening hours line" />
+                      <button type="button" onClick={() => setHourRows(hourRows.filter((_, j) => j !== i))} aria-label="Remove row" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-neutral-400 hover:bg-red-50 hover:text-red-600">
+                        <CloseIcon size={13} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div key={i} className="grid grid-cols-2 items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50 p-2 sm:grid-cols-[minmax(10rem,1fr)_9.5rem_1rem_9.5rem_5.5rem_2rem]">
+                      <div className="col-span-2 sm:col-span-1">
+                        <Select value={r.days} onValueChange={(v) => updateHourRow(i, { days: v })}>
+                          <SelectTrigger className="h-10 w-full bg-white"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {(DAY_PRESETS.includes(r.days) ? DAY_PRESETS : [r.days, ...DAY_PRESETS]).map((d) => (
+                              <SelectItem key={d} value={d}>{d}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <input type="time" value={r.open} disabled={r.closed} onChange={(e) => updateHourRow(i, { open: e.target.value })} className="input h-10 w-full min-w-0 bg-white disabled:opacity-40" aria-label="Opens" />
+                      <span className="hidden text-center text-xs text-neutral-400 sm:block">to</span>
+                      <input type="time" value={r.close} disabled={r.closed} onChange={(e) => updateHourRow(i, { close: e.target.value })} className="input h-10 w-full min-w-0 bg-white disabled:opacity-40" aria-label="Closes" />
+                      <label className="flex h-10 cursor-pointer items-center gap-2 text-sm text-neutral-600">
+                        <input type="checkbox" checked={r.closed} onChange={(e) => updateHourRow(i, { closed: e.target.checked })} className="h-4 w-4 accent-[#ED2320]" />
+                        Closed
+                      </label>
+                      <button type="button" onClick={() => setHourRows(hourRows.filter((_, j) => j !== i))} aria-label="Remove row" className="ml-auto flex h-8 w-8 items-center justify-center rounded-lg text-neutral-400 hover:bg-red-50 hover:text-red-600">
+                        <CloseIcon size={13} />
+                      </button>
+                    </div>
+                  ),
+                )}
+                {hourRows.length === 0 && <p className="rounded-lg border border-dashed border-neutral-300 p-4 text-center text-xs text-neutral-400">No opening hours yet, so the footer won&apos;t show any timings.</p>}
               </div>
-              <textarea value={timingText} onChange={(e) => setTimingText(e.target.value.slice(0, TIMING_MAX))} className="input w-full" rows={3} placeholder={DEFAULT_TIMING} required />
-              <p className="text-right text-[11px] text-neutral-400">{timingText.length}/{TIMING_MAX}</p>
+              <div className="flex items-center justify-between gap-3">
+                <button type="button" onClick={addHourRow} disabled={timingTooLong} className="rounded-lg border border-dashed border-brand-red px-4 py-2 text-sm font-medium text-brand-red hover:bg-red-50 disabled:opacity-50">
+                  + Add hours
+                </button>
+                <span className={`text-[11px] ${timingTooLong ? "font-medium text-red-600" : "text-neutral-400"}`}>{serializeHours(hourRows).length}/{TIMING_MAX} characters</span>
+              </div>
+              {timingTooLong && <p className="text-xs text-red-600">Too long. Remove a row or shorten the text.</p>}
             </SectionCard>
 
             <SectionCard n={4} title="Social links" description="Pick a platform and paste the full profile link. Empty rows are ignored.">

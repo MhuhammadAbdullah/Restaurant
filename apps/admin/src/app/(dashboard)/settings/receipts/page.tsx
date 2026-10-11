@@ -9,6 +9,16 @@ import { useMe, hasPermission } from "../../../../lib/useMe";
 import { toast } from "../../../../store/useToastStore";
 import { ImageUploadField } from "../../../../components/ImageUploadField";
 
+type MsgKey = "dineIn" | "takeaway" | "walkIn" | "delivery" | "preBill";
+const MESSAGE_TYPES: { key: MsgKey; label: string; hint: string; placeholder: string }[] = [
+  { key: "dineIn", label: "Dine-in receipt", hint: "Final bill after a table pays.", placeholder: "Thanks for dining with us!" },
+  { key: "takeaway", label: "Takeaway receipt", hint: "Orders collected at the counter.", placeholder: "Thank you for your takeaway order!" },
+  { key: "walkIn", label: "Walk-in receipt", hint: "Quick counter sales.", placeholder: "Thank you for visiting us!" },
+  { key: "delivery", label: "Delivery receipt", hint: "Orders sent out with a rider.", placeholder: "Thank you for ordering from us!" },
+  { key: "preBill", label: "Pre-payment bill", hint: "Shown to dine-in guests before they pay.", placeholder: "Thank you for dining with us!" },
+];
+const EMPTY_MESSAGES: Record<MsgKey, string> = { dineIn: "", takeaway: "", walkIn: "", delivery: "", preBill: "" };
+
 type RestaurantInfo = {
   name: string;
   logoUrl: string | null;
@@ -20,6 +30,7 @@ type RestaurantInfo = {
   receiptThankYouMessage: string | null;
   kitchenReceiptHeaderText: string | null;
   kitchenReceiptFooterText: string | null;
+  receiptMessages: Partial<Record<MsgKey, string>>;
 };
 
 const LIMITS = { tax: 60, thanks: 200, footer: 500, kitchenHeader: 200, kitchenFooter: 200 };
@@ -64,7 +75,7 @@ function ReceiptPreview({ logoUrl, name, taxNumber, phone, thankYouMessage, foot
         <p className="text-base font-bold">{name || "Your Restaurant"}</p>
         <p className="text-xs text-neutral-600">DHA Branch, Karachi</p>
         {phone && <p className="text-xs text-neutral-600">{phone}</p>}
-        {taxNumber && <p className="text-xs text-neutral-500">Tax #: {taxNumber}</p>}
+        {taxNumber && <p className="text-xs font-bold text-neutral-700">{taxNumber}</p>}
       </div>
       <div className="my-3 border-t border-dashed border-neutral-300" />
       <div className="space-y-0.5 text-xs">
@@ -141,6 +152,8 @@ export default function ReceiptSettingsPage() {
   const [receiptLogoUrl, setReceiptLogoUrl] = useState("");
   const [taxNumber, setTaxNumber] = useState("");
   const [thankYouMessage, setThankYouMessage] = useState("");
+  const [messages, setMessages] = useState<Record<MsgKey, string>>(EMPTY_MESSAGES);
+  const [previewType, setPreviewType] = useState<MsgKey>("dineIn");
   const [footerText, setFooterText] = useState("");
   const [kitchenHeader, setKitchenHeader] = useState("");
   const [kitchenFooter, setKitchenFooter] = useState("");
@@ -148,15 +161,15 @@ export default function ReceiptSettingsPage() {
   const [saving, setSaving] = useState(false);
 
   const snapshot = useMemo(
-    () => JSON.stringify({ receiptLogoUrl, taxNumber, thankYouMessage, footerText, kitchenHeader, kitchenFooter }),
-    [receiptLogoUrl, taxNumber, thankYouMessage, footerText, kitchenHeader, kitchenFooter],
+    () => JSON.stringify({ receiptLogoUrl, taxNumber, thankYouMessage, messages, footerText, kitchenHeader, kitchenFooter }),
+    [receiptLogoUrl, taxNumber, thankYouMessage, messages, footerText, kitchenHeader, kitchenFooter],
   );
   const dirty = saved !== "" && snapshot !== saved;
   const customerDirty = useMemo(() => {
     if (!saved) return false;
     const s = JSON.parse(saved);
-    return s.receiptLogoUrl !== receiptLogoUrl || s.taxNumber !== taxNumber || s.thankYouMessage !== thankYouMessage || s.footerText !== footerText;
-  }, [saved, receiptLogoUrl, taxNumber, thankYouMessage, footerText]);
+    return s.receiptLogoUrl !== receiptLogoUrl || s.taxNumber !== taxNumber || s.thankYouMessage !== thankYouMessage || JSON.stringify(s.messages) !== JSON.stringify(messages) || s.footerText !== footerText;
+  }, [saved, receiptLogoUrl, taxNumber, thankYouMessage, messages, footerText]);
   const kitchenDirty = dirty && (() => { const s = JSON.parse(saved); return s.kitchenHeader !== kitchenHeader || s.kitchenFooter !== kitchenFooter; })();
 
   useEffect(() => {
@@ -165,6 +178,7 @@ export default function ReceiptSettingsPage() {
       receiptLogoUrl: restaurant.receiptLogoUrl ?? "",
       taxNumber: restaurant.receiptTaxNumber ?? "",
       thankYouMessage: restaurant.receiptThankYouMessage ?? "",
+      messages: { ...EMPTY_MESSAGES, ...(restaurant.receiptMessages ?? {}) },
       footerText: restaurant.receiptFooterText ?? "",
       kitchenHeader: restaurant.kitchenReceiptHeaderText ?? "",
       kitchenFooter: restaurant.kitchenReceiptFooterText ?? "",
@@ -172,6 +186,7 @@ export default function ReceiptSettingsPage() {
     setReceiptLogoUrl(next.receiptLogoUrl);
     setTaxNumber(next.taxNumber);
     setThankYouMessage(next.thankYouMessage);
+    setMessages(next.messages);
     setFooterText(next.footerText);
     setKitchenHeader(next.kitchenHeader);
     setKitchenFooter(next.kitchenFooter);
@@ -184,6 +199,7 @@ export default function ReceiptSettingsPage() {
     setReceiptLogoUrl(s.receiptLogoUrl);
     setTaxNumber(s.taxNumber);
     setThankYouMessage(s.thankYouMessage);
+    setMessages(s.messages);
     setFooterText(s.footerText);
     setKitchenHeader(s.kitchenHeader);
     setKitchenFooter(s.kitchenFooter);
@@ -197,6 +213,7 @@ export default function ReceiptSettingsPage() {
         receiptLogoUrl: receiptLogoUrl || null,
         receiptTaxNumber: taxNumber.trim() || null,
         receiptThankYouMessage: thankYouMessage.trim() || null,
+        receiptMessages: Object.fromEntries(MESSAGE_TYPES.map((t) => [t.key, messages[t.key].trim()])),
         receiptFooterText: footerText.trim() || null,
         kitchenReceiptHeaderText: kitchenHeader.trim() || null,
         kitchenReceiptFooterText: kitchenFooter.trim() || null,
@@ -260,37 +277,57 @@ export default function ReceiptSettingsPage() {
                       </p>
                       <div>
                         <div className="mb-1 flex items-center justify-between">
-                          <p className="text-xs font-medium text-neutral-500">Tax / registration number</p>
+                          <p className="text-xs font-medium text-neutral-500">Tax / registration line</p>
                           <Counter value={taxNumber} max={LIMITS.tax} />
                         </div>
-                        <input value={taxNumber} onChange={(e) => setTaxNumber(e.target.value.slice(0, LIMITS.tax))} placeholder="e.g. NTN 1234567-8" className="input w-full" />
-                        <p className="mt-1 text-xs text-neutral-400">Printed under the restaurant name. Leave empty to hide.</p>
+                        <input value={taxNumber} onChange={(e) => setTaxNumber(e.target.value.slice(0, LIMITS.tax))} placeholder="e.g. SNTN# 1234567-8" className="input w-full" />
+                        <p className="mt-1 text-xs text-neutral-400">Printed on the bill exactly as you type it, so include the prefix: SNTN# 1234567-8 or NTN# 1234567-8. Leave empty to hide.</p>
                       </div>
                     </div>
                   </div>
                 </SectionCard>
 
-                <SectionCard n={2} title="Closing message" description="Shown at the bottom of every customer receipt.">
+                <SectionCard n={2} title="Thank-you messages" description="Each receipt type can say something different. Leave one empty to use the general message.">
                   <div>
                     <div className="mb-1 flex items-center justify-between">
-                      <p className="text-xs font-medium text-neutral-500">Thank-you message</p>
+                      <p className="text-xs font-medium text-neutral-500">General message (used when a type below is empty)</p>
                       <Counter value={thankYouMessage} max={LIMITS.thanks} />
                     </div>
                     <input value={thankYouMessage} onChange={(e) => setThankYouMessage(e.target.value.slice(0, LIMITS.thanks))} placeholder="Thank you for dining with us!" className="input w-full" />
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {THANK_YOU_IDEAS.map((idea) => (
-                        <button key={idea} type="button" onClick={() => setThankYouMessage(idea)} className="rounded-full border border-neutral-300 px-2.5 py-1 text-[11px] text-neutral-600 hover:border-brand-red hover:text-brand-red">
+                        <button key={idea} type="button" onClick={() => setThankYouMessage(idea)} className="rounded-lg border border-neutral-300 px-2.5 py-1 text-[11px] text-neutral-600 hover:border-brand-red hover:text-brand-red">
                           {idea}
                         </button>
                       ))}
                     </div>
                   </div>
+                  <div className="space-y-3 border-t border-neutral-100 pt-3">
+                    {MESSAGE_TYPES.map((t) => (
+                      <div key={t.key}>
+                        <div className="mb-1 flex items-center justify-between">
+                          <p className="text-xs font-medium text-neutral-500">{t.label} <span className="font-normal text-neutral-400">· {t.hint}</span></p>
+                          <Counter value={messages[t.key]} max={LIMITS.thanks} />
+                        </div>
+                        <input
+                          value={messages[t.key]}
+                          onChange={(e) => setMessages((m) => ({ ...m, [t.key]: e.target.value.slice(0, LIMITS.thanks) }))}
+                          onFocus={() => setPreviewType(t.key)}
+                          placeholder={thankYouMessage.trim() ? `Uses the general message` : t.placeholder}
+                          className="input w-full"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </SectionCard>
+
+                <SectionCard n={3} title="Footer text" description="Small print under the thank-you message on every customer receipt, e.g. your website.">
                   <div>
                     <div className="mb-1 flex items-center justify-between">
                       <p className="text-xs font-medium text-neutral-500">Footer text</p>
                       <Counter value={footerText} max={LIMITS.footer} />
                     </div>
-                    <textarea value={footerText} onChange={(e) => setFooterText(e.target.value.slice(0, LIMITS.footer))} placeholder="Return policy, website, social handle or any closing note" className="input w-full" rows={3} />
+                    <textarea value={footerText} onChange={(e) => setFooterText(e.target.value.slice(0, LIMITS.footer))} placeholder="www.yourrestaurant.com" className="input w-full" rows={3} />
                   </div>
                 </SectionCard>
               </>
@@ -327,10 +364,19 @@ export default function ReceiptSettingsPage() {
                   ))}
                 </div>
               </div>
+              {tab === "customer" && (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {MESSAGE_TYPES.map((t) => (
+                    <button key={t.key} type="button" onClick={() => setPreviewType(t.key)} className={`rounded-lg border px-2.5 py-1 text-[11px] font-medium ${previewType === t.key ? "border-brand-red bg-red-50 text-brand-red" : "border-neutral-300 text-neutral-600 hover:bg-neutral-50"}`}>
+                      {t.label.replace(" receipt", "").replace("Pre-payment bill", "Pre-bill")}
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="mt-3 rounded-lg bg-neutral-100 px-3 py-5">
                 <div className={`mx-auto bg-white p-4 shadow-md ${paper === "58" ? "max-w-[230px]" : "max-w-[320px]"}`} style={{ borderRadius: 2 }}>
                   {tab === "customer" ? (
-                    <ReceiptPreview logoUrl={previewLogo} name={restaurant?.name ?? ""} taxNumber={taxNumber} phone={restaurant?.contactPhone ?? ""} thankYouMessage={thankYouMessage} footerText={footerText} />
+                    <ReceiptPreview logoUrl={previewLogo} name={restaurant?.name ?? ""} taxNumber={taxNumber} phone={restaurant?.contactPhone ?? ""} thankYouMessage={messages[previewType].trim() || thankYouMessage} footerText={footerText} />
                   ) : (
                     <KitchenTicketPreview headerText={kitchenHeader} restaurantName={restaurant?.name ?? ""} footerText={kitchenFooter} />
                   )}

@@ -10,7 +10,7 @@ import { useAuthModalStore } from "../../store/useAuthModalStore";
 import { useCartStore } from "../../store/useCartStore";
 import { useLocationStore } from "../../store/useLocationStore";
 import type { CartDealItem, CartProductItem } from "../../lib/types";
-import { FaCheck, FaFileInvoiceDollar, FaTag } from "react-icons/fa6";
+import { FaCheck, FaFileInvoiceDollar, FaHandHoldingDollar, FaTag } from "react-icons/fa6";
 import { FiShoppingBag } from "react-icons/fi";
 import { ArrowLeftIcon, CalculatorIcon, ChevronDownIcon, GiftIcon, PinIcon, TruckIcon } from "../../components/icons";
 import { Skeleton } from "../../components/skeletons";
@@ -73,6 +73,8 @@ export default function CheckoutPage() {
   const [showAllItems, setShowAllItems] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [changeRequest, setChangeRequest] = useState("");
+  const [tip, setTip] = useState(""); // applied tip, in rupees
+  const [tipDraft, setTipDraft] = useState(""); // custom amount being typed; only applied with the Add button
   const [useLoyalty, setUseLoyalty] = useState(false);
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discountAmount: number } | null>(null);
@@ -138,15 +140,25 @@ export default function CheckoutPage() {
     );
   }
 
+  // On a refresh the saved cart and login load a moment after the first paint. Returning nothing here made
+  // the whole page collapse (the footer jumped up under the header); keep the page full height with a loader.
   if (!hasHydrated || !authHasHydrated || items.length === 0 || !isBranchOpen) {
-    return null;
+    return (
+      <div className="flex min-h-[70vh] flex-col items-center justify-center gap-3">
+        <span className="h-10 w-10 animate-spin rounded-full border-4 border-brand-red/20 border-t-brand-red" />
+        <p className="text-sm text-muted">Loading your checkout...</p>
+      </div>
+    );
   }
 
   const subtotal = items.reduce((s, i) => s + (i.kind === "product" ? i.unitPrice * i.quantity : i.dealPrice * i.quantity), 0);
   const estimatedTax = Math.round(subtotal * 0.15);
   const deliveryFee = orderType === "DELIVERY" ? (branch?.deliveryFee ?? 0) : 0;
   const couponDiscount = appliedCoupon?.discountAmount ?? 0;
-  const estimatedGrandTotal = Math.max(0, subtotal + estimatedTax + deliveryFee - couponDiscount);
+  // Bills are settled in whole rupees, same as the server.
+  const estimatedGrandTotal = Math.round(Math.max(0, subtotal + estimatedTax + deliveryFee - couponDiscount) / 100) * 100;
+  // Optional tip, on top of the bill. For delivery it goes to the rider.
+  const tipPaisa = tip.trim() && Number(tip) > 0 ? Math.min(Math.round(Number(tip) * 100), 10_000_000) : 0;
 
   function buildOrderItems() {
     return items.map((item) =>
@@ -219,6 +231,7 @@ export default function CheckoutPage() {
         isGift,
         loyaltyPointsToRedeem: customer && useLoyalty && loyaltyEnabled ? me?.loyaltyPoints ?? 0 : 0,
         couponCode: appliedCoupon?.code,
+        tipAmount: tipPaisa > 0 ? tipPaisa : undefined,
       };
       if (orderType === "DELIVERY") {
         if (customer) {
@@ -359,12 +372,14 @@ export default function CheckoutPage() {
 
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <Field label="Mobile Number" required>
-              <input value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} placeholder="03xx-xxxxxxx" className="input" required />
+              <input value={contactPhone} onChange={(e) => setContactPhone(e.target.value.replace(/[^0-9+ -]/g, ""))} placeholder="03xx-xxxxxxx" inputMode="tel" maxLength={14} className="input" required />
             </Field>
             <Field label="Alternate Mobile Number">
               <input
                 value={contactAlternatePhone}
-                onChange={(e) => setContactAlternatePhone(e.target.value)}
+                onChange={(e) => setContactAlternatePhone(e.target.value.replace(/[^0-9+ -]/g, ""))}
+                inputMode="tel"
+                maxLength={14}
                 placeholder="03xx-xxxxxxx"
                 className="input"
               />
@@ -417,8 +432,9 @@ export default function CheckoutPage() {
                     className="input"
                   />
                 </Field>
-                <Field label="Email Address">
-                  <input type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="Enter your email" className="input" />
+                <Field label="Email Address" required>
+                  <input type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="Enter your email" className="input" required />
+                  <p className="mt-1 text-[11px] text-muted">We email your order confirmation here.</p>
                 </Field>
               </div>
 
@@ -442,8 +458,9 @@ export default function CheckoutPage() {
               </div>
 
               <div className="mt-4">
-                <Field label="Email Address">
-                  <input type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="Enter your email" className="input" />
+                <Field label="Email Address" required={!customer}>
+                  <input type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="Enter your email" className="input" required={!customer} />
+                  {!customer && <p className="mt-1 text-[11px] text-muted">We email your order confirmation here.</p>}
                 </Field>
               </div>
             </>
@@ -530,7 +547,7 @@ export default function CheckoutPage() {
                 <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-surface-alt">
                   {i.image && (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={i.image} alt="" className="h-full w-full object-cover" />
+                    <img src={i.image} alt={i.name} className="h-full w-full object-cover" />
                   )}
                 </div>
                 <div className="min-w-0">
@@ -589,6 +606,65 @@ export default function CheckoutPage() {
             {couponError && <p className="mt-1.5 text-xs text-red-600">{couponError}</p>}
           </div>
 
+          <div className="mt-4 border-t border-line pt-4">
+            <div className="rounded-2xl border border-line bg-surface p-4">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-ink">{orderType === "DELIVERY" ? "Tip your rider" : "Add a tip"} <span className="font-normal text-muted">(optional)</span></p>
+                {tipPaisa > 0 && (
+                  <button type="button" onClick={() => { setTip(""); setTipDraft(""); }} className="text-xs font-medium text-muted underline hover:text-brand-red">Remove</button>
+                )}
+              </div>
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                {[100, 200, 500].map((amt) => (
+                  <button
+                    key={amt}
+                    type="button"
+                    onClick={() => {
+                      setTip(tip === String(amt) ? "" : String(amt));
+                      setTipDraft("");
+                    }}
+                    className={`rounded-md border px-2 py-2.5 text-sm font-semibold transition ${tip === String(amt) ? "border-brand-red bg-brand-red text-white" : "border-line bg-surface-alt text-ink hover:border-brand-red"}`}
+                  >
+                    Rs. {amt}
+                  </button>
+                ))}
+              </div>
+              <div className="mt-2 flex gap-2">
+                <input
+                  type="number"
+                  min={0}
+                  inputMode="numeric"
+                  value={tipDraft}
+                  onChange={(e) => setTipDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && tipDraft.trim() && Number(tipDraft) > 0) {
+                      e.preventDefault();
+                      setTip(String(Math.round(Number(tipDraft))));
+                      setTipDraft("");
+                    }
+                  }}
+                  placeholder="Other amount"
+                  aria-label="Custom tip amount in rupees"
+                  className="min-w-0 flex-1 rounded-md border border-line bg-surface-alt px-4 py-2.5 text-sm font-semibold text-ink placeholder:font-normal placeholder:text-muted focus:border-brand-red focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                />
+                <button
+                  type="button"
+                  disabled={!(tipDraft.trim() && Number(tipDraft) > 0)}
+                  onClick={() => {
+                    setTip(String(Math.round(Number(tipDraft))));
+                    setTipDraft("");
+                  }}
+                  className="shrink-0 rounded-md bg-brand-red px-6 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Add
+                </button>
+              </div>
+              {tipPaisa > 0 && ![100, 200, 500].includes(tipPaisa / 100) && (
+                <p className="mt-2 text-xs font-medium text-green-700 dark:text-green-400">Tip of {formatPaisa(tipPaisa)} added</p>
+              )}
+            </div>
+          </div>
+
           <div className="mt-5 rounded-xl border border-line bg-surface-alt p-5">
             <div className="space-y-4 text-sm font-medium text-ink">
               <div className="flex items-center justify-between">
@@ -620,9 +696,17 @@ export default function CheckoutPage() {
                 </div>
               )}
             </div>
+            {tipPaisa > 0 && (
+              <div className="mt-4 flex items-center justify-between text-sm font-medium text-ink">
+                <span className="flex items-center gap-3">
+                  <FaHandHoldingDollar size={17} className="text-brand-red" /> {orderType === "DELIVERY" ? "Rider tip" : "Tip"}
+                </span>
+                <span className="font-semibold">+{formatPaisa(tipPaisa)}</span>
+              </div>
+            )}
             <div className="mt-5 flex items-center justify-between border-t border-line pt-5">
               <span className="text-base font-bold text-ink">Grand Total</span>
-              <span className="text-xl font-bold text-brand-red">{formatPaisa(estimatedGrandTotal)}</span>
+              <span className="text-xl font-bold text-brand-red">{formatPaisa(estimatedGrandTotal + tipPaisa)}</span>
             </div>
           </div>
           <p className="mt-2 text-[11px] text-muted">Final total incl. any discounts is calculated when you place the order.</p>

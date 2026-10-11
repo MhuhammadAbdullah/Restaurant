@@ -1,5 +1,5 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
-import type { Request } from "express";
+import { Body, Controller, Get, Param, Patch, Post, Query, Req, Res, UseGuards } from "@nestjs/common";
+import type { Request, Response } from "express";
 import {
   adjustLoyaltySchema,
   updateCustomerEmailSchema,
@@ -25,11 +25,28 @@ export class StaffCustomersController {
     private readonly auditLogs: AuditLogService,
   ) {}
 
-  @RequirePermission("customers.view")
+  @RequirePermission("customers.view", "pos.access")
   @Get()
   async list(@Query("search") search?: string, @Query("status") status?: "registered" | "guest") {
     const data = await this.customers.listForStaff(search, status);
     return { success: true, data };
+  }
+
+  /** Download customer data. Declared before `:id`. Needs its own permission because it hands over everyone's contact details. */
+  @RequirePermission("customers.export")
+  @Get("export.csv")
+  async exportCsv(
+    @CurrentStaff() staff: StaffJwtPayload,
+    @Res() res: Response,
+    @Req() req: Request,
+    @Query("search") search?: string,
+    @Query("status") status?: "registered" | "guest",
+  ) {
+    const { csv, count } = await this.customers.exportCsv(search, status);
+    await this.auditLogs.recordForStaff(staff, "customer.export", "Customer", "all", { newValue: { count, search: search ?? null, status: status ?? "all" } }, { ip: req.ip, userAgent: req.headers["user-agent"] });
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", `attachment; filename="customers-${new Date().toISOString().slice(0, 10)}.csv"`);
+    res.send(csv);
   }
 
   /** Paginated list. Declared before `:id` so "page" is never read as a customer id. */

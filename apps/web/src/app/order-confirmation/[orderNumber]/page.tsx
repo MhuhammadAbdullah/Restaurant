@@ -37,6 +37,7 @@ const RETRYABLE_PAYMENT_STATUSES = new Set(["PENDING", "FAILED", "EXPIRED"]);
 type OrderDetail = {
   id: string;
   orderNumber: string;
+  orderCode?: string | null;
   createdAt: string;
   type: string;
   status: string;
@@ -54,6 +55,7 @@ type OrderDetail = {
   discountAmount: number;
   loyaltyDiscountAmount: number;
   grandTotal: number;
+  tipAmount?: number;
   estimatedDeliveryAt: string | null;
   branch: { name: string; phone: string | null; address: string | null; mapUrl: string | null; latitude: string | null; longitude: string | null };
   items: Array<{ id: string; nameSnapshot: string; quantity: number; lineTotal: number; specialInstructions: string | null }>;
@@ -169,7 +171,8 @@ function downloadReceipt(order: OrderDetail, restaurantName: string, isPickup: b
 
   <div class="card">
     <div class="row"><span class="bold">Your Order is</span><span class="badge">${escapeHtml(order.status.replace(/_/g, " "))}</span></div>
-    <p class="muted">Order No: <span class="bold" style="color:#111">${escapeHtml(order.orderNumber)}</span></p>
+    ${order.orderCode ? `<p class="muted">Order ID: <span class="bold" style="color:#111">${escapeHtml(order.orderCode)}</span></p>` : ""}
+    <p class="muted">Invoice No: <span class="bold" style="color:#111">${escapeHtml(order.orderNumber.replace(/\D/g, ""))}</span></p>
     ${pickupBlock}
   </div>
 
@@ -192,7 +195,7 @@ function downloadReceipt(order: OrderDetail, restaurantName: string, isPickup: b
       ${row("Tax", formatPaisa(order.taxAmount))}
       ${row("Delivery Fee", formatPaisa(order.deliveryFee))}
       ${order.loyaltyDiscountAmount > 0 ? row("Loyalty Discount", `-${formatPaisa(order.loyaltyDiscountAmount)}`) : ""}
-      <div class="row bold" style="border-top:1px solid #eee;padding-top:6px;margin-top:6px"><span>Grand Total</span><span>${formatPaisa(order.grandTotal)}</span></div>
+      <div class="row bold" style="border-top:1px solid #eee;padding-top:6px;margin-top:6px"><span>Grand Total</span><span>${formatPaisa(order.grandTotal)}</span></div>${(order.tipAmount ?? 0) > 0 ? `<div class="row"><span>Tip</span><span>${formatPaisa(order.tipAmount ?? 0)}</span></div>` : ""}
     </div>
   </div>
 
@@ -381,7 +384,13 @@ export default function OrderConfirmationPage({ params }: { params: Promise<{ or
             <OrderStatusBadge status={order.status} />
           </div>
           <p className="mt-3 text-muted">
-            Order No: <span className="font-semibold text-ink">{order.orderNumber}</span>
+            {order.orderCode && (
+              <>
+                Order ID: <span className="font-semibold text-ink">{order.orderCode}</span>
+                <span className="mx-2 text-line">|</span>
+              </>
+            )}
+            Invoice No: <span className="font-semibold text-ink">{order.orderNumber.replace(/\D/g, "")}</span>
           </p>
 
           {isPickup && (
@@ -481,6 +490,7 @@ export default function OrderConfirmationPage({ params }: { params: Promise<{ or
               <Row label="Delivery Fee" value={formatPaisa(order.deliveryFee)} />
               {order.loyaltyDiscountAmount > 0 && <Row label="Loyalty Discount" value={`-${formatPaisa(order.loyaltyDiscountAmount)}`} />}
               <Row label="Grand Total" value={formatPaisa(order.grandTotal)} bold />
+              {(order.tipAmount ?? 0) > 0 && <Row label="Tip" value={formatPaisa(order.tipAmount!)} />}
             </div>
           </div>
         </div>

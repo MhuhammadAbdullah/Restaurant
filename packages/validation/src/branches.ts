@@ -28,6 +28,10 @@ const branchFieldsSchema = z.object({
   area: z.string().trim().min(1).max(120),
   /** A pasted Google Maps link — used to derive latitude/longitude server-side when they aren't typed in directly. */
   mapUrl: z.string().trim().url().max(1000).optional(),
+  /** Outlet photo for the website's Locations page. Empty string / null clears it. */
+  /** This branch's Google review link, used by the post-delivery review email. */
+  googleReviewUrl: z.union([z.literal(""), z.string().trim().url().max(500)]).nullable().optional(),
+  imageUrl: z.union([z.literal(""), z.string().trim().url().max(500)]).nullable().optional(),
   /** Direct coordinate entry — takes priority over whatever mapUrl would resolve to. Required together. */
   latitude: z.number().min(-90).max(90).optional(),
   longitude: z.number().min(-180).max(180).optional(),

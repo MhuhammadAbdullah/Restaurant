@@ -1,5 +1,6 @@
 "use client";
 
+import { SearchInput } from "../../../components/SearchFilterBar";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -47,7 +48,7 @@ export default function RidersPage() {
       </div>
 
       <div className="mt-3 flex flex-wrap gap-2">
-        <input placeholder="Search name or phone..." value={search} onChange={(e) => setSearch(e.target.value)} className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm" />
+        <SearchInput value={search} onChange={setSearch} placeholder="Search name or phone..." widthClass="w-full sm:w-72" />
         <Select value={statusFilter || "all"} onValueChange={(v) => setStatusFilter(v === "all" ? "" : (v as "ACTIVE" | "INACTIVE"))}>
           <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
           <SelectContent>

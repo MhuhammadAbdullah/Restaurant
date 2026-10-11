@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, Injectable, UnauthorizedException } from "@nestjs/common";
 import { hashPassword, verifyPassword } from "@restaurant/auth";
 import type { StaffLoginInput } from "@restaurant/validation";
 import { PrismaService } from "../../common/prisma/prisma.service";
@@ -115,6 +115,46 @@ export class StaffAuthService {
       permissions: isOwner ? ["*"] : grantedPermissionKeys,
       branches,
     };
+  }
+
+  // ---------- the signed-in person's own profile ----------
+
+  async getProfile(staffId: string) {
+    const s = await this.prisma.staffUser.findUniqueOrThrow({ where: { id: staffId }, include: { role: { select: { name: true } } } });
+    return { id: s.id, name: s.name, email: s.email, phone: s.phone, role: s.role.name, lastLoginAt: s.lastLoginAt, createdAt: s.createdAt };
+  }
+
+  /** Name and phone only. The email is the login id and the role/permissions are managed by an admin in Staff & Access. */
+  async updateProfile(staffId: string, input: { name: string; phone: string | null }) {
+    const s = await this.prisma.staffUser.update({
+      where: { id: staffId },
+      data: { name: input.name.trim(), phone: input.phone?.trim() ? input.phone.trim() : null },
+      include: { role: { select: { name: true } } },
+    });
+    return { id: s.id, name: s.name, email: s.email, phone: s.phone, role: s.role.name, lastLoginAt: s.lastLoginAt, createdAt: s.createdAt };
+  }
+
+  /**
+   * Changing your own password needs the current one. Every other signed-in device is signed out (their refresh
+   * token stops working), and this session gets a fresh pair so the person is not kicked out themselves.
+   */
+  async changePassword(staffId: string, input: { currentPassword: string; newPassword: string }) {
+    const staff = await this.prisma.staffUser.findUniqueOrThrow({ where: { id: staffId }, include: { role: true, branchAssignments: true } });
+    const valid = await verifyPassword(input.currentPassword, staff.passwordHash);
+    if (!valid) throw new BadRequestException({ code: "CURRENT_PASSWORD_WRONG", message: "Your current password is not correct" });
+    if (input.currentPassword === input.newPassword) {
+      throw new BadRequestException({ code: "PASSWORD_UNCHANGED", message: "Your new password must be different from the current one" });
+    }
+    const pair = await this.tokens.issueStaffTokens({
+      sub: staff.id,
+      restaurantId: staff.restaurantId,
+      roleId: staff.roleId,
+      branchIds: staff.branchAssignments.map((a) => a.branchId),
+      isOwner: staff.role.name === "Owner",
+      allBranchesAccess: staff.allBranchesAccess,
+    });
+    await this.prisma.staffUser.update({ where: { id: staff.id }, data: { passwordHash: await hashPassword(input.newPassword), refreshTokenHash: pair.refreshTokenHash } });
+    return { accessToken: pair.accessToken, refreshToken: pair.refreshToken };
   }
 
   /** Used by seeding/admin-invite flows — kept here so password policy lives in one place. */

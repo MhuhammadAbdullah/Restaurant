@@ -1,5 +1,6 @@
 ﻿"use client";
 
+import { SearchInput } from "../SearchFilterBar";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -11,6 +12,7 @@ import { CustomerDetailModal } from "../customers/CustomerDetailModal";
 import { FaArrowRight, FaBan, FaCheck, FaMotorcycle, FaPlus, FaReceipt, FaRightLeft, FaRotateLeft, FaUtensils } from "react-icons/fa6";
 import { CloseIcon, EditIcon, TrashIcon } from "../icons";
 import { toast } from "../../store/useToastStore";
+import { confirmDialog } from "../../store/useConfirmStore";
 import { Skeleton } from "../ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 
@@ -148,6 +150,7 @@ type OrderItemDetail = {
 export type OrderDetail = {
   id: string;
   orderNumber: string;
+  orderCode?: string | null;
   type: string;
   source: string;
   status: string;
@@ -160,6 +163,7 @@ export type OrderDetail = {
   couponDiscountAmount: number;
   loyaltyDiscountAmount: number;
   grandTotal: number;
+  tipAmount: number;
   createdAt: string;
   specialInstructions: string | null;
   internalNotes: string | null;
@@ -250,7 +254,7 @@ export function OrderDetailModal({ orderId, onClose, onNavigateReceipt }: { orde
   const [activityTab, setActivityTab] = useState<"status" | "revisions" | "prints" | null>(null);
   const [riderPopupOpen, setRiderPopupOpen] = useState(false);
   const [selectedRiderId, setSelectedRiderId] = useState("");
-  const [payMethod, setPayMethod] = useState<"CASH" | "CARD" | "QR">("CASH");
+  const [payMethod, setPayMethod] = useState<"CASH" | "CARD">("CASH");
 
   const { data: order } = useQuery({ queryKey: ["order-detail", orderId], queryFn: () => api.get<OrderDetail>(`/staff/orders/${orderId}`) });
   const { data: printEvents } = useQuery({ queryKey: ["order-print-events", orderId], queryFn: () => api.get<PrintEvent[]>(`/staff/orders/${orderId}/print-events`) });
@@ -395,7 +399,7 @@ export function OrderDetailModal({ orderId, onClose, onNavigateReceipt }: { orde
   }
 
   async function changeType(newType: string) {
-    if (!confirm(`Change order type to ${newType.replace(/_/g, " ")}? This will recalculate the delivery fee and total.`)) return;
+    if (!(await confirmDialog({ title: "Change order type?", message: `Change this order to ${newType.replace(/_/g, " ").toLowerCase()}? The delivery fee and total are recalculated.`, confirmLabel: "Change type", tone: "warning" }))) return;
     setBusy(true);
     try {
       await api.patch(`/staff/orders/${orderId}/type`, { type: newType });
@@ -409,7 +413,7 @@ export function OrderDetailModal({ orderId, onClose, onNavigateReceipt }: { orde
 
   async function submitTransfer() {
     if (!transferBranchId) return;
-    if (!confirm(`Transfer this order to the selected branch? The previous branch will no longer manage it.`)) return;
+    if (!(await confirmDialog({ title: "Transfer this order?", message: "It moves to the selected branch. The previous branch will no longer manage it.", confirmLabel: "Transfer order", tone: "warning" }))) return;
     setBusy(true);
     try {
       await api.patch(`/staff/orders/${orderId}/transfer`, { toBranchId: transferBranchId, note: transferNote || undefined });
@@ -427,7 +431,7 @@ export function OrderDetailModal({ orderId, onClose, onNavigateReceipt }: { orde
   async function receiveCodCash() {
     if (!order) return;
     const who = order.assignedRider ? ` from ${order.assignedRider.name}` : "";
-    if (!confirm(`Confirm you have received ${formatPaisa(order.grandTotal - paidTotal)} in cash${who} for ${order.orderNumber}? The order will be marked PAID.`)) return;
+    if (!(await confirmDialog({ title: "Cash received?", message: `Confirm you have received ${formatPaisa(order.grandTotal - paidTotal)} in cash${who} for ${order.orderNumber}. The order will be marked PAID.`, confirmLabel: "Yes, cash received", tone: "info" }))) return;
     setBusy(true);
     try {
       await api.post("/staff/orders/settle-cod", { orderIds: [orderId], receivedAmount: order.grandTotal - paidTotal });
@@ -534,7 +538,7 @@ export function OrderDetailModal({ orderId, onClose, onNavigateReceipt }: { orde
   }
 
   async function removeItem(itemId: string, name: string) {
-    if (!confirm(`Remove "${name}" from this order?`)) return;
+    if (!(await confirmDialog({ title: "Remove this item?", message: `"${name}" is removed from the order and the total is recalculated.`, confirmLabel: "Remove item", tone: "danger" }))) return;
     setBusy(true);
     try {
       await api.delete(`/staff/orders/${orderId}/items/${itemId}`);
@@ -647,7 +651,8 @@ export function OrderDetailModal({ orderId, onClose, onNavigateReceipt }: { orde
             {order ? (
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-lg font-semibold text-neutral-900">{order.orderNumber}</p>
+                  <p className="text-lg font-semibold text-neutral-900">{order.orderCode ?? order.orderNumber}</p>
+                  {order.orderCode && <span className="text-xs text-neutral-400">Invoice No {order.orderNumber.replace(/\D/g, "")}</span>}
                   <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_CHIP[order.status] ?? "bg-neutral-100 text-neutral-600"}`}>{order.status.replace(/_/g, " ")}</span>
                   <span className="rounded-full bg-neutral-100 px-2.5 py-0.5 text-xs font-medium text-neutral-600">{order.type.replace(/_/g, " ")}</span>
                   <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${paymentChip(order.paymentStatus)}`}>{order.paymentMethod} · {order.paymentStatus}</span>
@@ -694,8 +699,13 @@ export function OrderDetailModal({ orderId, onClose, onNavigateReceipt }: { orde
               </button>
             )}
             <span aria-hidden="true" className="mx-1 hidden h-5 w-px bg-neutral-200 sm:block" />
+            {order.type === "DINE_IN" && order.paymentStatus !== "PAID" && !TERMINAL.has(order.status) && (
+              <button onClick={() => router.push(`/pos/receipt/${order.id}?kind=pre`)} className={actionBtn}>
+                <FaReceipt size={12} /> Pre-Bill
+              </button>
+            )}
             <button onClick={() => onNavigateReceipt(order.id)} className={actionBtn}>
-              <FaReceipt size={12} /> Customer Receipt
+              <FaReceipt size={12} /> {order.type === "DINE_IN" ? "Final Receipt" : "Customer Receipt"}
             </button>
             <button onClick={() => router.push(`/pos/kitchen-ticket/${order.id}`)} className={actionBtn}>
               <FaUtensils size={12} /> Kitchen Ticket
@@ -706,8 +716,8 @@ export function OrderDetailModal({ orderId, onClose, onNavigateReceipt }: { orde
             <div className="ml-auto flex items-center gap-2">
               {canRefund && order.paymentStatus !== "REFUNDED" && order.status !== "REFUNDED" && (
                 <button
-                  onClick={() => {
-                    if (confirm(`Refund order ${order.orderNumber}? This cannot be undone.`)) void changeStatus("REFUNDED");
+                  onClick={async () => {
+                    if (await confirmDialog({ title: "Refund this order?", message: `Order ${order.orderNumber} is marked as refunded. This cannot be undone.`, confirmLabel: "Refund order", tone: "danger" })) void changeStatus("REFUNDED");
                   }}
                   disabled={busy}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-50"
@@ -717,8 +727,8 @@ export function OrderDetailModal({ orderId, onClose, onNavigateReceipt }: { orde
               )}
               {canCancel && !TERMINAL.has(order.status) && (
                 <button
-                  onClick={() => {
-                    if (confirm(`Cancel order ${order.orderNumber}?`)) void changeStatus("CANCELLED");
+                  onClick={async () => {
+                    if (await confirmDialog({ title: "Cancel this order?", message: `Order ${order.orderNumber} is cancelled. It stays in the history with a record of who cancelled it.`, confirmLabel: "Cancel order", cancelLabel: "Keep order", tone: "danger" })) void changeStatus("CANCELLED");
                   }}
                   disabled={busy}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-50"
@@ -848,6 +858,7 @@ export function OrderDetailModal({ orderId, onClose, onNavigateReceipt }: { orde
                     {order.couponDiscountAmount > 0 && <div className="flex justify-between"><span className="text-neutral-500">Coupon</span><span>-{formatPaisa(order.couponDiscountAmount)}</span></div>}
                     {order.loyaltyDiscountAmount > 0 && <div className="flex justify-between"><span className="text-neutral-500">Loyalty</span><span>-{formatPaisa(order.loyaltyDiscountAmount)}</span></div>}
                     <div className="flex justify-between border-t border-neutral-200 pt-2 text-sm font-semibold text-neutral-900"><span>Grand Total</span><span className="text-brand-red">{formatPaisa(order.grandTotal)}</span></div>
+                    {order.tipAmount > 0 && <div className="flex justify-between text-neutral-600"><span>Tip (not part of the bill)</span><span>{formatPaisa(order.tipAmount)}</span></div>}
                   </div>
 
 
@@ -908,7 +919,7 @@ export function OrderDetailModal({ orderId, onClose, onNavigateReceipt }: { orde
                       ) : (
                         <div className="mt-2">
                           <div className="flex gap-1.5">
-                            {(["CASH", "CARD", "QR"] as const).map((m) => (
+                            {(["CASH", "CARD"] as const).map((m) => (
                               <button
                                 key={m}
                                 onClick={() => setPayMethod(m)}
@@ -1168,7 +1179,7 @@ export function OrderDetailModal({ orderId, onClose, onNavigateReceipt }: { orde
                         setActivityTab(activityTab === t.key ? null : t.key);
                         if (t.key === "status") setShowHistory(true);
                       }}
-                      className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                      className={`rounded-lg border px-3 py-1 text-xs font-medium transition ${
                         activityTab === t.key ? "border-brand-red bg-brand-red text-white" : "border-neutral-300 text-neutral-600 hover:border-brand-red hover:text-brand-red"
                       }`}
                     >
@@ -1267,21 +1278,14 @@ export function OrderDetailModal({ orderId, onClose, onNavigateReceipt }: { orde
             </div>
 
             <div className="space-y-2.5 border-b border-neutral-100 px-4 py-3">
-              <input
-                autoFocus
-                type="text"
-                value={productSearch}
-                onChange={(e) => setProductSearch(e.target.value)}
-                placeholder="Search products..."
-                className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-brand-red focus:outline-none"
-              />
+              <SearchInput autoFocus value={productSearch} onChange={setProductSearch} placeholder="Search products..." widthClass="w-full" compact />
               {productCategories.length > 1 && (
                 <div className="flex flex-wrap gap-1.5">
                   {["ALL", ...productCategories].map((c) => (
                     <button
                       key={c}
                       onClick={() => setProductCategory(c)}
-                      className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                      className={`rounded-lg border px-3 py-1 text-xs font-medium transition ${
                         productCategory === c ? "border-brand-red bg-brand-red text-white" : "border-neutral-300 text-neutral-600 hover:border-brand-red hover:text-brand-red"
                       }`}
                     >

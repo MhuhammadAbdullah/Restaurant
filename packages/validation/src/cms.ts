@@ -237,7 +237,96 @@ export const DEFAULT_ABOUT_CONTENT_CONFIG: Required<AboutContentConfig> = {
   truncateLength: 280,
 };
 
+/** Per-receipt-type thank-you lines. An empty string clears one; anything unset falls back to the general thank-you message. */
+export const receiptMessagesSchema = z
+  .object({
+    dineIn: z.string().trim().max(200),
+    takeaway: z.string().trim().max(200),
+    walkIn: z.string().trim().max(200),
+    delivery: z.string().trim().max(200),
+    preBill: z.string().trim().max(200),
+  })
+  .partial();
+export type ReceiptMessages = z.infer<typeof receiptMessagesSchema>;
+
+// ---- SEO & marketing ----
+// Tracking ids are injected into <script> tags on the storefront, so each one is locked to its real format.
+const optionalId = (re: RegExp, message: string) => z.union([z.literal(""), z.string().trim().regex(re, message)]);
+const optionalUrl = z.union([z.literal(""), z.string().trim().url().max(500)]);
+
+export const seoPageMetaSchema = z.object({
+  title: z.string().trim().max(120),
+  description: z.string().trim().max(320),
+  image: optionalUrl,
+  canonical: optionalUrl,
+  noindex: z.boolean(),
+});
+
+export const seoConfigSchema = z
+  .object({
+    siteUrl: optionalUrl,
+    titleTemplate: z.string().trim().max(120),
+    defaultTitle: z.string().trim().max(120),
+    defaultDescription: z.string().trim().max(320),
+    defaultImage: optionalUrl,
+    noindexSite: z.boolean(),
+    business: z
+      .object({
+        type: z.enum(["Restaurant", "FastFoodRestaurant", "CafeOrCoffeeShop", "Bakery"]),
+        priceRange: z.string().trim().max(20),
+        cuisine: z.string().trim().max(120),
+        streetAddress: z.string().trim().max(200),
+        city: z.string().trim().max(80),
+        region: z.string().trim().max(80),
+        postalCode: z.string().trim().max(20),
+        country: z.string().trim().max(2),
+      })
+      .partial(),
+    tracking: z
+      .object({
+        googleSiteVerification: z.string().trim().max(120).regex(/^[A-Za-z0-9_-]*$/, "Use only the code from Search Console"),
+        bingSiteVerification: z.string().trim().max(120).regex(/^[A-Za-z0-9_-]*$/, "Use only the code from Bing Webmaster"),
+        ga4Id: optionalId(/^G-[A-Z0-9]{4,20}$/, "GA4 id looks like G-XXXXXXXXXX"),
+        gtmId: optionalId(/^GTM-[A-Z0-9]{4,20}$/, "GTM id looks like GTM-XXXXXXX"),
+        metaPixelId: optionalId(/^\d{8,20}$/, "Meta Pixel id is 15-16 digits"),
+        tiktokPixelId: optionalId(/^[A-Z0-9]{8,30}$/, "TikTok Pixel id looks like C1ABCDEF2GHIJK3LMNOP"),
+        googleAdsId: optionalId(/^AW-\d{6,15}$/, "Google Ads id looks like AW-123456789"),
+        googleAdsPurchaseLabel: z.union([z.literal(""), z.string().trim().regex(/^[A-Za-z0-9_-]{4,40}$/, "Conversion label is letters and digits")]),
+      })
+      .partial(),
+    robots: z
+      .object({
+        allowAiSearch: z.boolean(),
+        blockAiTraining: z.boolean(),
+        disallow: z.array(z.string().trim().max(200).regex(/^\//, "Paths start with /")).max(50),
+        customRules: z.string().max(3000),
+      })
+      .partial(),
+    sitemap: z
+      .object({
+        enabled: z.boolean(),
+        extraUrls: z.array(z.string().trim().max(300)).max(200),
+        excluded: z.array(z.string().trim().max(200)).max(200),
+      })
+      .partial(),
+    pages: z.record(z.string().trim().min(1).max(80), seoPageMetaSchema.partial()),
+    redirects: z
+      .array(
+        z.object({
+          from: z.string().trim().min(1).max(300).regex(/^\//, "Old address must start with /"),
+          to: z.string().trim().min(1).max(500),
+          permanent: z.boolean(),
+        }),
+      )
+      .max(300),
+  })
+  .partial();
+export type SeoConfigInput = z.infer<typeof seoConfigSchema>;
+
 export const updateRestaurantSettingsSchema = z.object({
+  seo: seoConfigSchema.optional(),
+  /** Picture shown beside the admin login form. Empty / null removes it. */
+  adminLoginImageUrl: z.union([z.literal(""), z.string().trim().url().max(500)]).nullable().optional(),
   name: z.string().trim().min(1).max(120).optional(),
   logoUrl: z.string().trim().url().max(500).optional().nullable(),
   footerLogoUrl: z.string().trim().url().max(500).optional().nullable(),
@@ -251,6 +340,7 @@ export const updateRestaurantSettingsSchema = z.object({
   loyalty: loyaltyConfigSchema.optional(),
   appPromo: appPromoConfigSchema.optional(),
   aboutContent: aboutContentConfigSchema.optional(),
+  receiptMessages: receiptMessagesSchema.optional(),
   receiptLogoUrl: z.string().trim().url().max(500).optional().nullable(),
   receiptTaxNumber: z.string().trim().max(60).optional().nullable(),
   receiptFooterText: z.string().trim().max(500).optional().nullable(),
@@ -262,7 +352,12 @@ export const updateRestaurantSettingsSchema = z.object({
 });
 export type UpdateRestaurantSettingsInput = z.infer<typeof updateRestaurantSettingsSchema>;
 
+export const BANNER_PAGES = ["HOME", "LOCATIONS"] as const;
+export type BannerPage = (typeof BANNER_PAGES)[number];
+
 export const createBannerSchema = z.object({
+  /** Website pages whose hero section shows this banner. */
+  pages: z.array(z.enum(BANNER_PAGES)).min(1, "Pick at least one page").default(["HOME"]),
   image: z.string().trim().min(1).max(500),
   /** Admin-only reference label (e.g. "Diwali promo") — never shown on the customer website. */
   title: z.string().trim().max(150).optional(),

@@ -121,6 +121,7 @@ export class RidersService {
       where: {
         restaurantId,
         roleId,
+        deletedAt: null,
         status: filters.status,
         branchAssignments: {
           some: filters.branchId ? { branchId: filters.branchId } : staff.isOwner ? {} : { branchId: { in: staff.branchIds } },

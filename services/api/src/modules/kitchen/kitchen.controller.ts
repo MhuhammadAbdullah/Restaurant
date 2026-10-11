@@ -13,8 +13,14 @@ export class KitchenController {
   constructor(private readonly kitchen: KitchenService) {}
 
   @Get("orders")
-  async list(@CurrentStaff() staff: StaffJwtPayload, @Query("branchId") branchId: string) {
-    const data = await this.kitchen.listOrders(staff, branchId);
+  async list(
+    @CurrentStaff() staff: StaffJwtPayload,
+    @Query("branchId") branchId: string,
+    @Query("from") from?: string,
+    @Query("to") to?: string,
+    @Query("tzOffset") tzOffset?: string,
+  ) {
+    const data = await this.kitchen.listOrders(staff, branchId, { from, to, tzOffsetMin: Number(tzOffset) || 0 });
     return { success: true, data };
   }
 

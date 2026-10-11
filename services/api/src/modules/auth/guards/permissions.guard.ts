@@ -17,19 +17,26 @@ export class PermissionsGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const required = this.reflector.getAllAndOverride<string | undefined>(PERMISSION_KEY, [
+    const required = this.reflector.getAllAndOverride<string[] | string | undefined>(PERMISSION_KEY, [
       context.getHandler(),
       context.getClass(),
     ]);
-    if (!required) return true;
+    const anyOf = Array.isArray(required) ? required : required ? [required] : [];
+    if (anyOf.length === 0) return true;
 
     const request = context.switchToHttp().getRequest();
     const staff: StaffJwtPayload | undefined = request.staff;
     if (!staff) throw new ForbiddenException({ code: "NO_STAFF_CONTEXT", message: "Not authenticated as staff" });
 
-    const allowed = await this.permissionsCheck.hasPermission(staff, required);
+    let allowed = false;
+    for (const permission of anyOf) {
+      if (await this.permissionsCheck.hasPermission(staff, permission)) {
+        allowed = true;
+        break;
+      }
+    }
     if (!allowed) {
-      throw new ForbiddenException({ code: "PERMISSION_DENIED", message: `Missing permission: ${required}` });
+      throw new ForbiddenException({ code: "PERMISSION_DENIED", message: `Missing permission: ${anyOf.join(" or ")}` });
     }
     return true;
   }

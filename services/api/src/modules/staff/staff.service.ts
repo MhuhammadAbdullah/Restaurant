@@ -20,6 +20,7 @@ export class StaffService {
     return this.prisma.staffUser.findMany({
       where: {
         restaurantId,
+        deletedAt: null,
         roleId: filters.roleId,
         status: filters.status,
         ...(search
@@ -162,30 +163,43 @@ export class StaffService {
   }
 
   /**
-   * A real delete, not a status flip — but only for a staff account with genuinely zero history.
-   * Every StaffUser foreign key in this schema is optional, so Postgres/Prisma's default
-   * behaviour on delete is SetNull, not a rejection — a raw `delete()` would silently succeed AND
-   * blank out the "who did this" attribution on every order/payment/audit log they ever touched.
-   * That's worse than just failing, so history is checked explicitly first; only the accountless
-   * happy path is allowed to actually delete anything.
+   * Deletes a staff account, whatever its history. With no history the row is removed. With history (orders,
+   * payments, audit entries...) it cannot simply be removed without blanking out who did what, so the account is
+   * closed instead (signed out, no login, hidden from lists, email freed) and the record is kept for the history.
+   * Only deleting yourself or the last active Owner is refused.
    */
   async remove(id: string, requestingStaff: StaffJwtPayload): Promise<void> {
     if (requestingStaff.sub === id) {
       throw new ConflictException({ code: "SELF_LOCKOUT_BLOCKED", message: "You cannot delete your own account." });
     }
 
-    const staff = await this.prisma.staffUser.findUnique({ where: { id } });
-    if (!staff) throw new NotFoundException({ code: "STAFF_NOT_FOUND", message: "Staff member not found" });
+    const staff = await this.prisma.staffUser.findUnique({ where: { id }, include: { role: true } });
+    if (!staff || staff.deletedAt) throw new NotFoundException({ code: "STAFF_NOT_FOUND", message: "Staff member not found" });
 
-    const hasHistory = await this.hasRecordedHistory(id);
-    if (hasHistory) {
-      throw new ConflictException({
-        code: "STAFF_HAS_HISTORY",
-        message: "This staff member has order/activity history and can't be deleted — deactivate them instead.",
-      });
+    // The only thing that can never be deleted: the last active Owner, or nobody could manage the restaurant any more.
+    if (staff.role.name === "Owner") {
+      const otherOwners = await this.prisma.staffUser.count({ where: { restaurantId: staff.restaurantId, id: { not: id }, deletedAt: null, status: "ACTIVE", role: { name: "Owner" } } });
+      if (otherOwners === 0) {
+        throw new ConflictException({ code: "LAST_OWNER", message: "This is the only active Owner. Make another person an Owner before deleting this account." });
+      }
     }
 
-    await this.prisma.staffUser.delete({ where: { id } });
+    const hasHistory = await this.hasRecordedHistory(id);
+    if (!hasHistory) {
+      await this.prisma.staffUser.delete({ where: { id } });
+      return;
+    }
+
+    // They have worked on orders / payments / complaints, so the record is kept for the history's sake but the
+    // account is closed: signed out, cannot log in, hidden from every list, email freed for reuse.
+    await this.prisma.$transaction([
+      this.prisma.staffUserBranch.deleteMany({ where: { staffUserId: id } }),
+      this.prisma.staffUserPermission.deleteMany({ where: { staffUserId: id } }),
+      this.prisma.staffUser.update({
+        where: { id },
+        data: { deletedAt: new Date(), status: "INACTIVE", refreshTokenHash: null, email: `deleted.${id}@deleted.invalid` },
+      }),
+    ]);
   }
 
   private async hasRecordedHistory(staffUserId: string): Promise<boolean> {

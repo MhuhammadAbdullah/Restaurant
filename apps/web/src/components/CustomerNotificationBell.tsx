@@ -81,10 +81,10 @@ export function CustomerNotificationBell() {
 
   return (
     <div className="relative" ref={panelRef}>
-      <button onClick={() => setOpen((v) => !v)} aria-label="Notifications" className="relative text-white">
+      <button onClick={() => setOpen((v) => !v)} aria-label="Notifications" className="relative text-brand-red">
         <FaBell size={20} />
         {count > 0 && (
-          <span className="absolute -right-1.5 -top-1.5 flex h-4.5 min-w-[18px] items-center justify-center rounded-full border-2 border-brand-red bg-white px-1 text-[10px] font-semibold text-brand-red">
+          <span className="absolute -right-1.5 -top-1.5 flex h-4.5 min-w-[18px] items-center justify-center rounded-full bg-brand-red px-1 text-[10px] font-semibold text-white ring-2 ring-page">
             {count > 99 ? "99+" : count}
           </span>
         )}

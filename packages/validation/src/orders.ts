@@ -64,6 +64,8 @@ export const createOrderSchema = z
     loyaltyPointsToRedeem: z.number().int().min(0).default(0),
     couponCode: z.string().trim().max(40).optional(),
     idempotencyKey: z.string().trim().max(100).optional(),
+    /** Optional tip in paisa. Not part of the bill total; reported separately. */
+    tipAmount: z.number().int().min(0).max(10_000_000).optional(),
     clientTotal: z.number().int().min(0).optional(),
   })
   .refine((v) => v.type !== "ONLINE_DELIVERY" || v.addressId || v.newAddress, {
@@ -108,6 +110,8 @@ export const createPosOrderSchema = z
     amountTendered: z.number().int().min(0).optional(), // cash only, for change calculation
     specialInstructions: z.string().trim().max(1000).optional(),
     idempotencyKey: z.string().trim().max(100).optional(),
+    /** Optional tip in paisa. Not part of the bill total; reported separately. */
+    tipAmount: z.number().int().min(0).max(10_000_000).optional(),
     clientTotal: z.number().int().min(0).optional(),
   })
   .refine((v) => v.type !== "DINE_IN" || v.tableId, { message: "Dine-in orders require a table", path: ["tableId"] })
@@ -144,6 +148,8 @@ export const recordOrderPaymentSchema = z.object({
   method: z.enum(["CASH", "CARD", "QR"]),
   amount: z.number().int().min(1),
   amountTendered: z.number().int().min(0).optional(),
+  /** Optional tip given with this payment (paisa); replaces any tip already on the order. */
+  tipAmount: z.number().int().min(0).max(10_000_000).optional(),
 });
 export type RecordOrderPaymentInput = z.infer<typeof recordOrderPaymentSchema>;
 

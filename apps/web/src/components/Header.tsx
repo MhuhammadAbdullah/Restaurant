@@ -80,48 +80,52 @@ export function Header() {
           }}
         />
         <div className="mx-auto max-w-7xl px-3 pb-4 pt-7 sm:px-8 sm:pb-6 sm:pt-10">
-          <div className="relative flex h-14 items-center justify-between gap-2 rounded-full bg-surface-alt px-3 sm:h-16 sm:px-8">
+          <div className="relative flex h-14 items-center justify-between gap-2 sm:h-16 sm:rounded-full sm:bg-surface-alt sm:px-8">
             <div className="flex min-w-0 items-center gap-2 sm:gap-4">
               {branch && (
                 <button
                   onClick={openChangeModal}
                   className="flex min-w-0 items-center gap-1.5 rounded-xl border border-line bg-surface px-2 py-1.5 text-left text-ink transition hover:bg-surface-alt sm:gap-2 sm:px-2.5 sm:py-1.5"
                 >
-                  <PinSolidIcon size={22} className="shrink-0 text-brand-red sm:hidden" />
+                  <PinSolidIcon size={20} className="shrink-0 text-brand-red sm:hidden" />
                   <PinSolidIcon size={22} className="hidden shrink-0 text-brand-red sm:block" />
                   <span className="flex min-w-0 flex-col leading-tight">
                     <span className="flex items-center gap-1 text-xs font-semibold sm:text-sm">
-                      <span className="hidden sm:inline">Change Location</span>
-                      <span className="max-w-[70px] truncate sm:hidden">{locationSubtitle || "Location"}</span>
-                      <ChevronDownIcon size={14} className="ml-auto hidden shrink-0 text-brand-red sm:block" />
+                      <span className="whitespace-nowrap">Change Location</span>
+                      <ChevronDownIcon size={12} className="ml-auto shrink-0 text-brand-red sm:size-[14px]" />
                     </span>
-                    <span className="hidden max-w-[200px] truncate text-[11px] text-muted sm:block">{locationSubtitle}</span>
+                    <span className="max-w-[110px] truncate text-[10px] text-muted sm:max-w-[200px] sm:text-[11px]">{locationSubtitle}</span>
                   </span>
                 </button>
               )}
               <span aria-hidden="true" className="hidden h-7 w-px bg-line sm:block" />
-              <ContactPopover variant="pill" triggerClassName="flex items-center gap-2.5 text-ink" />
+              <div className="hidden sm:block">
+                <ContactPopover variant="pill" triggerClassName="flex items-center gap-2.5 text-ink" />
+              </div>
             </div>
 
             <Link
               href="/"
-              className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center"
+              className="flex min-w-0 flex-1 items-center justify-center sm:absolute sm:left-1/2 sm:top-1/2 sm:flex-none sm:-translate-x-1/2 sm:-translate-y-1/2"
             >
               {restaurantLoading ? (
-                <Skeleton className="h-16 w-28 rounded-md sm:h-24 sm:w-40" />
+                <Skeleton className="h-12 w-20 rounded-md sm:h-24 sm:w-40" />
               ) : restaurant?.logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={restaurant.logoUrl}
                   alt={restaurant.name}
-                  className="h-20 w-auto max-w-[40vw] object-contain sm:h-[7.5rem]"
+                  className="h-14 w-auto max-w-full object-contain sm:h-[7.5rem] sm:max-w-[40vw]"
                 />
               ) : (
                 <span className="font-display text-xl text-brand-red sm:text-2xl">{restaurant?.name}</span>
               )}
             </Link>
 
-            <div className="flex items-center gap-2 sm:gap-4">
+            <div className="flex shrink-0 items-center gap-2 sm:gap-4">
+              <div className="sm:hidden">
+                <ContactPopover variant="pill" triggerClassName="flex items-center gap-2.5 text-ink" />
+              </div>
               <Link
                 href="/complaints"
                 className="hidden items-center gap-3 rounded-xl border border-line bg-surface px-3 py-1.5 text-ink transition hover:bg-surface-alt lg:flex"
@@ -138,17 +142,17 @@ export function Header() {
               {customer && <CustomerNotificationBell />}
               {header.showCartIcon && (
                 <button onClick={openCart} className="relative" aria-label="Open cart">
-                  {/* The glyph is a white PNG, so tint it via a mask: red in light mode, white in dark. */}
+                  {/* The glyph is a white PNG, so tint it via a mask: brand red in both light and dark mode. */}
                   <span
                     role="img"
                     aria-label="Cart"
-                    className="block h-9 w-9 bg-brand-red dark:bg-white"
+                    className="block h-9 w-9 bg-brand-red"
                     style={{
                       WebkitMask: `url(${CART_ICON_URL}) center / contain no-repeat`,
                       mask: `url(${CART_ICON_URL}) center / contain no-repeat`,
                     }}
                   />
-                  <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-red px-1 text-[11px] font-semibold text-white">
+                  <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-red px-1 text-[11px] font-semibold text-white ring-2 ring-page">
                     {count}
                   </span>
                 </button>

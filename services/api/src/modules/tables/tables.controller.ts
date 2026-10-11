@@ -13,14 +13,14 @@ import { TablesService } from "./tables.service";
 export class TablesController {
   constructor(private readonly tables: TablesService) {}
 
-  @RequirePermission("tables.view")
+  @RequirePermission("tables.view", "pos.access")
   @Get()
   async list(@CurrentStaff() staff: StaffJwtPayload, @Query("branchId") branchId?: string) {
     const data = await this.tables.list(staff, branchId);
     return { success: true, data };
   }
 
-  @RequirePermission("tables.view")
+  @RequirePermission("tables.view", "pos.access")
   @Get("overview")
   async overview(@CurrentStaff() staff: StaffJwtPayload, @Query("branchId") branchId?: string) {
     const data = await this.tables.overview(staff, branchId);

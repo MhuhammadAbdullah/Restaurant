@@ -250,6 +250,9 @@ model StaffUser {
   allBranchesAccess Boolean     @default(false)
   refreshTokenHash String?
   lastLoginAt      DateTime?
+  // Set when an admin "deletes" someone who already has order/activity history: the row stays (so old orders,
+  // payments and audit entries still point at a real person) but the account is closed and hidden everywhere.
+  deletedAt        DateTime?
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
 
@@ -350,6 +353,10 @@ model Branch {
   // server-side (best-effort) and kept only to power "nearest branch" geolocation matching and
   // as a directions-link fallback; the raw URL is what "Get Directions" opens when present.
   mapUrl                String?
+  // Photo of the outlet shown on the website's Locations page; the restaurant logo stands in when empty.
+  imageUrl              String?
+  // Link to this outlet's Google review form ("Rate us on Google" button in the post-delivery email).
+  googleReviewUrl       String?
   latitude              Decimal?     @db.Decimal(9, 6)
   longitude             Decimal?     @db.Decimal(9, 6)
   openingTime           String // "10:00"
@@ -888,6 +895,12 @@ model LoyaltyTransaction {
 model Order {
   id               String           @id @default(cuid())
   orderNumber      String           @unique
+  // Short random public Order ID (e.g. "QduTf") shown to staff and customers. orderNumber stays the
+  // sequential internal number; its digits are the Invoice No (e.g. 202610110090). Null on very old orders.
+  orderCode        String?          @unique
+  // Serial number of the order within its branch for that calendar day (Pakistan time): 1, 2, 3... restarting
+  // at midnight. Printed big on receipts and kitchen tickets so staff and guests can call "order 07".
+  dailyNo          Int?
   restaurantId     String
   branchId         String
   branch           Branch           @relation(fields: [branchId], references: [id], onDelete: Cascade)
@@ -948,6 +961,8 @@ model Order {
   couponCode            String? // snapshot — coupon may be edited/deleted later, historical orders must not change
   couponDiscountAmount  Int     @default(0)
   grandTotal            Int
+  // Optional tip left by the customer (paisa). Not part of grandTotal: it is not sales revenue, so it is reported separately.
+  tipAmount             Int     @default(0)
 
   changeRequestAmount Int?
   specialInstructions String?
@@ -1356,6 +1371,8 @@ model Banner {
   endDate      DateTime?
   status       RecordStatus @default(ACTIVE)
   sortOrder    Int          @default(0)
+  // Which website pages show this banner in their hero section: "HOME", "LOCATIONS".
+  pages        String[]     @default(["HOME"])
   createdAt    DateTime     @default(now())
 
   @@map("banners")
@@ -1457,4 +1474,57 @@ model Recommendation {
   createdAt            DateTime           @default(now())
 
   @@map("recommendations")
+}
+
+/// Per-branch, per-day counter behind Order.dailyNo. day is the local date as YYYY-MM-DD.
+model BranchDailyOrderSequence {
+  branchId  String
+  day       String
+  nextValue Int    @default(1)
+
+  @@id([branchId, day])
+  @@map("branch_daily_order_sequences")
+}
+
+/// A restaurant's customised copy of one of the system emails (OTP, order confirmation, review request...).
+/// No row = the built-in default text is used.
+model EmailTemplate {
+  id           String   @id @default(cuid())
+  restaurantId String
+  key          String
+  subject      String
+  body         String
+  enabled      Boolean  @default(true)
+  updatedByStaffId String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([restaurantId, key])
+  @@map("email_templates")
+}
+
+/// Every email the system sends (or is waiting to send), for the Email Log screen and the delayed review email.
+model EmailLog {
+  id           String    @id @default(cuid())
+  restaurantId String
+  templateKey  String
+  toEmail      String
+  subject      String
+  /// The rendered email, kept so a failed or old message can be sent again exactly as it was.
+  html         String?
+  /// PENDING (waiting for scheduledFor), SENT, FAILED, CANCELLED
+  status       String    @default("PENDING")
+  error        String?
+  attempts     Int       @default(0)
+  orderId      String?
+  complaintId  String?
+  sentByStaffId String?
+  scheduledFor DateTime  @default(now())
+  sentAt       DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([restaurantId, createdAt])
+  @@index([status, scheduledFor])
+  @@index([orderId, templateKey])
+  @@map("email_logs")
 }

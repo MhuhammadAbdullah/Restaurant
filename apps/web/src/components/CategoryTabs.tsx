@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ChevronDownIcon } from "./icons";
+import { optimizeImage } from "../lib/image";
 
 export type TabItem = { key: string; label: string; image?: string | null };
 
@@ -16,36 +17,36 @@ function CardRow({ tabs, activeKey, onTabClick }: RowProps) {
   const { scrollerRef, canScrollLeft, canScrollRight, scrollBy } = useHorizontalScroll(tabs);
 
   return (
-    <div className="px-4 py-2.5 sm:px-8">
+    <div className="px-4 py-1.5 sm:px-8 sm:py-2.5">
       <div className="relative mx-auto flex max-w-4xl items-center">
         {canScrollLeft && (
           <button
             onClick={() => scrollBy(-1)}
             aria-label="Scroll categories left"
-            className="absolute left-0 z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-line bg-surface shadow-md"
+            className="absolute left-0 z-10 flex h-7 w-7 shrink-0 sm:h-8 sm:w-8 items-center justify-center rounded-full border border-line bg-surface shadow-md"
           >
             <ChevronDownIcon size={16} className="rotate-90" />
           </button>
         )}
         <div
           ref={scrollerRef}
-          className={`no-scrollbar flex flex-1 items-center justify-start gap-6 [&>*:first-child]:ml-auto [&>*:last-child]:mr-auto overflow-x-auto scroll-smooth pt-[5px] transition-[gap] duration-200 ${canScrollLeft ? "pl-10" : ""} ${canScrollRight ? "pr-10" : ""}`}
+          className={`no-scrollbar flex flex-1 items-center justify-start gap-4 sm:gap-6 [&>*:first-child]:ml-auto [&>*:last-child]:mr-auto overflow-x-auto scroll-smooth pt-[5px] transition-[gap] duration-200 ${canScrollLeft ? "pl-8 sm:pl-10" : ""} ${canScrollRight ? "pr-8 sm:pr-10" : ""}`}
         >
           {tabs.map((tab) => (
             <button
               key={tab.key}
               onClick={() => onTabClick(tab.key)}
-              className="relative z-0 flex shrink-0 flex-col items-center gap-1.5 transition duration-200 ease-out hover:z-10 hover:scale-[1.08]"
+              className="relative z-0 flex shrink-0 flex-col items-center gap-1 sm:gap-1.5 transition duration-200 ease-out hover:z-10 hover:scale-[1.08]"
             >
-              <span className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl transition duration-200 ease-out hover:drop-shadow-lg">
+              <span className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl sm:h-20 sm:w-20 sm:rounded-2xl transition duration-200 ease-out hover:drop-shadow-lg">
                 {tab.image ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={tab.image} alt="" className="h-full w-full rounded-2xl object-cover" />
+                  <img src={optimizeImage(tab.image, 240)} alt={tab.label} loading="lazy" width={80} height={80} className="h-full w-full rounded-xl object-cover sm:rounded-2xl" />
                 ) : (
-                  <span className="h-full w-full rounded-2xl bg-surface-alt" />
+                  <span className="h-full w-full rounded-xl bg-surface-alt sm:rounded-2xl" />
                 )}
               </span>
-              <span className="text-center text-sm font-semibold text-brand-red">{tab.label}</span>
+              <span className="text-center text-xs font-semibold text-brand-red sm:text-sm">{tab.label}</span>
             </button>
           ))}
         </div>
@@ -53,7 +54,7 @@ function CardRow({ tabs, activeKey, onTabClick }: RowProps) {
           <button
             onClick={() => scrollBy(1)}
             aria-label="Scroll categories right"
-            className="absolute right-0 z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-line bg-surface shadow-md"
+            className="absolute right-0 z-10 flex h-7 w-7 shrink-0 sm:h-8 sm:w-8 items-center justify-center rounded-full border border-line bg-surface shadow-md"
           >
             <ChevronDownIcon size={16} className="-rotate-90" />
           </button>
@@ -78,7 +79,7 @@ function PillRow({ tabs, activeKey, onTabClick, stuck }: RowProps & { stuck: boo
           <button
             onClick={() => scrollBy(-1)}
             aria-label="Scroll categories left"
-            className="absolute left-0 z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-line bg-surface shadow-md"
+            className="absolute left-0 z-10 flex h-7 w-7 shrink-0 sm:h-8 sm:w-8 items-center justify-center rounded-full border border-line bg-surface shadow-md"
           >
             <ChevronDownIcon size={16} className="rotate-90" />
           </button>
@@ -105,7 +106,7 @@ function PillRow({ tabs, activeKey, onTabClick, stuck }: RowProps & { stuck: boo
           <button
             onClick={() => scrollBy(1)}
             aria-label="Scroll categories right"
-            className="absolute right-0 z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-line bg-surface shadow-md"
+            className="absolute right-0 z-10 flex h-7 w-7 shrink-0 sm:h-8 sm:w-8 items-center justify-center rounded-full border border-line bg-surface shadow-md"
           >
             <ChevronDownIcon size={16} className="-rotate-90" />
           </button>

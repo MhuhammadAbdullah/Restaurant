@@ -278,12 +278,12 @@ export function LocationModal() {
         </div>
 
         <h2 className="mt-4 text-center text-lg font-semibold text-ink">{copy?.heading ?? "Select Your Order Type"}</h2>
-        <div className="mx-auto mt-3 flex w-fit rounded-full bg-surface-alt p-1">
+        <div className="mx-auto mt-3 flex w-fit rounded-xl bg-surface-alt p-1">
           {(["DELIVERY", "PICKUP"] as const).map((t) => (
             <button
               key={t}
               onClick={() => setOrderType(t)}
-              className={`rounded-full px-8 py-2 text-sm font-medium transition ${
+              className={`rounded-lg px-8 py-2 text-sm font-medium transition ${
                 orderType === t ? "bg-brand-red text-white" : "text-ink"
               }`}
             >
@@ -296,7 +296,7 @@ export function LocationModal() {
         <button
           onClick={useCurrentLocation}
           disabled={loading}
-          className="mx-auto mt-3 flex w-fit items-center gap-2 rounded-full border border-line bg-surface-alt px-4 py-2 text-sm font-medium text-ink transition hover:border-brand-red hover:text-brand-red disabled:opacity-60"
+          className="mx-auto mt-3 flex w-fit items-center gap-2 rounded-xl border border-line bg-surface-alt px-4 py-2 text-sm font-medium text-ink transition hover:border-brand-red hover:text-brand-red disabled:opacity-60"
         >
           {copy?.useCurrentLocationIconUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -322,7 +322,7 @@ export function LocationModal() {
                       on mobile so 4 columns don't crowd together — sized back up from sm: up. */}
                   <span
                     className={`flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-dashed transition sm:h-20 sm:w-20 ${
-                      isSelected ? "border-solid border-brand-red bg-red-50" : "border-line bg-surface hover:border-brand-red/50"
+                      isSelected ? "border-solid border-brand-red bg-red-50 dark:bg-brand-red/10" : "border-line bg-surface hover:border-brand-red/50"
                     }`}
                   >
                     {iconUrl ? (
@@ -353,9 +353,9 @@ export function LocationModal() {
             />
 
             {selectedPickupBranch && (
-              <div className="mt-3 rounded-xl border border-red-100 bg-red-50 p-4">
+              <div className="mt-3 rounded-xl border border-red-100 bg-red-50 p-4 dark:border-brand-red/25 dark:bg-brand-red/10">
                 <div className="flex gap-3">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-brand-red">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-brand-red dark:bg-surface">
                     <PinSolidIcon size={18} />
                   </span>
                   <div className="min-w-0">
@@ -394,7 +394,7 @@ export function LocationModal() {
         <button
           onClick={() => resolve()}
           disabled={loading || (orderType === "DELIVERY" ? !area : !branchId)}
-          className="mt-5 w-full rounded-full bg-brand-red py-3 text-sm font-semibold text-white disabled:opacity-60"
+          className="mt-5 w-full rounded-xl bg-brand-red py-3 text-sm font-semibold text-white disabled:opacity-60"
         >
           {loading ? "Checking..." : copy?.submitLabel ?? "Select"}
         </button>

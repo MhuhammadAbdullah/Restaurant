@@ -1,13 +1,17 @@
 ﻿"use client";
 
+import { SearchInput } from "../../../components/SearchFilterBar";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "../../../lib/api";
 import { toast } from "../../../store/useToastStore";
+import { confirmDialog } from "../../../store/useConfirmStore";
 import { useMe, hasPermission } from "../../../lib/useMe";
 import { BlockToggle, CustomerDetailModal, type CustomerStatus } from "../../../components/customers/CustomerDetailModal";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select";
 import { Pagination } from "../../../components/Pagination";
+import { downloadAuthed } from "../../../lib/download";
+import { FaDownload } from "react-icons/fa6";
 
 type CustomerListItem = {
   id: string;
@@ -29,6 +33,8 @@ export default function CustomersPage() {
   const queryClient = useQueryClient();
   const { data: me } = useMe();
   const canBlockCustomers = hasPermission(me, "customers.block");
+  const canExport = hasPermission(me, "customers.export");
+  const [exporting, setExporting] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "registered" | "guest">("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -68,7 +74,7 @@ export default function CustomersPage() {
 
   async function toggleRowStatus(c: CustomerListItem) {
     const blocking = c.status === "ACTIVE";
-    if (blocking && !confirm(`Block ${c.name} (${c.phone})? This phone number won't be able to place new orders until unblocked.`)) return;
+    if (blocking && !(await confirmDialog({ title: "Block this customer?", message: `${c.name} (${c.phone}) won't be able to place new orders until you unblock them.`, confirmLabel: "Block customer", tone: "danger" }))) return;
     setTogglingId(c.id);
     try {
       await api.patch(`/staff/customers/${c.id}/status`, { status: blocking ? "INACTIVE" : "ACTIVE" });
@@ -81,18 +87,28 @@ export default function CustomersPage() {
     }
   }
 
+  async function exportCustomers() {
+    setExporting(true);
+    try {
+      const qs = new URLSearchParams();
+      if (debouncedSearch.trim()) qs.set("search", debouncedSearch.trim());
+      if (statusFilter !== "all") qs.set("status", statusFilter);
+      await downloadAuthed(`/staff/customers/export.csv${qs.toString() ? `?${qs.toString()}` : ""}`, `customers-${new Date().toISOString().slice(0, 10)}.csv`);
+      toast.success("Customer list downloaded");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not download the customer list");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <div>
       <h1 className="text-xl font-semibold text-neutral-900">Customers</h1>
       <p className="mt-1 text-sm text-neutral-500">Every person who has an account or has placed an order, registered or guest.</p>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        <input
-          placeholder="Search name, phone, email..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-64 rounded-lg border border-neutral-300 px-3 py-2 text-sm"
-        />
+        <SearchInput value={search} onChange={setSearch} placeholder="Search name, phone, email..." widthClass="w-full sm:w-80" />
         <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as "all" | "registered" | "guest")}>
           <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -101,6 +117,11 @@ export default function CustomersPage() {
             <SelectItem value="guest">Not Registered Only</SelectItem>
           </SelectContent>
         </Select>
+        {canExport && (
+          <button type="button" onClick={exportCustomers} disabled={exporting} title="Downloads the customers matching the search and filter above" className="ml-auto flex items-center gap-2 rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:border-brand-red hover:text-brand-red disabled:opacity-50">
+            <FaDownload size={12} /> {exporting ? "Preparing..." : "Download CSV"}
+          </button>
+        )}
       </div>
 
       <div className="mt-4 overflow-x-auto rounded-xl border border-neutral-200">

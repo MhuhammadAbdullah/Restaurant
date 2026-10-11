@@ -1,5 +1,6 @@
 "use client";
 
+import { SearchInput } from "../../../components/SearchFilterBar";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -7,10 +8,11 @@ import { formatPaisa } from "@restaurant/utils";
 import { api, ApiError } from "../../../lib/api";
 import { toast } from "../../../store/useToastStore";
 import { useSelectedBranch } from "../../../lib/useSelectedBranch";
+import { TipPicker } from "../../../components/pos/TipPicker";
 import { ProductConfigModal, type ProductDetail, type ProductCartLine } from "../../../components/pos/ProductConfigModal";
 import { DealConfigModal, type Deal, type DealCartLine } from "../../../components/pos/DealConfigModal";
 import { TableBillPanel } from "../../../components/pos/TableBillPanel";
-import { CashIcon, CardIcon, QrIcon } from "../../../components/pos/payment-icons";
+import { CashIcon, CardIcon } from "../../../components/pos/payment-icons";
 import { MinusIcon, PlusIcon } from "../../../components/icons";
 import {
   FaBoxOpen,
@@ -25,6 +27,7 @@ import {
   FaTrashCan,
   FaUserPlus,
   FaUtensils,
+  FaCashRegister,
 } from "react-icons/fa6";
 
 type Category = { id: string; name: string; image: string | null; status: "ACTIVE" | "INACTIVE"; sortOrder: number };
@@ -53,6 +56,7 @@ type Quote = {
   couponDiscountAmount: number;
   couponError?: string;
   loyaltyDiscountAmount: number;
+  roundOff?: number;
   grandTotal: number;
 };
 
@@ -161,8 +165,10 @@ export default function PosPage() {
   const [loyaltyRedeem, setLoyaltyRedeem] = useState(0);
 
   // ---- Payment ----
-  const [paymentMethod, setPaymentMethod] = useState<"CASH" | "CARD" | "QR">("CASH");
+  const [paymentMethod, setPaymentMethod] = useState<"CASH" | "CARD">("CASH");
   const [amountTendered, setAmountTendered] = useState("");
+  const [tip, setTip] = useState(""); // optional tip, in rupees
+  const [tipOpen, setTipOpen] = useState(false);
 
   // ---- Submission ----
   const [idempotencyKey, setIdempotencyKey] = useState(newIdempotencyKey);
@@ -177,6 +183,7 @@ export default function PosPage() {
     latestRevisionId?: string;
     cashTendered?: number;
     changeDue?: number;
+    tip?: number;
   } | null>(null);
 
   // ---- Add-items-to-existing-order mode (entered automatically by selecting an occupied Dine-In table) ----
@@ -410,6 +417,8 @@ export default function PosPage() {
     setAppliedCoupon(null);
     setLoyaltyRedeem(0);
     setAmountTendered("");
+    setTip("");
+    setTipOpen(false);
     setLastResult(null);
     setAmendOrderId(null);
     setIdempotencyKey(newIdempotencyKey());
@@ -420,8 +429,11 @@ export default function PosPage() {
   const isDineIn = orderType === "DINE_IN";
   const total = quote?.grandTotal ?? Math.max(0, subtotal - (appliedCoupon?.discountAmount ?? 0));
   const tenderedPaisa = amountTendered.trim() ? Math.round(Number(amountTendered) * 100) : null;
-  const cashShort = !isDineIn && paymentMethod === "CASH" && tenderedPaisa != null && tenderedPaisa < total;
-  const changeDue = !isDineIn && paymentMethod === "CASH" && tenderedPaisa != null && tenderedPaisa >= total ? tenderedPaisa - total : 0;
+  // Optional tip, on top of the bill (not part of the order total, reported separately).
+  const tipPaisa = !isDineIn && tip.trim() && Number(tip) > 0 ? Math.round(Number(tip) * 100) : 0;
+  const toCollect = total + tipPaisa;
+  const cashShort = !isDineIn && paymentMethod === "CASH" && tenderedPaisa != null && tenderedPaisa < toCollect;
+  const changeDue = !isDineIn && paymentMethod === "CASH" && tenderedPaisa != null && tenderedPaisa >= toCollect ? tenderedPaisa - toCollect : 0;
 
   async function placeOrder() {
     if (!branchId || cart.length === 0) return;
@@ -462,6 +474,7 @@ export default function PosPage() {
           loyaltyPointsToRedeem: loyaltyEnabled ? loyaltyRedeem || undefined : undefined,
           paymentMethod: isDineIn ? "CASH" : paymentMethod,
           amountTendered: cashPaid ? tenderedPaisa : undefined,
+          tipAmount: tipPaisa > 0 ? tipPaisa : undefined,
           clientTotal: quote?.grandTotal,
           idempotencyKey,
         });
@@ -473,7 +486,8 @@ export default function PosPage() {
           type: result.type,
           isAmendment: false,
           cashTendered: cashPaid ? tenderedPaisa! : undefined,
-          changeDue: cashPaid ? Math.max(0, tenderedPaisa! - result.grandTotal) : undefined,
+          changeDue: cashPaid ? Math.max(0, tenderedPaisa! - result.grandTotal - tipPaisa) : undefined,
+          tip: tipPaisa > 0 ? tipPaisa : undefined,
         });
         setCart([]);
       }
@@ -538,8 +552,11 @@ export default function PosPage() {
 
   if (!branchId && branches.length > 1) {
     return (
-      <div className="rounded-xl border border-dashed border-neutral-300 p-8 text-center">
-        <p className="text-sm font-medium text-neutral-700">Select a branch above to start a POS order</p>
+      <div className="flex flex-col items-center rounded-xl border border-dashed border-neutral-300 p-8 text-center">
+        <span className="flex h-14 w-14 items-center justify-center rounded-full bg-red-50 text-brand-red">
+          <FaCashRegister size={24} />
+        </span>
+        <p className="mt-4 text-sm font-medium text-neutral-700">Select a branch above to start a POS order</p>
         <p className="mt-1 text-xs text-neutral-400">You have access to {branches.length} branches. Pick one from the switcher in the header.</p>
       </div>
     );
@@ -733,7 +750,7 @@ export default function PosPage() {
                       landmark: lastAddress.deliveryLandmark ?? "",
                     })
                   }
-                  className="max-w-full truncate rounded-full border border-brand-red/30 bg-brand-red/5 px-3 py-1 text-xs font-medium text-brand-red transition hover:bg-brand-red/10"
+                  className="max-w-full truncate rounded-lg border border-brand-red/30 bg-brand-red/5 px-3 py-1 text-xs font-medium text-brand-red transition hover:bg-brand-red/10"
                   title={lastAddress.deliveryAddressSnapshot ?? ""}
                 >
                   Use last address: {lastAddress.deliveryAddressSnapshot}
@@ -751,10 +768,7 @@ export default function PosPage() {
         )}
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
-          <div className="relative min-w-[220px] flex-1">
-            <FaMagnifyingGlass size={13} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
-            <input value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder="Search products..." className={`${fieldClass} pl-9`} />
-          </div>
+          <SearchInput value={searchInput} onChange={setSearchInput} placeholder="Search products..." />
           <button
             onClick={() => setDiscountedOnly((v) => !v)}
             className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition ${
@@ -768,7 +782,7 @@ export default function PosPage() {
         <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
           <button
             onClick={() => { setShowDeals(false); setSelectedCategoryId(""); }}
-            className={`flex shrink-0 items-center rounded-full border px-4 py-2 text-sm font-medium transition ${
+            className={`flex shrink-0 items-center rounded-lg border px-4 py-2 text-sm font-medium transition ${
               !showDeals && !selectedCategoryId ? "border-brand-red bg-brand-red text-white" : "border-neutral-300 bg-white text-neutral-600 hover:border-brand-red hover:text-brand-red"
             }`}
           >
@@ -906,7 +920,7 @@ export default function PosPage() {
 
               {lastResult.cashTendered != null && (
                 <div className="mt-4 rounded-xl bg-green-50 p-3 text-center">
-                  <p className="text-xs text-green-700">Cash received {formatPaisa(lastResult.cashTendered)}</p>
+                  <p className="text-xs text-green-700">Cash received {formatPaisa(lastResult.cashTendered)}{lastResult.tip ? ` (incl. tip ${formatPaisa(lastResult.tip)})` : ""}</p>
                   <p className="mt-1 text-xs font-medium uppercase tracking-wide text-green-700">Change to return</p>
                   <p className="text-3xl font-bold text-green-700">{formatPaisa(lastResult.changeDue ?? 0)}</p>
                 </div>
@@ -921,7 +935,7 @@ export default function PosPage() {
               ) : (
                 lastResult.paymentStatus === "PENDING" && (
                   <button onClick={confirmCardPayment} className="mt-4 w-full rounded-lg bg-amber-500 py-2.5 text-sm font-semibold text-white hover:bg-amber-600">
-                    Confirm Card/QR Payment Received
+                    Confirm Card Payment Received
                   </button>
                 )
               )}
@@ -1133,34 +1147,72 @@ export default function PosPage() {
                       </div>
                     )}
 
-                    <div className="mt-3 space-y-1 text-sm">
-                      <div className="flex justify-between text-neutral-600"><span>Subtotal</span><span>{formatPaisa(quote?.subtotal ?? subtotal)}</span></div>
-                      {quote && quote.taxAmount > 0 && (
-                        <div className="flex justify-between text-neutral-600"><span>Tax ({quote.taxPct}%)</span><span>{formatPaisa(quote.taxAmount)}</span></div>
+                    <div className="mt-3 overflow-hidden rounded-xl border border-neutral-200 bg-white text-sm">
+                      <div className="space-y-1.5 px-3 py-2.5">
+                        <div className="flex justify-between text-neutral-600"><span>Subtotal</span><span>{formatPaisa(quote?.subtotal ?? subtotal)}</span></div>
+                        {quote && quote.taxAmount > 0 && (
+                          <div className="flex justify-between text-neutral-600"><span>Tax ({quote.taxPct}%)</span><span>{formatPaisa(quote.taxAmount)}</span></div>
+                        )}
+                        {quote && quote.deliveryFee > 0 && (
+                          <div className="flex justify-between text-neutral-600"><span>Delivery fee</span><span>{formatPaisa(quote.deliveryFee)}</span></div>
+                        )}
+                        {quote && quote.couponDiscountAmount > 0 && (
+                          <div className="flex justify-between text-green-700"><span>Coupon{appliedCoupon ? ` (${appliedCoupon.code})` : ""}</span><span>-{formatPaisa(quote.couponDiscountAmount)}</span></div>
+                        )}
+                        {quote && quote.loyaltyDiscountAmount > 0 && (
+                          <div className="flex justify-between text-green-700"><span>Loyalty points</span><span>-{formatPaisa(quote.loyaltyDiscountAmount)}</span></div>
+                        )}
+                        {quote && !!quote.roundOff && (
+                          <div className="flex justify-between text-neutral-400"><span>Round off</span><span>{quote.roundOff > 0 ? "+" : "-"}{formatPaisa(Math.abs(quote.roundOff))}</span></div>
+                        )}
+                      </div>
+
+                      {!isDineIn && cart.length > 0 && (
+                        <div className="border-t border-neutral-100 px-3 py-2">
+                          {tipOpen ? (
+                            <div>
+                              <TipPicker
+                                value={tip}
+                                onChange={(v) => {
+                                  setTip(v);
+                                  setTipOpen(false);
+                                }}
+                              />
+                              <button type="button" onClick={() => setTipOpen(false)} className="mt-1.5 text-[11px] text-neutral-400 underline hover:text-neutral-600">Close</button>
+                            </div>
+                          ) : tipPaisa > 0 ? (
+                            <div className="flex items-center justify-between">
+                              <span className="font-medium text-neutral-700">Tip</span>
+                              <span className="flex items-center gap-3">
+                                <span className="font-semibold text-neutral-900">+{formatPaisa(tipPaisa)}</span>
+                                <button type="button" onClick={() => setTipOpen(true)} className="text-xs font-medium text-brand-red hover:underline">Change</button>
+                                <button type="button" onClick={() => setTip("")} className="text-xs text-neutral-400 hover:text-red-600" aria-label="Remove tip">Remove</button>
+                              </span>
+                            </div>
+                          ) : (
+                            <button type="button" onClick={() => setTipOpen(true)} className="flex w-full items-center justify-between py-0.5 text-left text-neutral-600 hover:text-brand-red">
+                              <span>Add a tip <span className="text-neutral-400">(optional)</span></span>
+                              <span className="flex h-5 w-5 items-center justify-center rounded-full border border-current text-sm leading-none">+</span>
+                            </button>
+                          )}
+                        </div>
                       )}
-                      {quote && quote.deliveryFee > 0 && (
-                        <div className="flex justify-between text-neutral-600"><span>Delivery fee</span><span>{formatPaisa(quote.deliveryFee)}</span></div>
-                      )}
-                      {quote && quote.couponDiscountAmount > 0 && (
-                        <div className="flex justify-between text-green-700"><span>Coupon{appliedCoupon ? ` (${appliedCoupon.code})` : ""}</span><span>-{formatPaisa(quote.couponDiscountAmount)}</span></div>
-                      )}
-                      {quote && quote.loyaltyDiscountAmount > 0 && (
-                        <div className="flex justify-between text-green-700"><span>Loyalty points</span><span>-{formatPaisa(quote.loyaltyDiscountAmount)}</span></div>
-                      )}
-                      <div className="flex justify-between border-t border-neutral-200 pt-2 text-base font-semibold text-neutral-900">
-                        <span>Total due</span>
-                        <span className="text-brand-red">{formatPaisa(total)}</span>
+
+                      <div className="flex items-center justify-between border-t border-neutral-200 bg-neutral-50 px-3 py-3">
+                        <span className="text-base font-semibold text-neutral-900">Total due</span>
+                        <span className="text-xl font-bold text-brand-red">{formatPaisa(toCollect)}</span>
                       </div>
                     </div>
 
                     {isDineIn ? (
                       <p className="mt-3 rounded-lg bg-white px-3 py-2 text-xs text-neutral-500 ring-1 ring-neutral-200">
-                        Dine-in is paid at the end of the meal — place the order now, then tap the table to collect payment (cash, card or QR, split if needed).
+                        Dine-in is paid at the end of the meal — place the order now, then tap the table to collect payment (cash or card, split if needed).
                       </p>
                     ) : (
                       <div className="mt-3">
-                        <div className="grid grid-cols-3 gap-2">
-                          {(["CASH", "CARD", "QR"] as const).map((m) => (
+                        <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-500">Payment method</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          {(["CASH", "CARD"] as const).map((m) => (
                             <button
                               key={m}
                               onClick={() => setPaymentMethod(m)}
@@ -1170,8 +1222,7 @@ export default function PosPage() {
                             >
                               {m === "CASH" && <CashIcon size={20} />}
                               {m === "CARD" && <CardIcon size={20} />}
-                              {m === "QR" && <QrIcon size={20} />}
-                              {m === "CASH" ? "Cash" : m === "CARD" ? "Card" : "QR"}
+                              {m === "CASH" ? "Cash" : "Card"}
                             </button>
                           ))}
                         </div>
@@ -1186,10 +1237,10 @@ export default function PosPage() {
                               className={fieldClass}
                             />
                             <div className="mt-2 flex flex-wrap gap-1.5">
-                              {total > 0 && (
+                              {toCollect > 0 && (
                                 <button
-                                  onClick={() => setAmountTendered(String(Math.ceil(total / 100)))}
-                                  className="rounded-full border border-neutral-300 bg-white px-3 py-1 text-xs font-medium text-neutral-600 hover:border-brand-red hover:text-brand-red"
+                                  onClick={() => setAmountTendered(String(Math.ceil(toCollect / 100)))}
+                                  className="rounded-lg border border-neutral-300 bg-white px-3 py-1 text-xs font-medium text-neutral-600 hover:border-brand-red hover:text-brand-red"
                                 >
                                   Exact
                                 </button>
@@ -1198,21 +1249,21 @@ export default function PosPage() {
                                 <button
                                   key={amt}
                                   onClick={() => setAmountTendered(String(amt))}
-                                  className="rounded-full border border-neutral-300 bg-white px-3 py-1 text-xs font-medium text-neutral-600 hover:border-brand-red hover:text-brand-red"
+                                  className="rounded-lg border border-neutral-300 bg-white px-3 py-1 text-xs font-medium text-neutral-600 hover:border-brand-red hover:text-brand-red"
                                 >
                                   {amt.toLocaleString()}
                                 </button>
                               ))}
                             </div>
-                            {tenderedPaisa != null && total > 0 && (
+                            {tenderedPaisa != null && toCollect > 0 && (
                               <div className={`mt-2 flex items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold ${cashShort ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>
                                 <span>{cashShort ? "Short by" : "Change to return"}</span>
-                                <span className="text-lg">{formatPaisa(cashShort ? total - (tenderedPaisa ?? 0) : changeDue)}</span>
+                                <span className="text-lg">{formatPaisa(cashShort ? toCollect - (tenderedPaisa ?? 0) : changeDue)}</span>
                               </div>
                             )}
                           </div>
                         ) : (
-                          <p className="mt-2 text-xs text-neutral-500">Payment stays pending until you confirm it after the customer&apos;s card/QR is charged.</p>
+                          <p className="mt-2 text-xs text-neutral-500">Payment stays pending until you confirm it after the customer&apos;s card is charged.</p>
                         )}
                       </div>
                     )}
@@ -1222,7 +1273,7 @@ export default function PosPage() {
                       disabled={placing || !canPlace || cashShort || (cart.length > 0 && !quote)}
                       className="mt-3 w-full rounded-xl bg-brand-red py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:opacity-50"
                     >
-                      {placing ? "Placing..." : `Place Order${cart.length > 0 ? ` · ${formatPaisa(total)}` : ""}`}
+                      {placing ? "Placing..." : `Place Order${cart.length > 0 ? ` · ${formatPaisa(toCollect)}` : ""}`}
                     </button>
                     {cart.length > 0 && cashShort && <p className="mt-1.5 text-center text-xs text-red-600">Cash received is less than the total due.</p>}
                     {!canPlace && cart.length > 0 && (

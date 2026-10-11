@@ -162,7 +162,7 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
           </h2>
         </div>
 
-        <div className="flex flex-none flex-col sm:flex-1 sm:overflow-y-auto">
+        <div className="flex flex-1 flex-col sm:overflow-y-auto">
           <div className="p-6 sm:p-8">
             <p className="pr-28 font-poppins text-3xl font-bold text-ink sm:text-4xl">
               {product.discountPrice != null && <span className="mr-2 text-xl font-normal text-muted line-through">{formatPaisa(product.basePrice)}</span>}

@@ -9,6 +9,7 @@ import { toast } from "../../../store/useToastStore";
 import { useMe, hasPermission } from "../../../lib/useMe";
 import { SearchInput } from "../../../components/SearchFilterBar";
 import { StatusToggle } from "../../../components/StatusToggle";
+import { BranchAccessPicker } from "../../../components/BranchAccessPicker";
 import { CloseIcon, EditIcon, TrashIcon } from "../../../components/icons";
 import { Avatar, timeAgo, randomPassword } from "../../../lib/staffUi";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select";
@@ -69,10 +70,13 @@ function StaffFormModal({
   initial,
   roles,
   branches,
+  roleLockReason,
   onClose,
   onSaved,
 }: {
   mode: "create" | "edit";
+  /** Why the role can't be changed right now (edit mode only), or null. */
+  roleLockReason?: string | null;
   initial: StaffMember | null;
   roles: Role[] | undefined;
   branches: Branch[] | undefined;
@@ -118,6 +122,7 @@ function StaffFormModal({
           name: form.name.trim(),
           email: form.email.trim(),
           phone: form.phone.trim(),
+          ...(initial && form.roleId && form.roleId !== initial.role.id ? { roleId: form.roleId } : {}),
           ...(form.password ? { password: form.password } : {}),
         });
         toast.success(form.password ? "Staff member updated and password reset. They must sign in again." : "Staff member updated.");
@@ -200,6 +205,25 @@ function StaffFormModal({
             </div>
           </section>
 
+          {mode === "edit" && (
+            <section className="space-y-3 rounded-xl border border-neutral-200 p-4">
+              <SectionTitle n={2} title="Role" hint="Their job title. Permissions are set separately under Manage access." />
+              <Select value={form.roleId || undefined} onValueChange={(v) => set("roleId", v)} disabled={!!roleLockReason}>
+                <SelectTrigger className="w-full"><SelectValue placeholder="Select role" /></SelectTrigger>
+                <SelectContent>
+                  {roles?.map((r) => (
+                    <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {roleLockReason ? (
+                <p className="text-xs text-amber-700">{roleLockReason}</p>
+              ) : initial && form.roleId !== initial.role.id ? (
+                <p className="text-xs text-amber-700">They will be signed out when you save so the new role applies on their next login.</p>
+              ) : null}
+            </section>
+          )}
+
           {mode === "create" && (
             <section className="space-y-3 rounded-xl border border-neutral-200 p-4">
               <SectionTitle n={2} title="Role & branch access" hint="Their job title and which branches they can work in." />
@@ -216,27 +240,21 @@ function StaffFormModal({
                 <p className="mt-1 text-xs text-neutral-400">The role is a label. What they can actually do is set on the next screen.</p>
               </div>
               <div>
-                <div className="mb-1.5 flex items-center justify-between">
-                  <p className="text-xs font-medium text-neutral-500">Branches</p>
-                  <label className="flex cursor-pointer items-center gap-1.5 text-xs font-medium text-neutral-700">
-                    <input type="checkbox" checked={form.allBranchesAccess} onChange={(e) => setForm((f) => ({ ...f, allBranchesAccess: e.target.checked, branchIds: e.target.checked ? [] : f.branchIds }))} className="accent-[#ED2320]" />
-                    All branches
-                  </label>
-                </div>
-                <div className={`flex flex-wrap gap-2 ${form.allBranchesAccess ? "pointer-events-none opacity-40" : ""}`}>
-                  {branches?.map((b) => (
-                    <button type="button" key={b.id} disabled={form.allBranchesAccess} onClick={() => toggleBranch(b.id)} className={`rounded-full border px-3 py-1.5 text-xs font-medium ${form.branchIds.includes(b.id) ? "border-brand-red bg-red-50 text-brand-red" : "border-neutral-300 text-neutral-600 hover:bg-neutral-50"}`}>
-                      {b.name}
-                    </button>
-                  ))}
-                </div>
+                <p className="mb-1 text-xs font-medium text-neutral-500">Branch access *</p>
+                <BranchAccessPicker
+                  branches={branches ?? []}
+                  allBranches={form.allBranchesAccess}
+                  selectedIds={form.branchIds}
+                  onSave={(next) => setForm((x) => ({ ...x, allBranchesAccess: next.allBranchesAccess, branchIds: next.branchIds }))}
+                />
                 {noBranch && <p className="mt-1.5 text-xs text-amber-700">Pick at least one branch, or choose All branches, otherwise they won&apos;t see any data.</p>}
+                <p className="mt-1 text-xs text-neutral-400">Choose the branches this person works in. Your choice is kept when you close the list.</p>
               </div>
             </section>
           )}
 
           <section className="space-y-3 rounded-xl border border-neutral-200 p-4">
-            <SectionTitle n={mode === "create" ? 3 : 2} title={mode === "create" ? "Login password" : "Reset password (optional)"} hint={mode === "create" ? "They sign in with their email and this password." : "Only fill this in to set a new password. They will be signed out everywhere."} />
+            <SectionTitle n={3} title={mode === "create" ? "Login password" : "Reset password (optional)"} hint={mode === "create" ? "They sign in with their email and this password." : "Only fill this in to set a new password. They will be signed out everywhere."} />
             {PasswordField}
           </section>
 
@@ -284,6 +302,33 @@ export default function StaffPage() {
     });
   }, [all, search, roleFilter, statusFilter]);
   const isFiltering = search.trim() !== "" || roleFilter !== "" || statusFilter !== "";
+
+  // Click a heading: ascending, again: descending, again: back to the default (newest first).
+  const [sort, setSort] = useState<{ key: "name" | "role" | "branches" | "login" | "status"; dir: "asc" | "desc" } | null>(null);
+  function toggleSort(key: "name" | "role" | "branches" | "login" | "status") {
+    setSort((cur) => (!cur || cur.key !== key ? { key, dir: "asc" } : cur.dir === "asc" ? { key, dir: "desc" } : null));
+  }
+  const sorted = useMemo(() => {
+    if (!sort) return filtered;
+    const m = sort.dir === "asc" ? 1 : -1;
+    const branchCount = (x: StaffMember) => (x.allBranchesAccess ? Number.MAX_SAFE_INTEGER : x.branchAssignments.length);
+    return [...filtered].sort((a, b) => {
+      switch (sort.key) {
+        case "name": return a.name.localeCompare(b.name) * m;
+        case "role": return a.role.name.localeCompare(b.role.name) * m || a.name.localeCompare(b.name);
+        case "branches": return (branchCount(a) - branchCount(b)) * m || a.name.localeCompare(b.name);
+        case "status": return a.status.localeCompare(b.status) * m || a.name.localeCompare(b.name);
+        case "login": {
+          // people who never signed in always stay at the bottom, whichever way it is sorted
+          if (!a.lastLoginAt && !b.lastLoginAt) return 0;
+          if (!a.lastLoginAt) return 1;
+          if (!b.lastLoginAt) return -1;
+          return (new Date(a.lastLoginAt).getTime() - new Date(b.lastLoginAt).getTime()) * m;
+        }
+      }
+    });
+  }, [filtered, sort]);
+  const sortableHeads: ["name" | "role" | "branches" | "login" | "status", string][] = [["name", "Team member"], ["role", "Role"], ["branches", "Branches"], ["login", "Last sign-in"], ["status", "Status"]];
 
   async function refresh() {
     await queryClient.invalidateQueries({ queryKey: ["staff-list"] });
@@ -378,16 +423,25 @@ export default function StaffPage() {
         <table className="w-full text-sm">
           <thead className="bg-neutral-50 text-left text-xs uppercase text-neutral-500">
             <tr>
-              <th className="px-4 py-2.5">Team member</th>
-              <th className="px-4 py-2.5">Role</th>
-              <th className="px-4 py-2.5">Branches</th>
-              <th className="px-4 py-2.5">Last sign-in</th>
-              <th className="px-4 py-2.5">Status</th>
+              {sortableHeads.map(([key, label]) => {
+                const active = sort?.key === key;
+                return (
+                  <th key={key} className="px-4 py-2.5" aria-sort={active ? (sort!.dir === "asc" ? "ascending" : "descending") : "none"}>
+                    <button type="button" onClick={() => toggleSort(key)} className={`inline-flex items-center gap-1.5 uppercase ${active ? "text-neutral-900" : "hover:text-neutral-800"}`}>
+                      {label}
+                      <span className="flex flex-col leading-none">
+                        <span className={`text-[8px] ${active && sort!.dir === "asc" ? "text-brand-red" : "text-neutral-300"}`}>▲</span>
+                        <span className={`text-[8px] ${active && sort!.dir === "desc" ? "text-brand-red" : "text-neutral-300"}`}>▼</span>
+                      </span>
+                    </button>
+                  </th>
+                );
+              })}
               <th className="px-4 py-2.5"></th>
             </tr>
           </thead>
           <tbody className="divide-y">
-            {filtered.map((s) => {
+            {sorted.map((s) => {
               const isMe = me?.id === s.id;
               return (
                 <tr key={s.id} className={s.status === "INACTIVE" ? "bg-neutral-50/60" : undefined}>
@@ -450,7 +504,7 @@ export default function StaffPage() {
       </div>
 
       {formOpen && (
-        <StaffFormModal mode={editingStaff ? "edit" : "create"} initial={editingStaff} roles={roles} branches={branches} onClose={() => setFormOpen(false)} onSaved={handleSaved} />
+        <StaffFormModal mode={editingStaff ? "edit" : "create"} initial={editingStaff} roles={roles} branches={branches} roleLockReason={editingStaff && me?.id === editingStaff.id && me.isOwner ? "The Owner's own role can't be changed." : null} onClose={() => setFormOpen(false)} onSaved={handleSaved} />
       )}
 
       {deleteTarget && (
@@ -462,7 +516,7 @@ export default function StaffPage() {
             </div>
             <div className="p-5">
               <p className="text-sm text-neutral-600">
-                This only works if they have no order or activity history. If they do, <b>deactivate</b> them instead. That blocks sign-in but keeps their history. Deleting cannot be undone.
+                The account is closed straight away: they are signed out, can no longer log in, and disappear from this list. Orders and payments they handled stay in your records, so reports and history are not affected. This cannot be undone.
               </p>
               <div className="mt-5 flex items-center gap-3">
                 <button type="button" onClick={confirmDelete} disabled={deleting} className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60">{deleting ? "Deleting..." : "Delete"}</button>

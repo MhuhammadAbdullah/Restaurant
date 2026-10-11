@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { FaArrowUpRightFromSquare } from "react-icons/fa6";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DEFAULT_PAGES_CONFIG, type FaqItem } from "@restaurant/validation";
 import { api, ApiError } from "../../../../lib/api";
 import { useMe, hasPermission } from "../../../../lib/useMe";
 import { toast } from "../../../../store/useToastStore";
+import { confirmDialog } from "../../../../store/useConfirmStore";
 import { RichTextEditor } from "../../../../components/RichTextEditor";
 import { TrashIcon } from "../../../../components/icons";
 
@@ -100,8 +102,9 @@ export default function LegalPagesSettingsPage() {
     setPages((p) => (p ? { ...p, [slug]: saved[slug] } : p));
     setEditorVersion((v) => v + 1);
   }
-  function restoreDefault(slug: Slug) {
-    if (!confirm(`Replace the current ${SLUGS.find((s) => s.key === slug)!.label} text with the default template? You can still discard before saving.`)) return;
+  async function restoreDefault(slug: Slug) {
+    const label = SLUGS.find((s) => s.key === slug)!.label;
+    if (!(await confirmDialog({ title: "Replace with the default text?", message: `The current ${label} text is replaced by the default template. Nothing is saved until you press Save, so you can still discard.`, confirmLabel: "Use default text", tone: "warning" }))) return;
     setPages((p) => (p ? { ...p, [slug]: DEFAULT_PAGES_CONFIG[slug] as never } : p));
     setEditorVersion((v) => v + 1);
   }
@@ -193,7 +196,7 @@ export default function LegalPagesSettingsPage() {
               <div className="flex items-center gap-2 text-xs font-medium">
                 {webUrl && (
                   <a href={`${webUrl}${current.path}`} target="_blank" rel="noreferrer" className="rounded-lg border border-neutral-300 px-3 py-1.5 text-neutral-700 hover:bg-neutral-50">
-                    View on website ↗
+                    <span className="inline-flex items-center gap-1.5">View on website <FaArrowUpRightFromSquare size={11} /></span>
                   </a>
                 )}
                 {canManage && (

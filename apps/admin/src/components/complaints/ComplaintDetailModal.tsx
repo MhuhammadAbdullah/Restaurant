@@ -49,6 +49,7 @@ type ComplaintDetail = {
   branch: { name: string; city: string; area: string } | null;
   order: { orderNumber: string; type: string; status: string; grandTotal: number; createdAt: string } | null;
   attachments: Array<{ id: string; url: string }>;
+  messages?: Array<{ id: string; senderType: string; message: string; isInternalNote: boolean; createdAt: string; senderStaff: { name: string } | null }>;
 };
 
 type HistoryEntry = {
@@ -69,6 +70,10 @@ export function ComplaintDetailModal({ id, onClose }: { id: string; onClose: () 
   const queryClient = useQueryClient();
   const { data: me } = useMe();
   const canResolve = hasPermission(me, "complaints.resolve");
+  const canReply = hasPermission(me, "complaints.reply");
+  const [replyText, setReplyText] = useState("");
+  const [emailReply, setEmailReply] = useState(true);
+  const [replying, setReplying] = useState(false);
 
   const [detailOrderId, setDetailOrderId] = useState<string | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
@@ -91,6 +96,22 @@ export function ComplaintDetailModal({ id, onClose }: { id: string; onClose: () 
       toast.success("Status updated");
     } catch (e) {
       toast.error(e instanceof ApiError ? e.message : "Could not update status");
+    }
+  }
+
+  async function sendReply() {
+    if (!replyText.trim()) return;
+    setReplying(true);
+    try {
+      const res = await api.post<{ emailed?: boolean }>(`/staff/complaints/${id}/messages`, { message: replyText.trim(), isInternalNote: false, emailCustomer: emailReply && !!(detail?.contactEmail ?? detail?.customer?.email) });
+      setReplyText("");
+      await queryClient.invalidateQueries({ queryKey: ["staff-complaint", id] });
+      await queryClient.invalidateQueries({ queryKey: ["staff-complaints"] });
+      toast.success(res.emailed ? "Reply saved and emailed to the customer" : "Reply saved");
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.message : "Could not send the reply");
+    } finally {
+      setReplying(false);
     }
   }
 
@@ -182,6 +203,38 @@ export function ComplaintDetailModal({ id, onClose }: { id: string; onClose: () 
                         className="h-20 w-20 cursor-zoom-in rounded-lg border border-neutral-200 object-cover hover:opacity-80"
                       />
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {detail.messages && detail.messages.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold uppercase text-neutral-500">Conversation</p>
+                  <div className="mt-1.5 space-y-2">
+                    {detail.messages.map((m) => (
+                      <div key={m.id} className={`rounded-lg px-3 py-2 text-sm ${m.senderType === "STAFF" ? "bg-brand-red/5 text-neutral-800" : "bg-neutral-100 text-neutral-800"}`}>
+                        <p className="whitespace-pre-wrap">{m.message}</p>
+                        <p className="mt-1 text-[11px] text-neutral-400">
+                          {m.senderType === "STAFF" ? m.senderStaff?.name ?? "Staff" : "Customer"}{m.isInternalNote ? " · internal note" : ""} · {formatDateTime(m.createdAt)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {canReply && (
+                <div className="rounded-lg border border-neutral-200 p-3">
+                  <p className="text-xs font-semibold uppercase text-neutral-500">Reply to customer</p>
+                  <textarea value={replyText} onChange={(e) => setReplyText(e.target.value)} rows={3} maxLength={2000} placeholder="Write your reply..." className="input mt-2 w-full" />
+                  <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                    <label className={`flex items-center gap-2 text-xs ${contactEmail ? "text-neutral-700" : "text-neutral-400"}`}>
+                      <input type="checkbox" checked={emailReply && !!contactEmail} disabled={!contactEmail} onChange={(e) => setEmailReply(e.target.checked)} className="h-4 w-4 accent-[#ED2320]" />
+                      {contactEmail ? `Also email this reply to ${contactEmail}` : "No email address on this complaint, so the reply is saved only"}
+                    </label>
+                    <button type="button" onClick={sendReply} disabled={!replyText.trim() || replying} className="rounded-lg bg-brand-red px-5 py-2 text-sm font-semibold text-white disabled:opacity-40">
+                      {replying ? "Sending..." : "Send reply"}
+                    </button>
                   </div>
                 </div>
               )}

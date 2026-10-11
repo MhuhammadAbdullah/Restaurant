@@ -100,6 +100,7 @@ export class FinanceReportExportService {
           card("Net Sales", rupees(report.salesSummary.netSales)),
           card("Delivery Fees", rupees(report.salesSummary.deliveryFees)),
           card("Tax Collected", rupees(report.salesSummary.tax)),
+          card("Tips Collected", rupees(report.salesSummary.tips)),
           card("Total Billed", rupees(report.salesSummary.totalBilled)),
           card("Orders / Avg. Order", `${report.salesSummary.orders} / ${rupees(report.salesSummary.averageOrderValue)}`),
           card("COD held by riders", rupees(report.codReceivable.withRiders)),
@@ -211,7 +212,9 @@ export class FinanceReportExportService {
       ["Net sales", num(report.salesSummary.netSales), true],
       ["Add: delivery fees", num(report.salesSummary.deliveryFees)],
       ["Add: tax collected", num(report.salesSummary.tax)],
+      ["Round off (to whole rupee)", num(report.salesSummary.roundOff)],
       ["Total billed", num(report.salesSummary.totalBilled), true],
+      ["Tips received (not part of sales)", num(report.salesSummary.tips)],
       ["Collected — online", num(report.financialSummary.onlineCollected)],
       ["Collected — COD (received by admin)", num(report.financialSummary.codCollected)],
       ["Collected — other (cash/card/QR)", num(report.financialSummary.otherCollected)],
@@ -267,6 +270,7 @@ export class FinanceReportExportService {
       { header: "Delivery Fee (Rs.)", key: "deliveryFee", width: 14 },
       { header: "Tax (Rs.)", key: "tax", width: 12 },
       { header: "Grand Total (Rs.)", key: "grandTotal", width: 16 },
+      { header: "Tip (Rs.)", key: "tipAmount", width: 12 },
       { header: "Collected (Rs.)", key: "collectedAmount", width: 14 },
       { header: "Outstanding (Rs.)", key: "outstandingAmount", width: 16 },
       { header: "Refunded (Rs.)", key: "refundAmount", width: 14 },
@@ -283,12 +287,13 @@ export class FinanceReportExportService {
         deliveryFee: num(r.deliveryFee),
         tax: num(r.tax),
         grandTotal: num(r.grandTotal),
+        tipAmount: num(r.tipAmount),
         collectedAmount: num(r.collectedAmount),
         outstandingAmount: num(r.outstandingAmount),
         refundAmount: num(r.refundAmount),
       });
     }
-    for (const key of ["subtotal", "discount", "deliveryFee", "tax", "grandTotal", "collectedAmount", "outstandingAmount", "refundAmount"]) {
+    for (const key of ["subtotal", "discount", "deliveryFee", "tax", "grandTotal", "tipAmount", "collectedAmount", "outstandingAmount", "refundAmount"]) {
       sheet.getColumn(key).numFmt = money;
     }
     sheet.views = [{ state: "frozen", ySplit: 1 }];

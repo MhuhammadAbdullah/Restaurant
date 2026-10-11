@@ -9,6 +9,7 @@ import { useMe, hasPermission } from "../../lib/useMe";
 import { StatusToggle } from "../StatusToggle";
 import { SearchInput } from "../SearchFilterBar";
 import { EditIcon, TrashIcon, CloseIcon } from "../icons";
+import { CityCombobox } from "../CityCombobox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 
 type Branch = { id: string; name: string; code: string; city: string; deliveryEnabled: boolean; status: string };
@@ -38,62 +39,17 @@ function ConfirmModal({ title, body, confirmLabel, busy, onConfirm, onClose }: {
   );
 }
 
-/** Per-area popover: tick the branches (in the area's city) that deliver there. */
-function ServedByPicker({
-  area,
-  cityBranches,
-  servingIds,
-  busyKey,
-  disabled,
-  onToggle,
-}: {
-  area: AreaCatalogEntry;
-  cityBranches: Branch[];
-  servingIds: Set<string>;
-  busyKey: string | null;
-  disabled: boolean;
-  onToggle: (branch: Branch, on: boolean) => void;
-}) {
-  const serving = cityBranches.filter((b) => servingIds.has(b.id));
+/** Read-only list of the branches that deliver to an area (assign areas from each branch's "Areas" button). */
+function ServedBy({ area, branches }: { area: AreaCatalogEntry; branches: Branch[] }) {
+  if (branches.length === 0) {
+    return <span className={`text-xs ${area.isActive ? "font-medium text-amber-700" : "text-neutral-400"}`}>{area.isActive ? "No branch yet" : "None"}</span>;
+  }
   return (
-    <Popover.Root>
-      <Popover.Trigger asChild disabled={disabled || cityBranches.length === 0}>
-        <button
-          type="button"
-          className={`group flex max-w-[16rem] flex-wrap items-center gap-1 rounded-lg border px-2 py-1 text-left text-xs transition ${
-            serving.length === 0 && area.isActive ? "border-amber-300 bg-amber-50" : "border-neutral-200 hover:border-brand-red hover:bg-red-50"
-          } disabled:cursor-not-allowed disabled:opacity-60`}
-        >
-          {serving.length > 0 ? (
-            serving.map((b) => (
-              <span key={b.id} title={b.name} className="rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-neutral-700">{b.code}</span>
-            ))
-          ) : (
-            <span className={area.isActive ? "font-medium text-amber-700" : "text-neutral-400"}>{cityBranches.length === 0 ? `No branch in ${area.city}` : area.isActive ? "No branch yet" : "None"}</span>
-          )}
-          {!disabled && cityBranches.length > 0 && <span className="ml-0.5 text-[10px] text-neutral-400 group-hover:text-brand-red">Edit</span>}
-        </button>
-      </Popover.Trigger>
-      <Popover.Portal>
-        <Popover.Content align="start" sideOffset={6} className="z-[60] w-64 rounded-xl border border-neutral-200 bg-white p-2 shadow-xl">
-          <p className="px-2 pb-1 pt-1 text-xs font-semibold text-neutral-800">Who delivers to {area.name}?</p>
-          <div className="space-y-1">
-            {cityBranches.map((b) => {
-              const on = servingIds.has(b.id);
-              return (
-                <label key={b.id} className={`flex cursor-pointer items-center justify-between rounded-lg border px-2.5 py-2 text-sm ${on ? "border-brand-red bg-red-50" : "border-neutral-200 hover:bg-neutral-50"}`}>
-                  <span className="min-w-0">
-                    <span className={`block truncate ${on ? "font-medium text-brand-red" : "text-neutral-700"}`}>{b.name}</span>
-                    {!b.deliveryEnabled && <span className="block text-[10px] text-amber-700">Delivery is off for this branch</span>}
-                  </span>
-                  <input type="checkbox" checked={on} disabled={busyKey === `${area.id}:${b.id}`} onChange={() => onToggle(b, !on)} className="h-4 w-4 accent-[#ED2320]" />
-                </label>
-              );
-            })}
-          </div>
-        </Popover.Content>
-      </Popover.Portal>
-    </Popover.Root>
+    <div className="flex min-w-0 flex-wrap gap-1">
+      {branches.map((b) => (
+        <span key={b.id} title={b.name} className="max-w-[12rem] truncate rounded-full bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">{b.name}</span>
+      ))}
+    </div>
   );
 }
 
@@ -144,7 +100,6 @@ export function DeliveryAreasTab() {
   const [editingName, setEditingName] = useState("");
   const [deleteIds, setDeleteIds] = useState<string[] | null>(null);
   const [busy, setBusy] = useState(false);
-  const [busyKey, setBusyKey] = useState<string | null>(null);
 
   useEffect(() => {
     if (!newCity && cities.length > 0) setNewCity(cities[0]!);
@@ -239,25 +194,6 @@ export function DeliveryAreasTab() {
     }
   }
 
-  async function setServed(area: AreaCatalogEntry, branch: Branch, on: boolean) {
-    const link = linkMap.get(area.id)?.get(branch.id);
-    if (link ? link.isActive === on : !on) return;
-    if (link) await api.patch(`/branches/${branch.id}/delivery-areas/${link.id}`, { isActive: on });
-    else await api.post(`/branches/${branch.id}/delivery-areas`, { areaId: area.id });
-  }
-
-  async function toggleServed(area: AreaCatalogEntry, branch: Branch, on: boolean) {
-    setBusyKey(`${area.id}:${branch.id}`);
-    try {
-      await setServed(area, branch, on);
-      await refreshLinks();
-    } catch (e) {
-      toast.error(e instanceof ApiError ? e.message : "Could not update delivery area");
-    } finally {
-      setBusyKey(null);
-    }
-  }
-
   async function confirmDelete() {
     if (!deleteIds) return;
     setBusy(true);
@@ -291,27 +227,34 @@ export function DeliveryAreasTab() {
       </div>
 
       <p className="mt-3 text-sm text-neutral-500">
-        The neighbourhoods customers can pick when ordering delivery. An area works when it is <b>visible</b> and at least one branch <b>delivers</b> there. Click “Delivered by” on an area to choose its branches.
+        The neighbourhoods customers can pick when ordering delivery. An area works when it is <b>visible</b> and at least one branch <b>delivers</b> there. To change who delivers to an area, use the “Areas” button on that branch.
       </p>
 
       {canEdit && (
         <form onSubmit={addAreas} className="mt-3 rounded-xl border border-dashed border-neutral-300 bg-white p-4">
           <p className="text-sm font-semibold text-neutral-900">Add areas</p>
-          <p className="text-xs text-neutral-500">Type one area, or paste many separated by commas or new lines.</p>
-          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-[180px_1fr_auto]">
+          <p className="text-xs text-neutral-500">Pick the city, then type the area name.</p>
+          <div className="mt-3 grid grid-cols-1 items-end gap-3 sm:grid-cols-[220px_minmax(0,1fr)_auto]">
             <div>
-              <input list="area-cities" value={newCity} onChange={(e) => setNewCity(e.target.value)} placeholder="City" className="input w-full" required />
-              <datalist id="area-cities">
-                {cities.map((c) => (
-                  <option key={c} value={c} />
-                ))}
-              </datalist>
+              <p className="mb-1 text-xs font-medium text-neutral-500">City *</p>
+              <CityCombobox value={newCity} onChange={setNewCity} yourCities={cities} />
             </div>
-            <textarea value={newNames} onChange={(e) => setNewNames(e.target.value)} rows={2} placeholder="e.g. Clifton, DHA Phase 5, Gulshan-e-Iqbal" className="input w-full" />
-            <button disabled={busy || !newCity.trim() || parsedNames.length === 0} className="self-start rounded-lg bg-brand-red px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+            <div>
+              <label htmlFor="area-names" className="mb-1 block text-xs font-medium text-neutral-500">Area name(s) *</label>
+              <input
+                id="area-names"
+                value={newNames}
+                onChange={(e) => setNewNames(e.target.value)}
+                placeholder="e.g. Clifton, DHA Phase 5, Gulshan-e-Iqbal"
+                className="input h-10 w-full"
+                autoComplete="off"
+              />
+            </div>
+            <button disabled={busy || !newCity.trim() || parsedNames.length === 0} className="h-10 whitespace-nowrap rounded-lg bg-brand-red px-5 text-sm font-medium text-white disabled:opacity-50">
               {parsedNames.length > 1 ? `+ Add ${parsedNames.length} areas` : "+ Add area"}
             </button>
           </div>
+          <p className="mt-1.5 text-[11px] text-neutral-400">Add one area, or several separated by commas. Press Enter to add.</p>
           {parsedNames.length > 1 && (
             <div className="mt-2 flex flex-wrap gap-1.5">
               {parsedNames.map((n) => (
@@ -401,7 +344,7 @@ export function DeliveryAreasTab() {
                     <div className="mt-2 flex items-center gap-2">
                       <span className="shrink-0 text-[11px] text-neutral-400">Delivered by</span>
                       {linksLoaded ? (
-                        <ServedByPicker area={a} cityBranches={cityBranchesOf(a.city)} servingIds={serving} busyKey={busyKey} disabled={!canEdit} onToggle={(b, on) => toggleServed(a, b, on)} />
+                        <ServedBy area={a} branches={branchList.filter((br) => serving.has(br.id))} />
                       ) : (
                         <span className="text-xs text-neutral-300">…</span>
                       )}

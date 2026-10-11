@@ -95,3 +95,28 @@ body {
     @apply rounded-xl;
   }
 }
+
+/* Text selection (highlight) uses the brand red instead of the browser default blue, site-wide. */
+::selection {
+  background-color: #ED2320;
+  color: #ffffff;
+}
+::-moz-selection {
+  background-color: #ED2320;
+  color: #ffffff;
+}
+
+/* Complaint form: each step slides in from the side it was reached from. */
+@keyframes step-forward {
+  from { opacity: 0; transform: translateX(32px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes step-back {
+  from { opacity: 0; transform: translateX(-32px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.animate-step-forward { animation: step-forward 0.35s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.animate-step-back { animation: step-back 0.35s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .animate-step-forward, .animate-step-back { animation: none; }
+}

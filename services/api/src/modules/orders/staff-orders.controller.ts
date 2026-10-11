@@ -123,7 +123,7 @@ export class StaffOrdersController {
     res.send(csv);
   }
 
-  @RequirePermission("orders.view")
+  @RequirePermission("orders.view", "pos.access")
   @Get(":id")
   async findOne(@CurrentStaff() staff: StaffJwtPayload, @Param("id") id: string) {
     const data = await this.orders.getOrderForStaff(staff, id);
@@ -131,7 +131,7 @@ export class StaffOrdersController {
   }
 
   /** Unified status-history timeline — derived from AuditLog (no separate table), same branch scoping as the order itself. */
-  @RequirePermission("orders.view")
+  @RequirePermission("orders.view", "pos.access")
   @Get(":id/history")
   async history(@CurrentStaff() staff: StaffJwtPayload, @Param("id") id: string) {
     await this.orders.getOrderForStaff(staff, id); // branch-scope + existence check
@@ -300,14 +300,14 @@ export class StaffOrdersController {
     return { success: true, data };
   }
 
-  @RequirePermission("orders.view")
+  @RequirePermission("orders.view", "pos.access")
   @Get(":id/receipt/customer")
   async customerReceipt(@CurrentStaff() staff: StaffJwtPayload, @Param("id") id: string) {
     const data = await this.orders.getCustomerReceipt(staff, id);
     return { success: true, data };
   }
 
-  @RequirePermission("orders.view")
+  @RequirePermission("orders.view", "kitchen.access", "pos.access")
   @Get(":id/receipt/kitchen")
   async kitchenReceipt(
     @CurrentStaff() staff: StaffJwtPayload,
@@ -319,14 +319,14 @@ export class StaffOrdersController {
     return { success: true, data };
   }
 
-  @RequirePermission("orders.view")
+  @RequirePermission("orders.view", "kitchen.access", "pos.access")
   @Get(":id/print-events")
   async printEvents(@CurrentStaff() staff: StaffJwtPayload, @Param("id") id: string) {
     const data = await this.orders.listPrintEvents(staff, id);
     return { success: true, data };
   }
 
-  @RequirePermission("orders.view")
+  @RequirePermission("orders.view", "kitchen.access", "pos.access")
   @Post(":id/print-events")
   async logPrintEvent(
     @CurrentStaff() staff: StaffJwtPayload,

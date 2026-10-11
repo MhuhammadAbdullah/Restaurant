@@ -4,10 +4,11 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatPaisa } from "@restaurant/utils";
+import { TipPicker } from "./TipPicker";
 import { FaCheck, FaReceipt } from "react-icons/fa6";
 import { api, ApiError } from "../../lib/api";
 import { toast } from "../../store/useToastStore";
-import { CashIcon, CardIcon, QrIcon } from "./payment-icons";
+import { CashIcon, CardIcon } from "./payment-icons";
 
 type BillPayment = { id: string; method: string; status: string; amount: number; amountTendered: number | null; createdAt: string };
 type BillOrder = {
@@ -22,6 +23,7 @@ type BillOrder = {
   loyaltyDiscountAmount: number;
   discountAmount: number;
   grandTotal: number;
+  tipAmount?: number;
   table: { id: string; number: string; name: string | null } | null;
   items: { id: string; nameSnapshot: string; quantity: number; lineTotal: number }[];
   payments: BillPayment[];
@@ -57,9 +59,10 @@ export function TableBillPanel({
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [method, setMethod] = useState<"CASH" | "CARD" | "QR">("CASH");
+  const [method, setMethod] = useState<"CASH" | "CARD">("CASH");
   const [amountInput, setAmountInput] = useState("");
   const [tendered, setTendered] = useState("");
+  const [tip, setTip] = useState(""); // optional tip for this payment, in rupees
   const [busy, setBusy] = useState(false);
   const [settled, setSettled] = useState<{ method: string; amount: number; change: number } | null>(null);
 
@@ -80,11 +83,20 @@ export function TableBillPanel({
   const closed = TERMINAL.has(order.status);
   const discounts = order.discountAmount + order.couponDiscountAmount + order.loyaltyDiscountAmount;
 
+  // Tip shown in the totals: the one being entered now, else the one already recorded. It is still owed only
+  // while nothing has been paid yet (once a payment exists the tip was taken with it).
+  const tipPending = tip.trim() && Number(tip) > 0 ? Math.round(Number(tip) * 100) : 0;
+  const tipShown = tipPending > 0 ? tipPending : (order.tipAmount ?? 0);
+  const tipOwed = tipPending > 0 ? tipPending : paid === 0 ? (order.tipAmount ?? 0) : 0;
+
   const amountPaisa = amountInput.trim() ? Math.round(Number(amountInput) * 100) : balance;
   const amountValid = Number.isFinite(amountPaisa) && amountPaisa >= 1 && amountPaisa <= balance;
   const tenderedPaisa = tendered.trim() ? Math.round(Number(tendered) * 100) : null;
-  const short = method === "CASH" && tenderedPaisa != null && tenderedPaisa < amountPaisa;
-  const change = method === "CASH" && tenderedPaisa != null && tenderedPaisa >= amountPaisa ? tenderedPaisa - amountPaisa : 0;
+  // Optional tip, on top of the bill. Cash handed over must cover the payment plus the tip.
+  const tipPaisa = tip.trim() && Number(tip) > 0 ? Math.round(Number(tip) * 100) : 0;
+  const cashDue = amountPaisa + tipPaisa;
+  const short = method === "CASH" && tenderedPaisa != null && tenderedPaisa < cashDue;
+  const change = method === "CASH" && tenderedPaisa != null && tenderedPaisa >= cashDue ? tenderedPaisa - cashDue : 0;
 
   async function afterChange() {
     await refetch();
@@ -100,6 +112,7 @@ export function TableBillPanel({
         method,
         amount: amountPaisa,
         amountTendered: method === "CASH" && tenderedPaisa != null ? tenderedPaisa : undefined,
+        tipAmount: tip.trim() ? tipPaisa : undefined,
       });
       // Card/QR rows start PENDING; the cashier's click below is the explicit "money is in" confirmation.
       if (method !== "CASH") {
@@ -109,6 +122,7 @@ export function TableBillPanel({
       setSettled({ method, amount: amountPaisa, change });
       setAmountInput("");
       setTendered("");
+      setTip("");
       await afterChange();
     } catch (e) {
       toast.error(e instanceof ApiError ? e.message : "Could not record payment");
@@ -166,11 +180,12 @@ export function TableBillPanel({
         <div className="flex justify-between text-neutral-600"><span>Subtotal</span><span>{formatPaisa(order.subtotal)}</span></div>
         <div className="flex justify-between text-neutral-600"><span>Tax</span><span>{formatPaisa(order.taxAmount)}</span></div>
         {discounts > 0 && <div className="flex justify-between text-green-700"><span>Discounts</span><span>-{formatPaisa(discounts)}</span></div>}
-        <div className="flex justify-between border-t border-neutral-200 pt-1.5 font-semibold text-neutral-900"><span>Bill total</span><span>{formatPaisa(order.grandTotal)}</span></div>
+        {tipShown > 0 && <div className="flex justify-between text-neutral-600"><span>Tip</span><span>+{formatPaisa(tipShown)}</span></div>}
+        <div className="flex justify-between border-t border-neutral-200 pt-1.5 font-semibold text-neutral-900"><span>Grand total</span><span>{formatPaisa(order.grandTotal + tipShown)}</span></div>
         {paid > 0 && <div className="flex justify-between text-green-700"><span>Paid so far</span><span>-{formatPaisa(paid)}</span></div>}
         <div className="flex justify-between text-base font-semibold">
           <span className="text-neutral-900">Balance due</span>
-          <span className={balance > 0 ? "text-brand-red" : "text-green-700"}>{formatPaisa(balance)}</span>
+          <span className={balance + (balance > 0 ? tipOwed : 0) > 0 ? "text-brand-red" : "text-green-700"}>{formatPaisa(balance + (balance > 0 ? tipOwed : 0))}</span>
         </div>
       </div>
 
@@ -229,8 +244,8 @@ export function TableBillPanel({
             </p>
           ) : (
             <>
-              <div className="mt-2 grid grid-cols-3 gap-2">
-                {(["CASH", "CARD", "QR"] as const).map((m) => (
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                {(["CASH", "CARD"] as const).map((m) => (
                   <button
                     key={m}
                     onClick={() => setMethod(m)}
@@ -240,8 +255,7 @@ export function TableBillPanel({
                   >
                     {m === "CASH" && <CashIcon size={20} />}
                     {m === "CARD" && <CardIcon size={20} />}
-                    {m === "QR" && <QrIcon size={20} />}
-                    {m === "CASH" ? "Cash" : m === "CARD" ? "Card" : "QR"}
+                    {m === "CASH" ? "Cash" : "Card"}
                   </button>
                 ))}
               </div>
@@ -265,6 +279,8 @@ export function TableBillPanel({
                 {!amountValid && amountInput.trim() && <p className="mt-1 text-xs text-red-600">Enter an amount between Rs. 1 and {formatPaisa(balance)}.</p>}
               </div>
 
+              <div className="mt-3"><TipPicker value={tip} onChange={setTip} /></div>
+
               {method === "CASH" ? (
                 <div className="mt-3">
                   <input
@@ -278,8 +294,8 @@ export function TableBillPanel({
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {amountValid && (
                       <button
-                        onClick={() => setTendered(String(Math.ceil(amountPaisa / 100)))}
-                        className="rounded-full border border-neutral-300 bg-white px-3 py-1 text-xs font-medium text-neutral-600 hover:border-brand-red hover:text-brand-red"
+                        onClick={() => setTendered(String(Math.ceil(cashDue / 100)))}
+                        className="rounded-lg border border-neutral-300 bg-white px-3 py-1 text-xs font-medium text-neutral-600 hover:border-brand-red hover:text-brand-red"
                       >
                         Exact
                       </button>
@@ -288,7 +304,7 @@ export function TableBillPanel({
                       <button
                         key={amt}
                         onClick={() => setTendered(String(amt))}
-                        className="rounded-full border border-neutral-300 bg-white px-3 py-1 text-xs font-medium text-neutral-600 hover:border-brand-red hover:text-brand-red"
+                        className="rounded-lg border border-neutral-300 bg-white px-3 py-1 text-xs font-medium text-neutral-600 hover:border-brand-red hover:text-brand-red"
                       >
                         {amt.toLocaleString()}
                       </button>
@@ -297,12 +313,12 @@ export function TableBillPanel({
                   {tenderedPaisa != null && amountValid && (
                     <div className={`mt-2 flex items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold ${short ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>
                       <span>{short ? "Short by" : "Change to return"}</span>
-                      <span>{formatPaisa(short ? amountPaisa - (tenderedPaisa ?? 0) : change)}</span>
+                      <span>{formatPaisa(short ? cashDue - (tenderedPaisa ?? 0) : change)}</span>
                     </div>
                   )}
                 </div>
               ) : (
-                <p className="mt-3 text-xs text-neutral-500">Charge the customer&apos;s {method === "CARD" ? "card" : "QR payment"}, then confirm below.</p>
+                <p className="mt-3 text-xs text-neutral-500">Charge the customer&apos;s card, then confirm below.</p>
               )}
 
               <button
@@ -310,7 +326,7 @@ export function TableBillPanel({
                 disabled={busy || !amountValid || short}
                 className="mt-3 w-full rounded-xl bg-brand-red py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:opacity-50"
               >
-                {busy ? "Saving..." : method === "CASH" ? `Collect ${amountValid ? formatPaisa(amountPaisa) : ""}` : `${method === "CARD" ? "Card" : "QR"} payment received ${amountValid ? `· ${formatPaisa(amountPaisa)}` : ""}`}
+                {busy ? "Saving..." : method === "CASH" ? `Collect ${amountValid ? formatPaisa(amountPaisa) : ""}` : `Card payment received ${amountValid ? `· ${formatPaisa(amountPaisa)}` : ""}`}
               </button>
               {pendingTotal > 0 && <p className="mt-1 text-xs text-neutral-400">Unconfirmed: {formatPaisa(pendingTotal)}</p>}
             </>
@@ -320,10 +336,10 @@ export function TableBillPanel({
 
       <div className="flex gap-2">
         <button
-          onClick={() => router.push(`/pos/receipt/${order.id}`)}
+          onClick={() => router.push(closed ? `/pos/receipt/${order.id}` : `/pos/receipt/${order.id}?kind=pre`)}
           className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-neutral-300 py-2 text-sm font-medium hover:border-brand-red hover:text-brand-red"
         >
-          <FaReceipt size={12} /> {closed ? "Print Receipt" : "Print Bill"}
+          <FaReceipt size={12} /> {closed ? "Print Final Receipt" : "Print Pre-Bill"}
         </button>
         {closed && (
           <button onClick={onDone} className="flex-1 rounded-lg bg-brand-red py-2 text-sm font-semibold text-white hover:opacity-90">

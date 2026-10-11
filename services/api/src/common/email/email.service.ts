@@ -23,6 +23,11 @@ export class EmailService {
     }
   }
 
+  /** Sends an already-rendered email through the configured provider (Gmail / Resend). */
+  async sendRaw(message: { to: string; subject: string; html: string; text?: string }): Promise<void> {
+    await this.provider.send(message);
+  }
+
   async sendOtpEmail(to: string, code: string, purpose: "LOGIN" | "REGISTER"): Promise<void> {
     const heading = purpose === "LOGIN" ? "Your login code" : "Verify your email to finish registering";
     await this.provider.send({

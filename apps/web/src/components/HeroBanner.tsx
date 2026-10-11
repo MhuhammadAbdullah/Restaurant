@@ -4,6 +4,7 @@ import { forwardRef, useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { SkeletonBanner } from "./skeletons";
+import { optimizeImage } from "../lib/image";
 import { ChevronLeftIcon, ChevronRightIcon } from "./icons";
 
 type Banner = {
@@ -13,10 +14,11 @@ type Banner = {
 
 const AUTO_ROTATE_MS = 5000;
 
-export const HeroBanner = forwardRef<HTMLElement>(function HeroBanner(_props, ref) {
+/** `page` picks which banners show: each banner is assigned to pages in the admin. */
+export const HeroBanner = forwardRef<HTMLElement, { page?: "HOME" | "LOCATIONS" }>(function HeroBanner({ page = "HOME" }, ref) {
   const { data: banners, isLoading } = useQuery({
-    queryKey: ["cms-banners"],
-    queryFn: () => api.public.get<Banner[]>("/cms/banners"),
+    queryKey: ["cms-banners", page],
+    queryFn: () => api.public.get<Banner[]>(`/cms/banners?page=${page}`),
     staleTime: 0,
     refetchOnWindowFocus: true,
   });
@@ -37,6 +39,8 @@ export const HeroBanner = forwardRef<HTMLElement>(function HeroBanner(_props, re
   }, [slides]);
 
   if (isLoading) return <SkeletonBanner />;
+  // Other pages simply have no hero when no banner is assigned to them (the home page keeps its placeholder box).
+  if (page !== "HOME" && !slides) return null;
 
   function goToPrev() {
     if (!slides) return;
@@ -59,7 +63,14 @@ export const HeroBanner = forwardRef<HTMLElement>(function HeroBanner(_props, re
               }`}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={banner.image} alt="" className="h-full w-full rounded-2xl object-cover" />
+              <img
+                src={optimizeImage(banner.image, 1600)}
+                alt={`Promotional banner ${i + 1}`}
+                // the first slide is the page's biggest image: fetch it first, defer the rest
+                fetchPriority={i === 0 ? "high" : "low"}
+                loading={i === 0 ? "eager" : "lazy"}
+                className="h-full w-full rounded-2xl object-cover"
+              />
             </div>
           ))}
 

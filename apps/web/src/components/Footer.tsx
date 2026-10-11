@@ -172,6 +172,9 @@ export function Footer() {
         <div className={columnClass}>
           <h3 className={headingClass}>Help</h3>
           <div className="mt-4 space-y-3 text-muted">
+            <Link href="/our-locations" className="block transition hover:text-brand-red">
+              Our Locations
+            </Link>
             <Link href="/complaints" className="block transition hover:text-brand-red">
               Submit Your Complaint
             </Link>
