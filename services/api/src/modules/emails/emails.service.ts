@@ -1,3 +1,4 @@
+import { IS_SERVERLESS } from "../../common/serverless";
 import { BadRequestException, Injectable, Logger, NotFoundException, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../../common/prisma/prisma.service";
@@ -35,6 +36,7 @@ export class EmailsService implements OnModuleInit, OnModuleDestroy {
   // ------------------------------------------------------------------ queue (post-delivery review email)
 
   onModuleInit() {
+    if (IS_SERVERLESS) return;
     this.timer = setInterval(() => void this.processReviewQueue(), QUEUE_INTERVAL_MS);
     this.timer.unref?.();
   }
