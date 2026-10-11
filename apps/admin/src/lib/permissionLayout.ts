@@ -41,7 +41,7 @@ export const PERMISSION_SECTIONS: PermSection[] = [
     label: "Website",
     items: [
       { id: "settings", label: "Website settings", modules: ["settings"], covers: "Header & Branding, Footer, App Promo & About, Legal Pages, Receipts, Location Popup, Loyalty Program" },
-      { id: "cms", label: "Hero Banners", modules: ["cms"] },
+      { id: "cms", label: "Hero Banners & Marketing Pop-ups", modules: ["cms"] },
     ],
   },
   {

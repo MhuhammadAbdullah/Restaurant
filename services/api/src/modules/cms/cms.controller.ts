@@ -2,6 +2,10 @@ import { Body, Controller, Delete, ForbiddenException, Get, Param, Patch, Post, 
 import type { Request } from "express";
 import {
   createBannerSchema,
+  createPopupSchema,
+  updatePopupSchema,
+  type CreatePopupInput,
+  type UpdatePopupInput,
   updateBannerSchema,
   updateRestaurantSettingsSchema,
   type CreateBannerInput,
@@ -40,6 +44,27 @@ export class CmsController {
   async banners(@Query("page") page?: string) {
     const data = await this.cms.listBanners(page || "HOME");
     return { success: true, data };
+  }
+
+  @Public()
+  @Get("popups")
+  async popups(@Query("page") page?: string) {
+    const data = await this.cms.listPopups(page || "HOME");
+    return { success: true, data };
+  }
+
+  @Public()
+  @Post("popups/:id/view")
+  async popupView(@Param("id") id: string) {
+    await this.cms.trackPopup(id, "view");
+    return { success: true };
+  }
+
+  @Public()
+  @Post("popups/:id/click")
+  async popupClick(@Param("id") id: string) {
+    await this.cms.trackPopup(id, "click");
+    return { success: true };
   }
 
   @Public()
@@ -135,6 +160,50 @@ export class CmsController {
   async deleteBanner(@Param("id") id: string, @CurrentStaff() staff: StaffJwtPayload, @Req() req: Request) {
     await this.cms.deleteBanner(id);
     await this.auditLogs.recordForStaff(staff, "banner.delete", "Banner", id, {}, { ip: req.ip, userAgent: req.headers["user-agent"] });
+    return { success: true, data: { id } };
+  }
+
+  @UseGuards(StaffJwtAuthGuard, PermissionsGuard)
+  @RequirePermission("cms.view")
+  @Get("admin/popups")
+  async adminPopups() {
+    const data = await this.cms.adminListPopups();
+    return { success: true, data };
+  }
+
+  @UseGuards(StaffJwtAuthGuard, PermissionsGuard)
+  @RequirePermission("cms.create")
+  @Post("admin/popups")
+  async createPopup(
+    @Body(new ZodValidationPipe(createPopupSchema)) body: CreatePopupInput,
+    @CurrentStaff() staff: StaffJwtPayload,
+    @Req() req: Request,
+  ) {
+    const data = await this.cms.createPopup(body);
+    await this.auditLogs.recordForStaff(staff, "popup.create", "MarketingPopup", data.id, { newValue: body }, { ip: req.ip, userAgent: req.headers["user-agent"] });
+    return { success: true, data };
+  }
+
+  @UseGuards(StaffJwtAuthGuard, PermissionsGuard)
+  @RequirePermission("cms.edit")
+  @Patch("admin/popups/:id")
+  async updatePopup(
+    @Param("id") id: string,
+    @Body(new ZodValidationPipe(updatePopupSchema)) body: UpdatePopupInput,
+    @CurrentStaff() staff: StaffJwtPayload,
+    @Req() req: Request,
+  ) {
+    const data = await this.cms.updatePopup(id, body);
+    await this.auditLogs.recordForStaff(staff, "popup.update", "MarketingPopup", id, { newValue: body }, { ip: req.ip, userAgent: req.headers["user-agent"] });
+    return { success: true, data };
+  }
+
+  @UseGuards(StaffJwtAuthGuard, PermissionsGuard)
+  @RequirePermission("cms.delete")
+  @Delete("admin/popups/:id")
+  async deletePopup(@Param("id") id: string, @CurrentStaff() staff: StaffJwtPayload, @Req() req: Request) {
+    await this.cms.deletePopup(id);
+    await this.auditLogs.recordForStaff(staff, "popup.delete", "MarketingPopup", id, {}, { ip: req.ip, userAgent: req.headers["user-agent"] });
     return { success: true, data: { id } };
   }
 }

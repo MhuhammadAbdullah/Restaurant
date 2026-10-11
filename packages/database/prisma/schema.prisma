@@ -224,6 +224,7 @@ model Restaurant {
   complaints      Complaint[]
   websiteSections WebsiteSection[]
   banners         Banner[]
+  marketingPopups MarketingPopup[]
   notifications   Notification[]
   auditLogs           AuditLog[]
   recommendations     Recommendation[]
@@ -1376,6 +1377,37 @@ model Banner {
   createdAt    DateTime     @default(now())
 
   @@map("banners")
+}
+
+/// Promotional pop-up shown on the storefront (image + optional link) with rules for where, to whom and how often.
+model MarketingPopup {
+  id           String       @id @default(cuid())
+  restaurantId String
+  restaurant   Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  /// Admin-only label.
+  name         String
+  image        String
+  linkUrl      String?
+  /// "HOME", "MENU", "LOCATIONS", "CHECKOUT", "ACCOUNT", "OTHER".
+  pages        String[]     @default(["HOME"])
+  /// "ALL", "GUESTS" (not signed in), "CUSTOMERS" (signed in).
+  audience     String       @default("ALL")
+  /// "ALL", "MOBILE", "DESKTOP".
+  device       String       @default("ALL")
+  /// "EVERY_VISIT", "SESSION", "DAILY", "EVERY_N_DAYS", "ONCE".
+  frequency    String       @default("SESSION")
+  repeatDays   Int          @default(3)
+  delaySeconds Int          @default(2)
+  startDate    DateTime?
+  endDate      DateTime?
+  status       RecordStatus @default(ACTIVE)
+  sortOrder    Int          @default(0)
+  viewCount    Int          @default(0)
+  clickCount   Int          @default(0)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@map("marketing_popups")
 }
 
 model Notification {

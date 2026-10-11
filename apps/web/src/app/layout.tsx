@@ -4,6 +4,7 @@ import "./globals.css";
 import { Providers } from "../components/Providers";
 import { Header } from "../components/Header";
 import { LocationModal } from "../components/LocationModal";
+import { MarketingPopup } from "../components/MarketingPopup";
 import { AuthModal } from "../components/AuthModal";
 import { CartBar } from "../components/CartBar";
 import { CartDrawer } from "../components/CartDrawer";
@@ -70,6 +71,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <Header />
           <LocationModal />
           <AuthModal />
+          <MarketingPopup />
           <Toaster />
           {children}
           <Footer />
