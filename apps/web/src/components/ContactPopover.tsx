@@ -38,8 +38,8 @@ export function ContactPopover({
         className={triggerClassName}
         aria-label={phone ? `Call ${phone}` : "Contact us"}
       >
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-red/10 text-brand-red">
-          <FaMobileScreenButton size={18} />
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md sm:h-9 sm:w-9 sm:rounded-lg bg-brand-red/10 text-brand-red">
+          <FaMobileScreenButton size={18} className="h-[14px] w-[14px] sm:h-[18px] sm:w-[18px]" />
         </span>
         <span className="hidden flex-col items-start leading-tight lg:flex">
           <span className="text-[11px] font-semibold">{data?.header?.contactButtonLabel ?? "Contact us"}</span>
