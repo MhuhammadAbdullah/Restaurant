@@ -576,6 +576,8 @@ model ChoiceOption {
   choiceGroupId           String
   choiceGroup             ChoiceGroup  @relation(fields: [choiceGroupId], references: [id], onDelete: Cascade)
   name                    String
+  /// Short text shown under the option name on the storefront.
+  description             String?
   image                   String?
   priceAdjustment         Int          @default(0) // paisa
   discountPriceAdjustment Int? // paisa, optional discounted additional price

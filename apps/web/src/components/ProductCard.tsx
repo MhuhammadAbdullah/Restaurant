@@ -58,7 +58,7 @@ export function ProductCard({ product, onClick }: { product: Product; onClick: (
   return (
     <div className="group relative z-0 flex flex-col rounded-2xl border border-brand-red bg-surface transition duration-200 ease-out hover:z-10 hover:shadow-lg">
       <ProductTagBadge tag={product.tag} />
-      <button onClick={onClick} className="p-2 text-left">
+      <button onClick={onClick} className="p-1.5 text-left">
         {image && (
           <div className="relative aspect-square w-full overflow-hidden rounded-2xl">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -70,19 +70,19 @@ export function ProductCard({ product, onClick }: { product: Product; onClick: (
           </div>
         )}
       </button>
-      <div className="flex flex-1 flex-col px-3 pb-3 pt-1.5 sm:px-4 sm:pb-4 sm:pt-2">
+      <div className="flex flex-1 flex-col px-2.5 pb-2.5 pt-1 sm:px-3 sm:pb-3 sm:pt-1.5">
         <button onClick={onClick} className="text-left">
-          <p className="font-poppins text-[14px] font-bold uppercase leading-[16px] text-ink sm:text-[16px] sm:leading-[18px] lg:text-[20px] lg:leading-[21px]">
+          <p className="font-poppins text-[12px] font-bold uppercase leading-[15px] text-ink sm:text-[14px] sm:leading-[17px] lg:text-[16px] lg:leading-[19px]">
             {product.name}
           </p>
           {product.description && (
-            <p className="mt-1 line-clamp-2 font-poppins text-[10px] font-medium leading-[14px] text-muted sm:text-[11px] sm:leading-[16px] lg:text-[12px] lg:leading-[20px]">
+            <p className="mt-1 line-clamp-2 font-poppins text-[9px] font-medium leading-[12px] text-muted sm:text-[10px] sm:leading-[14px] lg:text-[11px] lg:leading-[16px]">
               {product.description}
             </p>
           )}
         </button>
         <div className="mt-auto flex items-center justify-between gap-2 pt-2.5">
-          <span className="font-poppins text-[13px] font-bold leading-[14px] uppercase text-ink sm:text-[15px] sm:leading-[16px] lg:text-[18px] lg:leading-[18px]">
+          <span className="font-poppins text-[12px] font-bold leading-[14px] uppercase text-ink sm:text-[13px] sm:leading-[15px] lg:text-[15px] lg:leading-[16px]">
             {product.discountPrice != null && <span className="mr-1 text-xs font-normal text-muted line-through">{formatPaisa(product.basePrice)}</span>}
             {formatPaisa(price)}
           </span>
@@ -94,18 +94,18 @@ export function ProductCard({ product, onClick }: { product: Product; onClick: (
               onDecrement={() => updateQuantity(simpleLine.cartItemId, quantity - 1)}
               onRemove={() => removeItem(simpleLine.cartItemId)}
               compact
-              className="!py-0 h-7 sm:h-8 lg:h-9"
+              className="!py-0 h-6 sm:h-7 lg:h-8"
             />
           ) : (
             <button
               onClick={handleAdd}
               disabled={checking}
               aria-label="Add to cart"
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-brand-red text-white sm:h-8 sm:w-8 transition hover:opacity-90 disabled:opacity-60 lg:h-9 lg:w-9"
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-brand-red text-white transition hover:opacity-90 disabled:opacity-60 sm:h-7 sm:w-7 sm:rounded-lg lg:h-8 lg:w-8"
             >
-              <PlusIcon size={12} className="sm:hidden" />
-              <PlusIcon size={14} className="hidden sm:block lg:hidden" />
-              <PlusIcon size={16} className="hidden lg:block" />
+              <PlusIcon size={10} className="sm:hidden" />
+              <PlusIcon size={12} className="hidden sm:block lg:hidden" />
+              <PlusIcon size={14} className="hidden lg:block" />
             </button>
           )}
         </div>

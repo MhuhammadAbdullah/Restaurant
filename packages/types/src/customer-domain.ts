@@ -1,6 +1,7 @@
 export type ChoiceOption = {
   id: string;
   name: string;
+  description?: string | null;
   image: string | null;
   priceAdjustment: number;
   discountPriceAdjustment: number | null;

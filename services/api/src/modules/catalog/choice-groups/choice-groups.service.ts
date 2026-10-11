@@ -43,6 +43,7 @@ export class ChoiceGroupsService {
         options: {
           create: input.options.map((o) => ({
             name: o.name,
+            description: o.description,
             image: o.image,
             priceAdjustment: o.priceAdjustment,
             discountPriceAdjustment: o.discountPriceAdjustment,
@@ -68,6 +69,7 @@ export class ChoiceGroupsService {
               where: { id: option.id },
               data: {
                 name: option.name,
+                description: option.description ?? null,
                 image: option.image,
                 priceAdjustment: option.priceAdjustment,
                 discountPriceAdjustment: option.discountPriceAdjustment,
@@ -80,6 +82,7 @@ export class ChoiceGroupsService {
               data: {
                 choiceGroupId: id,
                 name: option.name,
+                description: option.description ?? null,
                 image: option.image,
                 priceAdjustment: option.priceAdjustment,
                 discountPriceAdjustment: option.discountPriceAdjustment,

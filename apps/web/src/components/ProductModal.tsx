@@ -11,6 +11,7 @@ import { useCartStore, makeCartItemId } from "../store/useCartStore";
 import { resolveProductImage, useFallbackProductImage } from "../lib/image";
 import { FaShareNodes } from "react-icons/fa6";
 import { ArrowRightIcon, CloseIcon, MinusIcon, PlusIcon, TrashIcon } from "./icons";
+import { ChoiceOptionCard } from "./ChoiceOptionCard";
 import { AccordionSection } from "./AccordionSection";
 import { toast } from "../store/useToastStore";
 
@@ -163,12 +164,12 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto sm:contents">
-        <div className="relative h-72 w-full shrink-0 overflow-hidden bg-surface-alt sm:aspect-square sm:h-auto sm:w-[45%] sm:self-start">
+        <div className="relative aspect-square w-full shrink-0 overflow-hidden bg-surface-alt sm:aspect-square sm:h-auto sm:w-[45%] sm:self-start">
           {/* blurred copy of the photo fills the panel so the sharp, uncropped image below never leaves bare bars */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={image} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full scale-110 object-cover opacity-60 blur-2xl" />
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={image} alt={product.name} className="absolute inset-x-0 top-0 h-[calc(100%-3.5rem)] w-full object-contain p-2" />
+          <img src={image} alt={product.name} className="absolute inset-0 h-full w-full object-cover sm:inset-x-0 sm:top-0 sm:h-[calc(100%-3.5rem)] sm:object-contain sm:p-2" />
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/80 to-transparent" />
           <h2 className="absolute inset-x-0 bottom-0 p-5 font-poppins text-2xl font-bold uppercase leading-tight text-white sm:p-6 sm:text-3xl">
             {product.name}
@@ -200,31 +201,24 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
                     isOpen={openSection === sectionKey}
                     onToggle={() => setOpenSection(openSection === sectionKey ? null : sectionKey)}
                   >
-                    {g.options.map((opt) => {
-                      const optPrice = effectivePrice(opt.priceAdjustment, opt.discountPriceAdjustment);
-                      return (
-                        <label key={opt.id} className="flex cursor-pointer items-center justify-between gap-3 py-2.5 text-sm">
-                          <span className="text-ink">{opt.name}</span>
-                          <span className="flex shrink-0 items-center gap-3">
-                            {optPrice > 0 && (
-                              <span className="text-muted">
-                                {opt.discountPriceAdjustment != null && (
-                                  <span className="mr-1 line-through">+ {formatPaisa(opt.priceAdjustment)}</span>
-                                )}
-                                + {formatPaisa(optPrice)}
-                              </span>
-                            )}
-                            <input
-                              type={rules.selectionType === "SINGLE" ? "radio" : "checkbox"}
-                              name={assignment.choiceGroupId}
-                              checked={(selectedChoices[assignment.choiceGroupId] ?? []).includes(opt.id)}
-                              onChange={() => toggleChoice(assignment, opt.id)}
-                              className="h-4 w-4 accent-brand-red"
-                            />
-                          </span>
-                        </label>
-                      );
-                    })}
+                    <div className="grid grid-cols-2 gap-2 py-2">
+                      {g.options.map((opt) => {
+                        const optPrice = effectivePrice(opt.priceAdjustment, opt.discountPriceAdjustment);
+                        return (
+                          <ChoiceOptionCard
+                            key={opt.id}
+                            name={opt.name}
+                            groupName={assignment.choiceGroupId}
+                            type={rules.selectionType === "SINGLE" ? "radio" : "checkbox"}
+                            checked={(selectedChoices[assignment.choiceGroupId] ?? []).includes(opt.id)}
+                            onChange={() => toggleChoice(assignment, opt.id)}
+                            priceLabel={optPrice > 0 ? `+ ${formatPaisa(optPrice)}` : undefined}
+                            oldPriceLabel={optPrice > 0 && opt.discountPriceAdjustment != null ? `+ ${formatPaisa(opt.priceAdjustment)}` : undefined}
+                            description={opt.description}
+                          />
+                        );
+                      })}
+                    </div>
                   </AccordionSection>
                 );
               })}

@@ -11,6 +11,7 @@ import { groupAddonsByCategory, type AddonCategory } from "../lib/types";
 import { useCartStore, makeCartItemId } from "../store/useCartStore";
 import { useFallbackProductImage } from "../lib/image";
 import { ArrowRightIcon, CloseIcon, MinusIcon, PlusIcon } from "./icons";
+import { ChoiceOptionCard } from "./ChoiceOptionCard";
 import { AccordionSection } from "./AccordionSection";
 import { toast } from "../store/useToastStore";
 
@@ -263,27 +264,26 @@ export function DealModal({ deal, onClose }: { deal: Deal; onClose: () => void }
                       isOpen={isOpen}
                       onToggle={onToggle}
                     >
-                      {section.choiceGroup.options.map((opt) => (
-                        <label key={opt.id} className="flex cursor-pointer items-center justify-between gap-3 py-2.5 text-sm">
-                          <span className="text-ink">{opt.name}</span>
-                          <span className="flex shrink-0 items-center gap-3">
-                            {opt.priceAdjustment > 0 && <span className="text-muted">+ {formatPaisa(opt.priceAdjustment)}</span>}
-                            <input
-                              type={rules.selectionType === "SINGLE" ? "radio" : "checkbox"}
-                              name={section.key}
-                              checked={(sel.choices[section.choiceGroupId] ?? []).includes(opt.id)}
-                              onChange={() =>
-                                toggleChoice(
-                                  section.slot.id,
-                                  { id: section.choiceGroupId, selectionType: rules.selectionType, maxSelect: rules.maxSelect },
-                                  opt.id,
-                                )
-                              }
-                              className="h-4 w-4 accent-brand-red"
-                            />
-                          </span>
-                        </label>
-                      ))}
+                      <div className="grid grid-cols-2 gap-2 py-2">
+                        {section.choiceGroup.options.map((opt) => (
+                          <ChoiceOptionCard
+                            key={opt.id}
+                            name={opt.name}
+                            groupName={section.key}
+                            type={rules.selectionType === "SINGLE" ? "radio" : "checkbox"}
+                            checked={(sel.choices[section.choiceGroupId] ?? []).includes(opt.id)}
+                            onChange={() =>
+                              toggleChoice(
+                                section.slot.id,
+                                { id: section.choiceGroupId, selectionType: rules.selectionType, maxSelect: rules.maxSelect },
+                                opt.id,
+                              )
+                            }
+                            priceLabel={opt.priceAdjustment > 0 ? `+ ${formatPaisa(opt.priceAdjustment)}` : undefined}
+                            description={opt.description}
+                          />
+                        ))}
+                      </div>
                     </AccordionSection>
                   );
                 }
