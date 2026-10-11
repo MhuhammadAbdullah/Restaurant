@@ -1,3 +1,4 @@
+import { randomBytes } from "crypto";
 import { BadRequestException, ForbiddenException, forwardRef, Inject, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import type { OrderStatus, OrderSource, Prisma } from "@restaurant/database";
@@ -22,6 +23,7 @@ import type {
   UpdateRiderDeliveryStatusInput,
 } from "@restaurant/validation";
 import type { StaffJwtPayload } from "@restaurant/auth";
+import { roundToRupee } from "@restaurant/utils";
 import { resolveLoyaltyConfig } from "@restaurant/validation";
 import { PrismaService } from "../../common/prisma/prisma.service";
 import { RestaurantContextService } from "../../common/restaurant/restaurant-context.service";
@@ -37,7 +39,7 @@ import { RealtimeGateway } from "../realtime/realtime.gateway";
 import { LoyaltyService } from "../loyalty/loyalty.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { PushService } from "../notifications/push.service";
-import { EmailService, type OrderConfirmationEmailParams } from "../../common/email/email.service";
+import { EmailsService } from "../emails/emails.service";
 import type { Env } from "../../config/env.schema";
 
 /** Terminal statuses that free up a dine-in table and stop counting an order as "open". */
@@ -124,7 +126,7 @@ export class OrdersService {
     private readonly permissionsCheck: PermissionsCheckService,
     private readonly realtime: RealtimeGateway,
     private readonly loyalty: LoyaltyService,
-    private readonly email: EmailService,
+    private readonly emails: EmailsService,
     private readonly config: ConfigService<Env, true>,
     private readonly notifications: NotificationsService,
     private readonly push: PushService,
@@ -152,6 +154,10 @@ export class OrdersService {
       }
       if (input.loyaltyPointsToRedeem > 0) {
         throw new BadRequestException({ code: "GUEST_LOYALTY_UNAVAILABLE", message: "Loyalty points require an account" });
+      }
+      // Guests are emailed their order confirmation and the thank-you / review request, so an email is required.
+      if (!input.contactEmail?.trim()) {
+        throw new BadRequestException({ code: "GUEST_EMAIL_REQUIRED", message: "Please enter your email address so we can send your order confirmation" });
       }
     }
 
@@ -269,7 +275,7 @@ export class OrdersService {
       loyaltyDiscountAmount = input.loyaltyPointsToRedeem * loyaltyConfig.redemptionValuePaisaPerPoint;
     }
 
-    const grandTotal = subtotal + taxAmount + deliveryFee - discountAmount - couponDiscountAmount - loyaltyDiscountAmount;
+    const grandTotal = roundToRupee(subtotal + taxAmount + deliveryFee - discountAmount - couponDiscountAmount - loyaltyDiscountAmount);
     if (grandTotal < 0) {
       throw new BadRequestException({ code: "DISCOUNT_EXCEEDS_TOTAL", message: "Discounts cannot exceed the order total" });
     }
@@ -306,10 +312,14 @@ export class OrdersService {
     // loyalty block entirely, which is why only the logged-in path was affected).
     const order = await this.prisma.$transaction(async (tx) => {
       const orderNumber = await this.nextOrderNumber(tx, restaurantId);
+      const orderCode = await this.generateOrderCode(tx);
+      const dailyNo = await this.nextDailyNo(tx, branch.id);
 
       const created = await tx.order.create({
         data: {
           orderNumber,
+          orderCode,
+          dailyNo,
           restaurantId,
           branchId: branch.id,
           customerId,
@@ -345,6 +355,7 @@ export class OrdersService {
           couponCode: couponPricing?.code,
           couponDiscountAmount,
           grandTotal,
+          tipAmount: input.tipAmount ?? 0,
           changeRequestAmount: paymentMethod === "COD" ? input.changeRequestAmount : undefined,
           specialInstructions: input.specialInstructions,
           estimatedDeliveryAt,
@@ -394,7 +405,8 @@ export class OrdersService {
           method: paymentMethod,
           provider: paymentMethod === "COD" ? "cod" : "payfast",
           status: "PENDING",
-          amount: grandTotal,
+          // Online payments are charged bill + tip; COD tips go to the rider in cash, outside the settled amount.
+          amount: paymentMethod === "COD" ? grandTotal : grandTotal + (input.tipAmount ?? 0),
         },
       });
 
@@ -503,7 +515,7 @@ export class OrdersService {
     }
 
     await this.prisma.payment.create({
-      data: { orderId: order.id, method: "ONLINE", provider: "payfast", status: "PENDING", amount: order.grandTotal },
+      data: { orderId: order.id, method: "ONLINE", provider: "payfast", status: "PENDING", amount: order.grandTotal + order.tipAmount },
     });
     const initiated = await this.payments.initiateForOrder(order.id);
     return { paymentRedirectUrl: initiated.redirectUrl };
@@ -515,57 +527,11 @@ export class OrdersService {
    * only if they typed one at checkout. Errors are swallowed (logged) so a slow/failed email
    * provider never fails the status-change response the staff member is waiting on.
    */
-  private async sendAcceptanceEmailIfApplicable(orderId: string, restaurantId: string): Promise<void> {
-    const full = await this.prisma.order.findUnique({ where: { id: orderId }, include: this.orderIncludes() }).catch((e) => {
-      this.logger.error(`Failed to load order ${orderId} for acceptance email: ${e instanceof Error ? e.message : e}`);
-      return null;
+  private async sendAcceptanceEmailIfApplicable(orderId: string, _restaurantId: string): Promise<void> {
+    // The wording, layout and on/off switch live in Admin > Email Templates ("Order confirmation").
+    await this.emails.sendOrderConfirmation(orderId).catch((e) => {
+      this.logger.error(`Failed to send order confirmation email for order ${orderId}: ${e instanceof Error ? e.message : e}`);
     });
-    if (!full) return;
-    const recipientEmail = full.customer?.email ?? full.contactEmail;
-    if (!recipientEmail) return;
-    const restaurant = await this.prisma.restaurant.findUniqueOrThrow({ where: { id: restaurantId } });
-
-    const isPickup = PICKUP_ORDER_TYPES.includes(full.type);
-    const isDelivery = DELIVERY_ORDER_TYPES.includes(full.type);
-    await this.sendOrderConfirmationEmailSafely({
-      to: recipientEmail,
-      customerName: full.customer?.name ?? full.contactName ?? null,
-      orderNumber: full.orderNumber,
-      restaurantName: restaurant.name,
-      createdAt: full.createdAt,
-      orderType: full.type,
-      isPickup,
-      isDelivery,
-      branchName: full.branch.name,
-      branchAddress: full.branch.address,
-      branchPhone: full.branch.phone,
-      deliveryAddress: full.deliveryAddressSnapshot
-        ? `${full.deliveryAddressSnapshot}${full.deliveryArea ? `, ${full.deliveryArea}` : ""}`
-        : null,
-      items: full.items.map((i) => ({ name: i.nameSnapshot, quantity: i.quantity, lineTotalPaisa: i.lineTotal })),
-      paymentMethod: full.paymentMethod,
-      subtotalPaisa: full.subtotal,
-      taxPaisa: full.taxAmount,
-      deliveryFeePaisa: full.deliveryFee,
-      discountPaisa: full.discountAmount + full.couponDiscountAmount,
-      loyaltyDiscountPaisa: full.loyaltyDiscountAmount,
-      grandTotalPaisa: full.grandTotal,
-    });
-  }
-
-  private async sendOrderConfirmationEmailSafely(params: Omit<OrderConfirmationEmailParams, "statusUrl">): Promise<void> {
-    try {
-      const webOrigin = this.config.get("CORS_ORIGINS", { infer: true }).split(",")[0];
-      await this.email.sendOrderConfirmationEmail({
-        ...params,
-        // The guest link naturally expires once the order reaches a terminal status (see
-        // getOrderForGuest) — this is a deliberate tradeoff, not a bug, since guest orders have
-        // no login to gate access, so the number-based URL can't stay a permanent secret.
-        statusUrl: `${webOrigin}/order-confirmation/${params.orderNumber}`,
-      });
-    } catch (e) {
-      this.logger.error(`Failed to send order confirmation email for order ${params.orderNumber}: ${e instanceof Error ? e.message : e}`);
-    }
   }
 
   /**
@@ -643,7 +609,7 @@ export class OrdersService {
       loyaltyDiscountAmount = input.loyaltyPointsToRedeem * loyaltyConfig.redemptionValuePaisaPerPoint;
     }
 
-    const grandTotal = subtotal + taxAmount + deliveryFee - couponDiscountAmount - loyaltyDiscountAmount;
+    const grandTotal = roundToRupee(subtotal + taxAmount + deliveryFee - couponDiscountAmount - loyaltyDiscountAmount);
     if (grandTotal < 0) {
       throw new BadRequestException({ code: "DISCOUNT_EXCEEDS_TOTAL", message: "Discounts cannot exceed the order total" });
     }
@@ -656,7 +622,7 @@ export class OrdersService {
       });
     }
 
-    if (input.paymentMethod === "CASH" && input.amountTendered !== undefined && input.amountTendered < grandTotal) {
+    if (input.paymentMethod === "CASH" && input.amountTendered !== undefined && input.amountTendered < grandTotal + (input.tipAmount ?? 0)) {
       throw new BadRequestException({ code: "INSUFFICIENT_CASH_TENDERED", message: "Amount tendered is less than the total due" });
     }
 
@@ -667,10 +633,14 @@ export class OrdersService {
 
     const order = await this.prisma.$transaction(async (tx) => {
       const orderNumber = await this.nextOrderNumber(tx, restaurantId);
+      const orderCode = await this.generateOrderCode(tx);
+      const dailyNo = await this.nextDailyNo(tx, branch.id);
 
       const created = await tx.order.create({
         data: {
           orderNumber,
+          orderCode,
+          dailyNo,
           restaurantId,
           branchId: branch.id,
           customerId,
@@ -698,6 +668,7 @@ export class OrdersService {
           loyaltyPointsRedeemed: input.loyaltyPointsToRedeem,
           loyaltyDiscountAmount,
           grandTotal,
+          tipAmount: input.tipAmount ?? 0,
           specialInstructions: input.specialInstructions,
         },
       });
@@ -819,8 +790,9 @@ export class OrdersService {
       loyaltyDiscountAmount = points * loyaltyConfig.redemptionValuePaisaPerPoint;
     }
 
-    const grandTotal = Math.max(0, subtotal + taxAmount + deliveryFee - couponDiscountAmount - loyaltyDiscountAmount);
-    return { subtotal, taxPct, taxAmount, deliveryFee, couponDiscountAmount, couponError, loyaltyDiscountAmount, grandTotal };
+    const exactTotal = Math.max(0, subtotal + taxAmount + deliveryFee - couponDiscountAmount - loyaltyDiscountAmount);
+    const grandTotal = roundToRupee(exactTotal);
+    return { subtotal, taxPct, taxAmount, deliveryFee, couponDiscountAmount, couponError, loyaltyDiscountAmount, roundOff: grandTotal - exactTotal, grandTotal };
   }
 
   /**
@@ -893,9 +865,8 @@ export class OrdersService {
     }
 
     const previousGrandTotal = order.grandTotal;
-    const newGrandTotal = Math.max(
-      0,
-      newSubtotal + newTax + order.deliveryFee - order.discountAmount - couponDiscountAmount - order.loyaltyDiscountAmount,
+    const newGrandTotal = roundToRupee(
+      Math.max(0, newSubtotal + newTax + order.deliveryFee - order.discountAmount - couponDiscountAmount - order.loyaltyDiscountAmount),
     );
 
     await this.prisma.$transaction(async (tx) => {
@@ -996,9 +967,8 @@ export class OrdersService {
 
     const branch = await this.prisma.branch.findUniqueOrThrow({ where: { id: order.branchId } });
     const newDeliveryFee = becomingDelivery ? branch.deliveryFee : 0;
-    const newGrandTotal = Math.max(
-      0,
-      order.subtotal + order.taxAmount + newDeliveryFee - order.discountAmount - order.couponDiscountAmount - order.loyaltyDiscountAmount,
+    const newGrandTotal = roundToRupee(
+      Math.max(0, order.subtotal + order.taxAmount + newDeliveryFee - order.discountAmount - order.couponDiscountAmount - order.loyaltyDiscountAmount),
     );
 
     const updated = await this.prisma.$transaction(async (tx) => {
@@ -1274,9 +1244,8 @@ export class OrdersService {
     const newSubtotal = items.reduce((s, i) => s + i.lineTotal, 0);
     const restaurant = await this.prisma.restaurant.findUniqueOrThrow({ where: { id: order.restaurantId } });
     const newTax = Math.round(newSubtotal * (Number(restaurant.defaultTaxPct) / 100));
-    const newGrandTotal = Math.max(
-      0,
-      newSubtotal + newTax + order.deliveryFee - order.discountAmount - order.couponDiscountAmount - order.loyaltyDiscountAmount,
+    const newGrandTotal = roundToRupee(
+      Math.max(0, newSubtotal + newTax + order.deliveryFee - order.discountAmount - order.couponDiscountAmount - order.loyaltyDiscountAmount),
     );
 
     await this.prisma.$transaction(async (tx) => {
@@ -1297,11 +1266,14 @@ export class OrdersService {
     if (input.amount > balanceDue) {
       throw new BadRequestException({ code: "PAYMENT_EXCEEDS_BALANCE", message: `Balance due is only Rs. ${balanceDue / 100}` });
     }
-    if (input.method === "CASH" && input.amountTendered !== undefined && input.amountTendered < input.amount) {
+    if (input.method === "CASH" && input.amountTendered !== undefined && input.amountTendered < input.amount + (input.tipAmount ?? 0)) {
       throw new BadRequestException({ code: "INSUFFICIENT_CASH_TENDERED", message: "Amount tendered is less than the payment amount" });
     }
 
     const isCash = input.method === "CASH";
+    if (input.tipAmount !== undefined) {
+      await this.prisma.order.update({ where: { id: orderId }, data: { tipAmount: input.tipAmount } });
+    }
     await this.prisma.payment.create({
       data: {
         orderId,
@@ -1484,7 +1456,16 @@ export class OrdersService {
   async getCustomerReceipt(staff: StaffJwtPayload, orderId: string) {
     const order = await this.getOrderForStaff(staff, orderId);
     const restaurant = await this.prisma.restaurant.findUniqueOrThrow({ where: { id: order.restaurantId } });
-    return { restaurant: this.receiptBranding(restaurant), order };
+    // The cashier who took the order, printed as "Operator" on the receipt. Looked up here (not added to the
+    // shared order include) so customer-facing order reads never carry staff names.
+    const operator = order.createdByStaffId
+      ? ((await this.prisma.staffUser.findUnique({ where: { id: order.createdByStaffId }, select: { name: true } }))?.name ?? null)
+      : null;
+    // Coupon details for the "Coupon CODE (10%)" line. The redemption points at the coupon row.
+    const coupon = order.couponRedemption
+      ? await this.prisma.coupon.findUnique({ where: { id: order.couponRedemption.couponId }, select: { discountType: true, discountValue: true, maxDiscountAmount: true } })
+      : null;
+    return { restaurant: this.receiptBranding(restaurant), order, operator, coupon };
   }
 
   /**
@@ -1579,8 +1560,11 @@ export class OrdersService {
     socialLinks: unknown;
     receiptFooterText: string | null;
     receiptThankYouMessage: string | null;
+    settings?: unknown;
   }) {
+    const messages = ((restaurant.settings as { receiptMessages?: Record<string, string> } | null | undefined)?.receiptMessages ?? {}) as Record<string, string>;
     return {
+      messages: { dineIn: messages.dineIn ?? "", takeaway: messages.takeaway ?? "", walkIn: messages.walkIn ?? "", delivery: messages.delivery ?? "", preBill: messages.preBill ?? "" },
       name: restaurant.name,
       // A dedicated receipt logo (often a simplified black & white mark) falls back to the
       // main logo so nothing renders blank just because this optional field was never set.
@@ -1696,6 +1680,7 @@ export class OrdersService {
         ? {
             OR: [
               { orderNumber: { contains: filters.search, mode: "insensitive" } },
+              { orderCode: { contains: filters.search, mode: "insensitive" } },
               { contactName: { contains: filters.search, mode: "insensitive" } },
               { contactPhone: { contains: filters.search } },
               { customer: { name: { contains: filters.search, mode: "insensitive" } } },
@@ -1859,6 +1844,35 @@ export class OrdersService {
     }
 
     return updated;
+  }
+
+  /**
+   * Random 6-letter public Order ID in capitals, like "NWBNND". The look-alikes (I, O) are left out so it can be
+   * read out loud or copied from a receipt without mix-ups. Unique: retried if the code is already taken.
+   */
+  private async generateOrderCode(tx: Prisma.TransactionClient): Promise<string> {
+    const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+    const make = (len: number) => Array.from(randomBytes(len), (b) => alphabet[b % alphabet.length]).join("");
+    for (let attempt = 0; attempt < 12; attempt++) {
+      const code = make(6);
+      if (!(await tx.order.findUnique({ where: { orderCode: code }, select: { id: true } }))) return code;
+    }
+    // Practically unreachable (24^6 combinations); a longer code is still unique and still valid.
+    return make(8);
+  }
+
+  /**
+   * Today's serial number for this branch: 1 for the first order after midnight (Pakistan time), then 2, 3...
+   * Each branch counts on its own. The upsert is atomic, so two orders at the same moment never share a number.
+   */
+  private async nextDailyNo(tx: Prisma.TransactionClient, branchId: string): Promise<number> {
+    const day = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Karachi" }).format(new Date()); // YYYY-MM-DD
+    const row = await tx.branchDailyOrderSequence.upsert({
+      where: { branchId_day: { branchId, day } },
+      create: { branchId, day, nextValue: 1 },
+      update: { nextValue: { increment: 1 } },
+    });
+    return row.nextValue;
   }
 
   /** One shared counter across every source — ORD-YYYYMMDD-#### regardless of whether the order came from the website or POS. */

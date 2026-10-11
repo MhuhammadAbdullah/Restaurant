@@ -92,17 +92,19 @@ export function PopularProductCard({ product, onClick }: { product: Product; onC
               onIncrement={() => updateQuantity(simpleLine.cartItemId, quantity + 1)}
               onDecrement={() => updateQuantity(simpleLine.cartItemId, quantity - 1)}
               onRemove={() => removeItem(simpleLine.cartItemId)}
+              compact
+              className="!py-0 h-7 sm:h-8 lg:h-9"
             />
           ) : (
             <button
               onClick={handleAdd}
               disabled={checking}
               aria-label="Add to cart"
-              className="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-red text-white transition hover:opacity-90 disabled:opacity-60 sm:h-9 sm:w-9 lg:h-11 lg:w-11"
+              className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-red text-white transition hover:opacity-90 disabled:opacity-60 sm:h-8 sm:w-8 lg:h-9 lg:w-9"
             >
-              <PlusIcon size={16} className="sm:hidden" />
-              <PlusIcon size={18} className="hidden sm:block lg:hidden" />
-              <PlusIcon size={22} className="hidden lg:block" />
+              <PlusIcon size={12} className="sm:hidden" />
+              <PlusIcon size={14} className="hidden sm:block lg:hidden" />
+              <PlusIcon size={16} className="hidden lg:block" />
             </button>
           )}
         </div>

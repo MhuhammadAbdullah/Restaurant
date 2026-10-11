@@ -40,10 +40,14 @@ export class ReportsService {
     const restaurantId = await this.restaurantContext.getRestaurantId();
     const branchFilter = branchId ? { branchId } : staff.isOwner ? {} : { branchId: { in: staff.branchIds } };
 
+    // Which branches the numbers cover: the one picked, otherwise every branch this person may see.
+    const scopeIds: string[] | null = branchId ? [branchId] : staff.isOwner || staff.allBranchesAccess ? null : staff.branchIds;
+    const branchWhere = scopeIds ? { restaurantId, id: { in: scopeIds } } : { restaurantId };
     const [totalBranches, activeBranches] = await Promise.all([
-      this.prisma.branch.count({ where: { restaurantId } }),
-      this.prisma.branch.count({ where: { restaurantId, status: "ACTIVE" } }),
+      this.prisma.branch.count({ where: branchWhere }),
+      this.prisma.branch.count({ where: { ...branchWhere, status: "ACTIVE" } }),
     ]);
+    const pickedBranch = branchId ? await this.prisma.branch.findUnique({ where: { id: branchId }, select: { name: true, status: true } }) : null;
 
     const todayStart = startOfDay();
 
@@ -60,23 +64,38 @@ export class ReportsService {
       revenueSince(startOfMonth()),
     ]);
 
-    const [totalCustomers, newCustomersToday] = await Promise.all([
-      this.prisma.customer.count({ where: { restaurantId } }),
-      this.prisma.customer.count({ where: { restaurantId, createdAt: { gte: todayStart } } }),
-    ]);
+    // Customers: everyone with an account when looking at all branches, otherwise the people who have ordered from the
+    // branch(es) in scope ("new today" = their first order there was today).
+    let totalCustomers: number;
+    let newCustomersToday: number;
+    if (!scopeIds) {
+      [totalCustomers, newCustomersToday] = await Promise.all([
+        this.prisma.customer.count({ where: { restaurantId } }),
+        this.prisma.customer.count({ where: { restaurantId, createdAt: { gte: todayStart } } }),
+      ]);
+    } else {
+      const firsts = await this.prisma.order.groupBy({
+        by: ["customerId"],
+        where: { restaurantId, branchId: { in: scopeIds }, customerId: { not: null }, ...hiddenOnlinePaymentWhere() },
+        _min: { createdAt: true },
+      });
+      totalCustomers = firsts.length;
+      newCustomersToday = firsts.filter((f) => f._min.createdAt && f._min.createdAt >= todayStart).length;
+    }
 
     const loyaltyIssued = await this.prisma.loyaltyTransaction.aggregate({
-      where: { type: "EARNED", loyaltyAccount: { customer: { restaurantId } } },
+      where: { type: "EARNED", loyaltyAccount: { customer: { restaurantId } }, ...(scopeIds ? { branchId: { in: scopeIds } } : {}) },
       _sum: { points: true },
     });
 
+    const complaintScope = scopeIds ? { branchId: { in: scopeIds } } : {};
     const [openComplaints, totalComplaints] = await Promise.all([
-      this.prisma.complaint.count({ where: { restaurantId, status: { in: ["OPEN", "UNDER_REVIEW", "IN_PROGRESS"] } } }),
-      this.prisma.complaint.count({ where: { restaurantId } }),
+      this.prisma.complaint.count({ where: { restaurantId, ...complaintScope, status: { in: ["OPEN", "UNDER_REVIEW", "IN_PROGRESS"] } } }),
+      this.prisma.complaint.count({ where: { restaurantId, ...complaintScope } }),
     ]);
 
     return {
-      branches: { total: totalBranches, active: activeBranches },
+      branches: { total: totalBranches, active: activeBranches, picked: pickedBranch },
       revenue: { today: todayRevenue, week: weekRevenue, month: monthRevenue },
       customers: { total: totalCustomers, newToday: newCustomersToday },
       loyaltyPointsIssued: loyaltyIssued._sum.points ?? 0,
@@ -183,7 +202,7 @@ export class ReportsService {
     const spanMs = range.lt.getTime() - range.gte.getTime();
     const prevRange = { gte: new Date(range.gte.getTime() - spanMs), lt: range.gte };
 
-    const select = { createdAt: true, grandTotal: true, status: true, type: true, paymentMethod: true, branchId: true } as const;
+    const select = { createdAt: true, grandTotal: true, tipAmount: true, status: true, type: true, paymentMethod: true, branchId: true } as const;
     const where = (createdAt: { gte: Date; lt: Date }) => ({ restaurantId, ...branchFilter, createdAt, ...hiddenOnlinePaymentWhere() });
     const [orders, prevOrders, branches] = await Promise.all([
       this.prisma.order.findMany({ where: where(range), select, take: 50000 }),
@@ -197,6 +216,7 @@ export class ReportsService {
       const revenue = valid.reduce((s, o) => s + o.grandTotal, 0);
       return {
         revenue,
+        tips: valid.reduce((s, o) => s + o.tipAmount, 0),
         orders: valid.length,
         avgOrderValue: valid.length ? Math.round(revenue / valid.length) : 0,
         cancelled: list.length - valid.length,

@@ -70,18 +70,18 @@ export function ProductCard({ product, onClick }: { product: Product; onClick: (
           </div>
         )}
       </button>
-      <div className="flex flex-1 flex-col px-4 pb-4 pt-2">
+      <div className="flex flex-1 flex-col px-3 pb-3 pt-1.5 sm:px-4 sm:pb-4 sm:pt-2">
         <button onClick={onClick} className="text-left">
           <p className="font-poppins text-[14px] font-bold uppercase leading-[16px] text-ink sm:text-[16px] sm:leading-[18px] lg:text-[20px] lg:leading-[21px]">
             {product.name}
           </p>
           {product.description && (
-            <p className="mt-2.5 line-clamp-2 font-poppins text-[10px] font-medium leading-[14px] text-muted sm:text-[11px] sm:leading-[16px] lg:text-[12px] lg:leading-[20px]">
+            <p className="mt-1 line-clamp-2 font-poppins text-[10px] font-medium leading-[14px] text-muted sm:text-[11px] sm:leading-[16px] lg:text-[12px] lg:leading-[20px]">
               {product.description}
             </p>
           )}
         </button>
-        <div className="mt-auto flex items-end justify-between pt-4">
+        <div className="mt-auto flex items-center justify-between gap-2 pt-2.5">
           <span className="font-poppins text-[13px] font-bold leading-[14px] uppercase text-ink sm:text-[15px] sm:leading-[16px] lg:text-[18px] lg:leading-[18px]">
             {product.discountPrice != null && <span className="mr-1 text-xs font-normal text-muted line-through">{formatPaisa(product.basePrice)}</span>}
             {formatPaisa(price)}
@@ -93,17 +93,19 @@ export function ProductCard({ product, onClick }: { product: Product; onClick: (
               onIncrement={() => updateQuantity(simpleLine.cartItemId, quantity + 1)}
               onDecrement={() => updateQuantity(simpleLine.cartItemId, quantity - 1)}
               onRemove={() => removeItem(simpleLine.cartItemId)}
+              compact
+              className="!py-0 h-7 sm:h-8 lg:h-9"
             />
           ) : (
             <button
               onClick={handleAdd}
               disabled={checking}
               aria-label="Add to cart"
-              className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-red text-white sm:h-9 sm:w-9 sm:rounded-xl transition hover:opacity-90 disabled:opacity-60 lg:h-11 lg:w-11"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-brand-red text-white sm:h-8 sm:w-8 transition hover:opacity-90 disabled:opacity-60 lg:h-9 lg:w-9"
             >
-              <PlusIcon size={14} className="sm:hidden" />
-              <PlusIcon size={18} className="hidden sm:block lg:hidden" />
-              <PlusIcon size={22} className="hidden lg:block" />
+              <PlusIcon size={12} className="sm:hidden" />
+              <PlusIcon size={14} className="hidden sm:block lg:hidden" />
+              <PlusIcon size={16} className="hidden lg:block" />
             </button>
           )}
         </div>

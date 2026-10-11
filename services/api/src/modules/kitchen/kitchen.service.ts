@@ -18,6 +18,8 @@ function assertBranchAccess(staff: StaffJwtPayload, branchId: string) {
 // orders. CANCELLED is included (read-only on the board) so kitchen staff can see an order was
 // called off and stop preparing it — not because kitchen ever transitions an order into that status.
 const KITCHEN_STATUSES = ["CONFIRMED", "PREPARING", "READY", "CANCELLED"] as const;
+// Finished orders are only listed when the board is opened on a past date range.
+const HISTORY_STATUSES = ["OUT_FOR_DELIVERY", "DELIVERED", "COMPLETED"] as const;
 // Cancelled tickets only matter while the kitchen might still be cooking them — older ones would just clutter the board forever.
 const CANCELLED_VISIBLE_MS = 12 * 60 * 60 * 1000;
 
@@ -34,8 +36,25 @@ export class KitchenService {
     private readonly orders: OrdersService,
   ) {}
 
-  async listOrders(staff: StaffJwtPayload, branchId: string) {
+  /**
+   * Without a date range this is the live board (active tickets + recently cancelled). With `from`/`to`
+   * (YYYY-MM-DD, in the viewer's local time via `tzOffsetMin`) it becomes a history view: every order placed
+   * in that range that reached the kitchen, including finished ones.
+   */
+  async listOrders(staff: StaffJwtPayload, branchId: string, range: { from?: string; to?: string; tzOffsetMin?: number } = {}) {
     assertBranchAccess(staff, branchId);
+
+    const dayRe = /^(\d{4})-(\d{2})-(\d{2})$/;
+    const fromM = range.from ? dayRe.exec(range.from) : null;
+    const toM = range.to ? dayRe.exec(range.to) : fromM;
+    let history: { gte: Date; lt: Date } | null = null;
+    if (fromM && toM) {
+      const off = (range.tzOffsetMin ?? 0) * 60_000;
+      history = {
+        gte: new Date(Date.UTC(Number(fromM[1]), Number(fromM[2]) - 1, Number(fromM[3])) + off),
+        lt: new Date(Date.UTC(Number(toM[1]), Number(toM[2]) - 1, Number(toM[3]) + 1) + off),
+      };
+    }
 
     return this.prisma.order.findMany({
       // KITCHEN_STATUSES already excludes PENDING (an unaccepted order), which is the normal
@@ -44,12 +63,17 @@ export class KitchenService {
       where: {
         ...hiddenOnlinePaymentWhere(),
         branchId,
-        OR: [
-          { status: { in: KITCHEN_STATUSES.filter((s) => s !== "CANCELLED") } },
-          { status: "CANCELLED", updatedAt: { gte: new Date(Date.now() - CANCELLED_VISIBLE_MS) } },
-        ],
+        ...(history
+          ? { createdAt: history, status: { in: [...KITCHEN_STATUSES, ...HISTORY_STATUSES] } }
+          : {
+              OR: [
+                { status: { in: KITCHEN_STATUSES.filter((s) => s !== "CANCELLED") } },
+                { status: "CANCELLED", updatedAt: { gte: new Date(Date.now() - CANCELLED_VISIBLE_MS) } },
+              ],
+            }),
       },
-      orderBy: { createdAt: "asc" },
+      orderBy: { createdAt: history ? "desc" : "asc" },
+      take: history ? 500 : undefined,
       select: {
         id: true,
         orderNumber: true,

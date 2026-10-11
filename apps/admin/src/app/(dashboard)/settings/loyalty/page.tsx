@@ -196,7 +196,7 @@ export default function LoyaltySettingsPage() {
                       key={days}
                       type="button"
                       onClick={() => set("expiryDays", days)}
-                      className={`rounded-full border px-3 py-1.5 text-xs font-medium ${form.expiryDays === days ? "border-brand-red bg-red-50 text-brand-red" : "border-neutral-300 text-neutral-600 hover:bg-neutral-50"}`}
+                      className={`rounded-lg border px-3 py-1.5 text-xs font-medium ${form.expiryDays === days ? "border-brand-red bg-red-50 text-brand-red" : "border-neutral-300 text-neutral-600 hover:bg-neutral-50"}`}
                     >
                       {label}
                     </button>

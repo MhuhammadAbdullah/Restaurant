@@ -66,7 +66,7 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
         ) : categoriesLoading || itemsLoading ? (
           <SkeletonGrid count={8} render={(i) => <SkeletonProductCard key={i} />} />
         ) : (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4">
             {isDealsCategory
               ? deals?.map((d) => <DealCard key={d.id} deal={d} onClick={() => openDeal(d.id)} />)
               : products?.map((p) => <ProductCard key={p.id} product={p} onClick={() => openProduct(p.id)} />)}

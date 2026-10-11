@@ -63,6 +63,13 @@ export const PERMISSION_CATALOG: Array<{
   { key: "reports.view", module: "reports", action: "view", description: "View reports" },
   { key: "reports.export", module: "reports", action: "export", description: "Export reports" },
 
+  { key: "emails.view", module: "emails", action: "view", description: "View email templates and the email log" },
+  { key: "emails.manage", module: "emails", action: "manage", description: "Edit email templates and email settings" },
+  { key: "emails.send", module: "emails", action: "send", description: "Send emails to customers and resend failed ones" },
+
+  { key: "seo.view", module: "seo", action: "view", description: "Open the SEO & Marketing pages (meta tags, tracking, robots, redirects, health)" },
+  { key: "seo.manage", module: "seo", action: "manage", description: "Change SEO & Marketing settings" },
+
   { key: "settings.view", module: "settings", action: "view", description: "View settings" },
   { key: "settings.manage", module: "settings", action: "manage", description: "Manage restaurant/branch settings" },
 

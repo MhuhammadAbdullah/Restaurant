@@ -3,12 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { FaClock, FaLocationDot, FaPhone } from "react-icons/fa6";
+import { FaClock, FaLocationDot, FaPhone, FaStar } from "react-icons/fa6";
 import { formatPaisa } from "@restaurant/utils";
 import { api, ApiError } from "../../../lib/api";
 import { toast } from "../../../store/useToastStore";
 import { useMe, hasPermission } from "../../../lib/useMe";
 import { StatusToggle } from "../../../components/StatusToggle";
+import { CityCombobox } from "../../../components/CityCombobox";
+import { ImageUploadField } from "../../../components/ImageUploadField";
 import { DeliveryAreasTab } from "../../../components/branches/DeliveryAreasTab";
 import { SearchInput } from "../../../components/SearchFilterBar";
 import { EditIcon, TrashIcon, PinIcon, CloseIcon } from "../../../components/icons";
@@ -39,6 +41,8 @@ type Branch = {
   city: string;
   area: string;
   mapUrl: string | null;
+  imageUrl?: string | null;
+  googleReviewUrl?: string | null;
   latitude: number | string | null;
   longitude: number | string | null;
   openingTime: string;
@@ -73,6 +77,8 @@ const EMPTY_FORM = {
   city: "",
   area: "",
   mapUrl: "",
+  imageUrl: "",
+  googleReviewUrl: "",
   latitude: "",
   longitude: "",
   openingTime: "11:00",
@@ -99,6 +105,8 @@ function branchToForm(b: Branch): FormState {
     city: b.city,
     area: b.area,
     mapUrl: b.mapUrl ?? "",
+    imageUrl: b.imageUrl ?? "",
+    googleReviewUrl: b.googleReviewUrl ?? "",
     latitude: b.latitude != null ? String(b.latitude) : "",
     longitude: b.longitude != null ? String(b.longitude) : "",
     openingTime: b.openingTime,
@@ -366,6 +374,12 @@ function BranchesTab({ canCreate, onOpenAreas }: { canCreate: boolean; onOpenAre
                     <span>{b.phone}</span>
                   </p>
                 )}
+                {!b.googleReviewUrl && (
+                  <p className="flex items-center gap-2 text-amber-700" title="Add this branch's Google review link so thank-you emails include the review button">
+                    <FaStar size={12} className="shrink-0" />
+                    <span>No Google review link</span>
+                  </p>
+                )}
                 {b.address && (
                   <p className="flex items-center gap-2" title={b.address}>
                     <FaLocationDot size={12} className="shrink-0 text-neutral-400" />
@@ -509,6 +523,7 @@ function BranchFormModal({ branch, cities, existingCodes, otherBranches, onClose
     .map((b) => ({ id: b.id, name: b.name, lat: Number(b.latitude), lng: Number(b.longitude), radiusKm: Number(b.deliveryRadiusKm) }));
 
   const errors = {
+    city: !form.city.trim() ? "Select the branch's city" : null,
     code: form.code && existingCodes.includes(form.code.trim().toLowerCase()) ? "This code is already used by another branch" : null,
     email: form.email.trim() && !/^\S+@\S+\.\S+$/.test(form.email.trim()) ? "Enter a valid email address" : null,
     lat: form.latitude && !(Number(form.latitude) >= -90 && Number(form.latitude) <= 90) ? "Latitude must be between -90 and 90" : null,
@@ -542,6 +557,8 @@ function BranchFormModal({ branch, cities, existingCodes, otherBranches, onClose
         city: form.city.trim(),
         area: form.area.trim(),
         mapUrl: form.mapUrl.trim() || undefined,
+        imageUrl: form.imageUrl.trim() || null,
+        googleReviewUrl: form.googleReviewUrl.trim() || null,
         latitude: form.latitude ? Number(form.latitude) : undefined,
         longitude: form.longitude ? Number(form.longitude) : undefined,
         openingTime: form.openingTime,
@@ -584,6 +601,10 @@ function BranchFormModal({ branch, cities, existingCodes, otherBranches, onClose
         <form onSubmit={submit} className="modal-scroll min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
           <section className="space-y-3 rounded-xl border border-neutral-200 p-4">
             <SectionTitle n={1} title="Basic details" hint="Name and where the branch is." />
+            <div>
+              <p className="mb-1 text-xs font-medium text-neutral-500">Branch photo</p>
+              <ImageUploadField label="Branch photo" hideLabel folder="restaurant" value={form.imageUrl} onChange={(url) => set("imageUrl", url)} shape="landscape" hint="Shown on the website Locations page. If you skip it, your restaurant logo is shown instead." />
+            </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <p className="mb-1 text-xs font-medium text-neutral-500">Branch name *</p>
@@ -606,12 +627,8 @@ function BranchFormModal({ branch, cities, existingCodes, otherBranches, onClose
               </div>
               <div>
                 <p className="mb-1 text-xs font-medium text-neutral-500">City *</p>
-                <input list="branch-cities" placeholder="e.g. Karachi" value={form.city} onChange={(e) => set("city", e.target.value)} className="input w-full" required />
-                <datalist id="branch-cities">
-                  {cities.map((c) => (
-                    <option key={c} value={c} />
-                  ))}
-                </datalist>
+                <CityCombobox value={form.city} onChange={(c) => set("city", c)} yourCities={cities} />
+                {!form.city.trim() && <p className="mt-1 text-xs text-neutral-400">Pick the city from the list, or search for it.</p>}
               </div>
               <div>
                 <p className="mb-1 text-xs font-medium text-neutral-500">Area / neighbourhood *</p>
@@ -635,6 +652,11 @@ function BranchFormModal({ branch, cities, existingCodes, otherBranches, onClose
               <div className="sm:col-span-2">
                 <p className="mb-1 text-xs font-medium text-neutral-500">Full address</p>
                 <input placeholder="Shop 12, Main Boulevard, DHA Phase 6, Karachi" value={form.address} onChange={(e) => set("address", e.target.value)} className="input w-full" />
+              </div>
+              <div className="sm:col-span-2">
+                <p className="mb-1 text-xs font-medium text-neutral-500">Google review link <span className="font-normal text-neutral-400">(for this branch&apos;s thank-you email)</span></p>
+                <input placeholder="https://search.google.com/local/writereview?placeid=..." value={form.googleReviewUrl} onChange={(e) => set("googleReviewUrl", e.target.value)} className={`input w-full ${form.googleReviewUrl.trim() && !/^https?:\/\//i.test(form.googleReviewUrl.trim()) ? "!border-red-400" : ""}`} />
+                <p className="mt-1 text-xs text-neutral-400">Customers whose order came from this branch get a &quot;Rate us on Google&quot; button that opens this link. Paste it from this branch&apos;s Google Business Profile (&quot;Ask for reviews&quot; &gt; copy link). Leave empty to send the thank-you email without the button.</p>
               </div>
               <div className="sm:col-span-2">
                 <p className="mb-1 text-xs font-medium text-neutral-500">Google Maps link</p>

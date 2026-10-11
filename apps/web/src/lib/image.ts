@@ -6,9 +6,19 @@ import { PRODUCT_IMAGE_PLACEHOLDER } from "./constants";
 
 type FallbackInfo = { logoUrl: string | null; footerLogoUrl: string | null; productImageFallbackSource: "HEADER" | "FOOTER" | null };
 
+/**
+ * Cloudinary can serve the same upload as WebP/AVIF at a sensible quality. Inserting f_auto,q_auto makes every
+ * browser get the lightest format it supports (smaller downloads = faster page); non-Cloudinary urls pass through.
+ */
+export function optimizeImage(url: string, width?: number): string {
+  if (!url.includes("res.cloudinary.com") || !url.includes("/image/upload/") || /\/upload\/[^/]*(f_auto|q_auto)/.test(url)) return url;
+  return url.replace("/image/upload/", `/image/upload/f_auto,q_auto${width ? `,w_${width}` : ""}/`);
+}
+
 /** A product's own uploaded photo always wins — the admin-selected logo (or the last-resort generic placeholder) only stands in when no image has been uploaded for that product yet. */
 export function resolveProductImage(product: { images: { url: string; isPrimary: boolean }[] }, fallback: string): string {
-  return product.images.find((i) => i.isPrimary)?.url ?? product.images[0]?.url ?? fallback;
+  const own = product.images.find((i) => i.isPrimary)?.url ?? product.images[0]?.url;
+  return own ? optimizeImage(own) : fallback;
 }
 
 /** Resolves which image (Header logo / Footer logo / generic placeholder) to use when a product has no photo of its own — shares the "cms-restaurant" query cache with Header/Footer, so this adds no extra network requests. */

@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { FaFolderOpen } from "react-icons/fa6";
 import { api, getAccessToken } from "../../../lib/api";
 import { toast } from "../../../store/useToastStore";
 import { SearchInput } from "../../../components/SearchFilterBar";
@@ -174,6 +175,7 @@ export default function AuditLogsPage() {
       <p className="mt-1 text-sm text-neutral-500">
         Every important action is recorded and archived by day. Entries are not loaded until you open a day; they are read straight from the database for that day only.
       </p>
+      <p className="mt-2 max-w-3xl rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">Audit entries are deleted automatically after <b>14 days</b>. Use &quot;Download CSV&quot; on a day first if you want to keep a copy.</p>
 
       <div className="mt-4 grid grid-cols-1 gap-5 lg:grid-cols-[320px_minmax(0,1fr)]">
         {/* Archive calendar */}
@@ -240,7 +242,7 @@ export default function AuditLogsPage() {
         <section className="min-w-0">
           {!day ? (
             <div className="flex min-h-[18rem] flex-col items-center justify-center rounded-xl border border-dashed border-neutral-300 bg-white p-8 text-center">
-              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-neutral-100 text-xl">🗂️</span>
+              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-neutral-100 text-neutral-400"><FaFolderOpen size={20} /></span>
               <p className="mt-3 text-sm font-semibold text-neutral-800">Pick a day from the archive</p>
               <p className="mt-1 max-w-sm text-xs text-neutral-500">Audit entries are stored day by day and only loaded when you open one, so this page stays fast however much history there is.</p>
               <div className="mt-4 flex gap-2">

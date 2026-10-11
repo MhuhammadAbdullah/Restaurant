@@ -1,12 +1,14 @@
 "use client";
 
+import { SearchInput } from "../../../components/SearchFilterBar";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { FaBoxOpen, FaMagnifyingGlass, FaMotorcycle, FaPrint, FaUtensils } from "react-icons/fa6";
+import { FaBoxOpen, FaClockRotateLeft, FaKitchenSet, FaMagnifyingGlass, FaMotorcycle, FaPrint, FaUtensils } from "react-icons/fa6";
 import { api, ApiError } from "../../../lib/api";
 import { toast } from "../../../store/useToastStore";
 import { useSelectedBranch } from "../../../lib/useSelectedBranch";
+import { DateRangePopover } from "../../../components/ui/date-range-popover";
 
 type KitchenOrder = {
   id: string;
@@ -30,14 +32,29 @@ type KitchenOrder = {
 };
 
 // PENDING never reaches the kitchen (an unaccepted order has nothing to cook), so there is no tab for it.
-const TABS = ["CONFIRMED", "PREPARING", "READY", "CANCELLED"] as const;
+const TABS = ["CONFIRMED", "PREPARING", "READY", "DONE", "CANCELLED"] as const;
 type TabKey = (typeof TABS)[number];
 
 const TAB_LABELS: Record<TabKey, string> = {
   CONFIRMED: "New",
   PREPARING: "Preparing",
   READY: "Ready",
+  DONE: "Completed",
   CANCELLED: "Cancelled",
+};
+
+/** Which tab an order belongs to. Finished orders only exist when browsing a past date range. */
+function tabOf(status: string): TabKey | null {
+  if (status === "OUT_FOR_DELIVERY" || status === "DELIVERED" || status === "COMPLETED") return "DONE";
+  return (TABS as readonly string[]).includes(status) ? (status as TabKey) : null;
+}
+
+const pad2 = (n: number) => String(n).padStart(2, "0");
+const localDay = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+const shiftDay = (day: string, by: number) => {
+  const d = new Date(`${day}T00:00:00`);
+  d.setDate(d.getDate() + by);
+  return localDay(d);
 };
 
 const TYPE_FILTERS = [
@@ -73,7 +90,7 @@ const TYPE_STYLE: Record<"DINE_IN" | "PICKUP" | "DELIVERY", { label: string; chi
 
 /** Elapsed-time badge: fresh orders stay calm, slow ones turn amber then red so they get noticed. */
 function ageStyle(mins: number, status: string): string {
-  if (status === "READY" || status === "CANCELLED") return "bg-neutral-100 text-neutral-600";
+  if (status !== "CONFIRMED" && status !== "PREPARING") return "bg-neutral-100 text-neutral-600";
   if (mins >= 20) return "bg-red-100 text-red-700";
   if (mins >= 10) return "bg-amber-100 text-amber-700";
   return "bg-green-100 text-green-700";
@@ -98,24 +115,46 @@ export default function KitchenPage() {
     return () => clearInterval(t);
   }, []);
 
-  const { data: orders, isError } = useQuery({
-    queryKey: ["kitchen-orders", branchId],
-    queryFn: () => api.get<KitchenOrder[]>(`/kitchen/orders?branchId=${branchId}`),
+  // Empty range = the live board; a range turns it into a history view of every order placed on those days.
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const history = fromDate !== "";
+  const rangeQs = history ? `&from=${fromDate}&to=${toDate || fromDate}&tzOffset=${new Date().getTimezoneOffset()}` : "";
+
+  const { data: orders, isError, error } = useQuery({
+    queryKey: ["kitchen-orders", branchId, fromDate, toDate],
+    queryFn: () => api.get<KitchenOrder[]>(`/kitchen/orders?branchId=${branchId}${rangeQs}`),
     enabled: !!branchId,
-    refetchInterval: 5000,
+    refetchInterval: history ? false : 5000,
+    placeholderData: (prev) => prev,
   });
+
+  const today = localDay(new Date(now));
+  const yesterday = shiftDay(today, -1);
+  const isDay = (d: string) => history && fromDate === d && (toDate || fromDate) === d;
+  function pickDay(d: string) {
+    setFromDate(d);
+    setToDate(d);
+  }
+  function goLive() {
+    setFromDate("");
+    setToDate("");
+  }
 
   useEffect(() => {
     setSelected(new Set());
   }, [activeTab]);
 
   const counts = useMemo(() => {
-    const c: Record<TabKey, number> = { CONFIRMED: 0, PREPARING: 0, READY: 0, CANCELLED: 0 };
-    for (const o of orders ?? []) if (o.status in c) c[o.status as TabKey]++;
+    const c: Record<TabKey, number> = { CONFIRMED: 0, PREPARING: 0, READY: 0, DONE: 0, CANCELLED: 0 };
+    for (const o of orders ?? []) {
+      const t = tabOf(o.status);
+      if (t) c[t]++;
+    }
     return c;
   }, [orders]);
 
-  const tabOrders = useMemo(() => (orders ?? []).filter((o) => o.status === activeTab), [orders, activeTab]);
+  const tabOrders = useMemo(() => (orders ?? []).filter((o) => tabOf(o.status) === activeTab), [orders, activeTab]);
   const filteredOrders = useMemo(() => {
     const q = search.trim().toLowerCase();
     return tabOrders.filter((o) => {
@@ -128,6 +167,48 @@ export default function KitchenPage() {
     });
   }, [tabOrders, search, typeFilter]);
   const isFiltering = search.trim() !== "" || typeFilter !== "";
+
+  const [sort, setSort] = useState<{ key: "order" | "type" | "table" | "notes" | "age"; dir: "asc" | "desc" } | null>(null);
+  function toggleSort(key: "order" | "type" | "table" | "notes" | "age") {
+    // first click ascending, second descending, third back to the board's default order
+    setSort((s) => (!s || s.key !== key ? { key, dir: "asc" } : s.dir === "asc" ? { key, dir: "desc" } : null));
+  }
+  const sortedOrders = useMemo(() => {
+    if (!sort) return filteredOrders;
+    const tableLabel = (o: KitchenOrder) => (o.table ? (o.table.name ?? o.table.number) : "");
+    const noteText = (o: KitchenOrder) => [o.specialInstructions ?? "", ...o.items.map((i) => i.specialInstructions ?? "")].join(" ").trim().toLowerCase();
+    const m = sort.dir === "asc" ? 1 : -1;
+    const cmp = (a: KitchenOrder, b: KitchenOrder): number => {
+      switch (sort.key) {
+        case "order": return a.orderNumber.localeCompare(b.orderNumber, undefined, { numeric: true });
+        case "type": return typeGroup(a.type).localeCompare(typeGroup(b.type));
+        case "table": {
+          // orders without a table always sort last, whichever direction is chosen
+          const x = tableLabel(a);
+          const y = tableLabel(b);
+          if (!x && !y) return 0;
+          if (!x) return 2;
+          if (!y) return -2;
+          return x.localeCompare(y, undefined, { numeric: true });
+        }
+        case "notes": {
+          const x = noteText(a);
+          const y = noteText(b);
+          if (!x && !y) return 0;
+          if (!x) return 2;
+          if (!y) return -2;
+          return x.localeCompare(y);
+        }
+        // "age" is how long the order has waited: younger first when ascending
+        case "age": return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
+    };
+    return [...filteredOrders].sort((a, b) => {
+      const c = cmp(a, b);
+      if (Math.abs(c) === 2) return c > 0 ? 1 : -1; // keep "empty" values last in both directions
+      return c * m;
+    });
+  }, [filteredOrders, sort]);
 
   const action = ACTIONS[activeTab];
 
@@ -176,8 +257,11 @@ export default function KitchenPage() {
 
   if (!branchId && branches.length > 1) {
     return (
-      <div className="rounded-xl border border-dashed border-neutral-300 p-8 text-center">
-        <p className="text-sm font-medium text-neutral-700">Select a branch above to view the kitchen board</p>
+      <div className="flex flex-col items-center rounded-xl border border-dashed border-neutral-300 p-8 text-center">
+        <span className="flex h-14 w-14 items-center justify-center rounded-full bg-red-50 text-brand-red">
+          <FaKitchenSet size={24} />
+        </span>
+        <p className="mt-4 text-sm font-medium text-neutral-700">Select a branch above to view the kitchen board</p>
         <p className="mt-1 text-xs text-neutral-400">You have access to {branches.length} branches. Pick one from the switcher in the header.</p>
       </div>
     );
@@ -192,19 +276,52 @@ export default function KitchenPage() {
         <div>
           <h1 className="flex items-center gap-2 text-xl font-semibold text-neutral-900">
             Kitchen Board
-            <span className="flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-medium text-green-700">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-500" /> Live
-            </span>
+            {history ? (
+              <span className="flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-medium text-neutral-600">
+                <FaClockRotateLeft size={9} /> History
+              </span>
+            ) : (
+              <span className="flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-medium text-green-700">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-500" /> Live
+              </span>
+            )}
           </h1>
           <p className="mt-0.5 text-xs text-neutral-500">
             {branchName ? `${branchName} · ` : ""}
-            {counts.CONFIRMED + counts.PREPARING + counts.READY} active order{counts.CONFIRMED + counts.PREPARING + counts.READY === 1 ? "" : "s"}
+            {history
+              ? `${orders?.length ?? 0} order${orders?.length === 1 ? "" : "s"} placed ${fromDate === (toDate || fromDate) ? "on this day" : "in this range"}`
+              : `${counts.CONFIRMED + counts.PREPARING + counts.READY} active order${counts.CONFIRMED + counts.PREPARING + counts.READY === 1 ? "" : "s"}`}
           </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {(
+            [
+              ["Live", !history, goLive],
+              ["Today", isDay(today), () => pickDay(today)],
+              ["Yesterday", isDay(yesterday), () => pickDay(yesterday)],
+            ] as const
+          ).map(([label, on, onClick]) => (
+            <button
+              key={label}
+              onClick={onClick}
+              className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${on ? "border-brand-red bg-brand-red text-white" : "border-neutral-300 bg-white text-neutral-600 hover:border-brand-red hover:text-brand-red"}`}
+            >
+              {label}
+            </button>
+          ))}
+          <DateRangePopover
+            from={fromDate}
+            to={toDate}
+            onChange={(f, t) => {
+              setFromDate(f);
+              setToDate(t);
+            }}
+          />
         </div>
       </div>
 
       <div className="mt-4 flex gap-1 overflow-x-auto border-b border-neutral-200">
-        {TABS.map((t) => (
+        {TABS.filter((t) => t !== "DONE" || history).map((t) => (
           <button
             key={t}
             onClick={() => setActiveTab(t)}
@@ -220,21 +337,13 @@ export default function KitchenPage() {
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
-          <div className="relative w-full sm:w-64">
-            <FaMagnifyingGlass size={12} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search order # or table..."
-              className="w-full rounded-lg border border-neutral-300 bg-white py-2 pl-9 pr-3 text-sm placeholder:text-neutral-400 focus:border-brand-red focus:outline-none"
-            />
-          </div>
+          <SearchInput value={search} onChange={setSearch} placeholder="Search order # or table..." widthClass="w-full sm:w-72" />
           <div className="flex flex-wrap gap-1.5">
             {TYPE_FILTERS.map((f) => (
               <button
                 key={f.key}
                 onClick={() => setTypeFilter(f.key)}
-                className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
                   typeFilter === f.key ? "border-brand-red bg-brand-red text-white" : "border-neutral-300 bg-white text-neutral-600 hover:border-brand-red hover:text-brand-red"
                 }`}
               >
@@ -259,7 +368,11 @@ export default function KitchenPage() {
         </p>
       </div>
 
-      {isError && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">Could not refresh the board. Retrying...</p>}
+      {isError && (
+        <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+          Could not refresh the board{error instanceof Error && error.message ? `: ${error.message}` : ""}. {history ? "Try selecting the date again." : "Retrying..."}
+        </p>
+      )}
 
       {selected.size > 0 && action && (
         <div className="mt-3 flex items-center justify-between rounded-lg border border-brand-red/20 bg-red-50 px-4 py-2.5">
@@ -292,22 +405,39 @@ export default function KitchenPage() {
                   />
                 </th>
               )}
-              <th className="px-4 py-2.5">Order</th>
-              <th className="px-4 py-2.5">Type</th>
-              <th className="px-4 py-2.5">Table</th>
-              <th className="px-4 py-2.5">Notes</th>
-              <th className="px-4 py-2.5">Age</th>
+              {(
+                [
+                  ["order", "Order"],
+                  ["type", "Type"],
+                  ["table", "Table"],
+                  ["notes", "Notes"],
+                  ["age", "Age"],
+                ] as const
+              ).map(([key, label]) => {
+                const active = sort?.key === key;
+                return (
+                  <th key={key} className="px-4 py-2.5" aria-sort={active ? (sort!.dir === "asc" ? "ascending" : "descending") : "none"}>
+                    <button type="button" onClick={() => toggleSort(key)} className={`inline-flex items-center gap-1.5 uppercase ${active ? "text-neutral-900" : "hover:text-neutral-800"}`}>
+                      {label}
+                      <span className="flex flex-col leading-none">
+                        <span className={`text-[8px] ${active && sort!.dir === "asc" ? "text-brand-red" : "text-neutral-300"}`}>▲</span>
+                        <span className={`text-[8px] ${active && sort!.dir === "desc" ? "text-brand-red" : "text-neutral-300"}`}>▼</span>
+                      </span>
+                    </button>
+                  </th>
+                );
+              })}
               <th className="px-4 py-2.5 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-neutral-100 align-top">
-            {filteredOrders.map((o) => {
+            {sortedOrders.map((o) => {
               const mins = Math.max(0, Math.floor((now - new Date(o.createdAt).getTime()) / 60000));
               const style = TYPE_STYLE[typeGroup(o.type)];
               const hasAdditional = o.items.some((i) => i.orderRevisionId != null);
               const overdue = mins >= 20 && (o.status === "CONFIRMED" || o.status === "PREPARING");
               return (
-                <tr key={o.id} className={`${activeTab === "CANCELLED" ? "opacity-60" : ""} ${overdue ? "bg-red-50/50" : "hover:bg-neutral-50/70"} ${selected.has(o.id) ? "bg-red-50" : ""}`}>
+                <tr key={o.id} className={`${activeTab === "CANCELLED" || activeTab === "DONE" ? "opacity-60" : ""} ${overdue ? "bg-red-50/50" : "hover:bg-neutral-50/70"} ${selected.has(o.id) ? "bg-red-50" : ""}`}>
                   {action && (
                     <td className="px-4 py-3">
                       <input type="checkbox" checked={selected.has(o.id)} onChange={() => toggleSelect(o.id)} aria-label={`Select ${o.orderNumber}`} className="h-4 w-4 accent-brand-red" />
@@ -315,7 +445,7 @@ export default function KitchenPage() {
                   )}
                   <td className="px-4 py-3">
                     <p className="font-semibold text-neutral-900">{o.orderNumber}</p>
-                    <p className="mt-0.5 text-xs text-neutral-400">{new Date(o.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</p>
+                    <p className="mt-0.5 text-xs text-neutral-400">{history ? `${new Date(o.createdAt).toLocaleDateString([], { day: "numeric", month: "short" })}, ` : ""}{new Date(o.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</p>
                     {hasAdditional && <span className="mt-1 inline-block rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-amber-800">Additional items</span>}
                   </td>
                   <td className="px-4 py-3">
@@ -347,7 +477,7 @@ export default function KitchenPage() {
                           {actingId === o.id ? "Updating..." : action.label(o)}
                         </button>
                       ) : (
-                        <span className="text-xs text-neutral-400">Called off — stop preparing</span>
+                        <span className="text-xs text-neutral-400">{activeTab === "DONE" ? "Finished" : "Called off — stop preparing"}</span>
                       )}
                       <button
                         onClick={() => router.push(`/pos/kitchen-ticket/${o.id}?full=true`)}
@@ -370,7 +500,7 @@ export default function KitchenPage() {
             {orders && tabOrders.length === 0 && (
               <tr>
                 <td colSpan={colCount} className="px-4 py-10 text-center text-neutral-400">
-                  No {TAB_LABELS[activeTab].toLowerCase()} orders right now.
+                  No {TAB_LABELS[activeTab].toLowerCase()} orders {history ? "for this date" : "right now"}.
                 </td>
               </tr>
             )}

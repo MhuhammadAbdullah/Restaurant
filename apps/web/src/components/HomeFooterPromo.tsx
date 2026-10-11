@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { ChevronDownIcon } from "./icons";
+import { optimizeImage } from "../lib/image";
 
 type RestaurantInfo = {
   appPromo: {
@@ -21,7 +22,7 @@ function AppPromoBanner({ bannerImage }: { bannerImage: string }) {
   return (
     <section className="mx-auto mt-16 max-w-7xl px-4 sm:px-8">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={bannerImage} alt="" className="w-full rounded-3xl object-cover" />
+      <img src={optimizeImage(bannerImage, 1600)} alt="Get our mobile app" loading="lazy" className="w-full rounded-3xl object-cover" />
     </section>
   );
 }

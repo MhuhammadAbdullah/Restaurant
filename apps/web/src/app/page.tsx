@@ -249,7 +249,7 @@ export default function HomePage() {
                   <SkeletonGrid count={8} render={(i) => <SkeletonProductCard key={i} />} />
                 ) : (
                   <>
-                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4">
                       {searchResults?.map((p) => (
                         <ProductCard key={p.id} product={p} onClick={() => openProduct(p.id)} />
                       ))}
@@ -278,15 +278,15 @@ export default function HomePage() {
                           <img
                             src="https://res.cloudinary.com/dgkd8jw6a/image/upload/v1786367974/popular-icon_qk8csc.svg"
                             alt=""
-                            className="h-6 w-6 object-contain sm:h-8 sm:w-8 lg:h-10 lg:w-10"
+                            className="h-7 w-7 object-contain"
                           />
-                          <h2 className="cursor-pointer whitespace-nowrap text-[24px] font-bold uppercase leading-[36px] text-ink sm:text-[32px] sm:leading-[48px] lg:text-[50px] lg:leading-[75px]">
+                          <h2 className="cursor-pointer whitespace-nowrap text-[26px] font-bold uppercase leading-[36px] text-ink">
                             Popular <span className="text-brand-red">Items</span>
                           </h2>
                         </div>
-                        <p className="text-[13px] font-normal leading-[20px] text-ink sm:text-[16px] sm:leading-[23px] lg:text-[20px] lg:leading-[29px]">Most ordered right now</p>
+                        <p className="text-[14px] font-normal leading-[20px] text-ink">Most ordered right now</p>
                       </div>
-                      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4">
                         {popularProducts?.map((p) => (
                           <PopularProductCard key={p.id} product={p} onClick={() => openProduct(p.id)} />
                         ))}
@@ -325,7 +325,7 @@ export default function HomePage() {
                         </button>
                       </div>
                     )}
-                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4">
                       {deals.map((d) => (
                         <DealCard key={d.id} deal={d} onClick={() => openDeal(d.id)} />
                       ))}
@@ -385,7 +385,7 @@ function CategoryProductSection({
         image={section.category?.banner ?? section.category?.image}
         onClick={section.category?.name ? () => router.push(`/category/${slugify(section.category!.name)}`) : undefined}
       />
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4">
         {products.map((p) => (
           <ProductCard key={p.id} product={p} onClick={() => onOpenProduct(p.id)} />
         ))}

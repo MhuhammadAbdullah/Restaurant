@@ -1,11 +1,13 @@
 ﻿"use client";
 
+import { SearchInput } from "../../../components/SearchFilterBar";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatPaisa } from "@restaurant/utils";
 import { api, getAccessToken } from "../../../lib/api";
 import { toast } from "../../../store/useToastStore";
+import { confirmDialog } from "../../../store/useConfirmStore";
 import { useSelectedBranch } from "../../../lib/useSelectedBranch";
 import { useMe, hasPermission } from "../../../lib/useMe";
 import { OrderDetailModal, STATUSES, TERMINAL } from "../../../components/orders/OrderDetailModal";
@@ -15,6 +17,7 @@ import { DateRangePopover } from "../../../components/ui/date-range-popover";
 type Order = {
   id: string;
   orderNumber: string;
+  orderCode?: string | null;
   type: string;
   source: string;
   status: string;
@@ -201,9 +204,13 @@ export default function OrdersPage() {
       return;
     }
     if (
-      !confirm(
-        `This will CANCEL ${cancellable.length} order(s), not permanently delete them. Cancelled orders stay in the order history with a record of who cancelled them and when. Continue?`,
-      )
+      !(await confirmDialog({
+        title: `Cancel ${cancellable.length} order${cancellable.length === 1 ? "" : "s"}?`,
+        message: "They are cancelled, not deleted: each stays in the order history with a record of who cancelled it and when.",
+        confirmLabel: "Cancel orders",
+        cancelLabel: "Keep orders",
+        tone: "danger",
+      }))
     )
       return;
     setBulkRunning(true);
@@ -255,7 +262,7 @@ export default function OrdersPage() {
       </div>
 
       <div className="mt-3 flex flex-wrap gap-2">
-        <input placeholder="Search order #, name, phone..." value={search} onChange={(e) => setSearch(e.target.value)} className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm" />
+        <SearchInput value={search} onChange={setSearch} placeholder="Search order #, name, phone..." widthClass="w-full sm:w-80" />
         <Select value={statusFilter || "all"} onValueChange={(v) => setStatusFilter(v === "all" ? "" : v)}>
           <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -357,7 +364,8 @@ export default function OrdersPage() {
                   <input type="checkbox" checked={selected.has(o.id)} onChange={() => toggleSelected(o.id)} aria-label={`Select order ${o.orderNumber}`} />
                 </td>
                 <td className="px-4 py-2 font-medium">
-                  <button onClick={() => setDetailOrderId(o.id)} className="hover:text-brand-red hover:underline">{o.orderNumber}</button>
+                  <button onClick={() => setDetailOrderId(o.id)} className="hover:text-brand-red hover:underline">{o.orderCode ?? o.orderNumber}</button>
+                  <p className="text-[11px] text-neutral-400">Inv {o.orderNumber.replace(/\D/g, "")}</p>
                 </td>
                 <td className="px-4 py-2 text-xs text-neutral-600">{o.customer?.name ?? "Guest"}</td>
                 <td className="px-4 py-2">

@@ -16,11 +16,11 @@ export default function FaqsPage() {
   });
 
   return (
-    <LegalPageLayout title={data?.title ?? "Frequently Asked Questions"}>
+    <LegalPageLayout title={data?.title ?? "Frequently Asked Questions"} subtitle="Quick answers about ordering, delivery and payments.">
       {isLoading && (
         <div className="space-y-3">
           {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full rounded-lg" />
+            <Skeleton key={i} className="h-14 w-full rounded-xl" />
           ))}
         </div>
       )}

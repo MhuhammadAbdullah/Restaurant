@@ -24,6 +24,13 @@ import {
   FaTrashCan,
   FaTruck,
   FaXmark,
+  FaFacebook,
+  FaInstagram,
+  FaLinkedin,
+  FaTiktok,
+  FaWhatsapp,
+  FaXTwitter,
+  FaYoutube,
 } from "react-icons/fa6";
 
 type IconProps = { className?: string; size?: number };
@@ -280,84 +287,25 @@ export function UserIcon(props: IconProps) {
 
 // ---------- Footer / social icons — admin manages the links, not the icon shapes; left as-is ----------
 
-export function FacebookIcon(props: IconProps) {
-  return base(<path d="M14 9h3V5.5h-3A4 4 0 0 0 10 9.5V12H8v3.5h2V21h3.5v-5.5H16l.5-3.5h-3v-1.8c0-.66.34-1.2 1.5-1.2z" fill="currentColor" stroke="none" />, props);
+// Social icons: the same Font Awesome set the admin panel's Footer settings uses.
+export function FacebookIcon({ className = "", size = 20 }: IconProps = {}) {
+  return <FaFacebook className={className} size={size} />;
 }
-
 export function InstagramIcon({ className = "", size = 20 }: IconProps = {}) {
-  const maskId = useId();
-  return (
-    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <mask id={maskId}>
-        <rect x="3" y="3" width="18" height="18" rx="5" fill="white" />
-        <circle cx="12" cy="12" r="3.6" fill="black" />
-        <circle cx="17.3" cy="6.8" r="1.1" fill="black" />
-      </mask>
-      <rect x="3" y="3" width="18" height="18" rx="5" fill="currentColor" mask={`url(#${maskId})`} />
-    </svg>
-  );
+  return <FaInstagram className={className} size={size} />;
 }
-
-export function TwitterIcon(props: IconProps) {
-  return base(
-    <path
-      d="M21 5.5c-.7.3-1.5.6-2.3.7a4 4 0 0 0 1.8-2.2 8 8 0 0 1-2.5 1 4 4 0 0 0-6.9 3.6A11.4 11.4 0 0 1 3 4.6a4 4 0 0 0 1.2 5.3 4 4 0 0 1-1.8-.5v.05a4 4 0 0 0 3.2 3.9 4 4 0 0 1-1.8.07 4 4 0 0 0 3.7 2.8A8 8 0 0 1 2 17.9a11.3 11.3 0 0 0 6.1 1.8c7.3 0 11.3-6 11.3-11.3v-.5A8 8 0 0 0 21 5.5z"
-      fill="currentColor"
-      stroke="none"
-    />,
-    props,
-  );
+export function TwitterIcon({ className = "", size = 20 }: IconProps = {}) {
+  return <FaXTwitter className={className} size={size} />;
 }
-
 export function YoutubeIcon({ className = "", size = 20 }: IconProps = {}) {
-  const maskId = useId();
-  return (
-    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <mask id={maskId}>
-        <rect x="2" y="5" width="20" height="14" rx="4" fill="white" />
-        <path d="M10.3 9.3v5.4l4.9-2.7-4.9-2.7Z" fill="black" />
-      </mask>
-      <rect x="2" y="5" width="20" height="14" rx="4" fill="currentColor" mask={`url(#${maskId})`} />
-    </svg>
-  );
+  return <FaYoutube className={className} size={size} />;
 }
-
-export function TiktokIcon(props: IconProps) {
-  return base(
-    <path
-      d="M14 3c.3 1.9 1.6 3.4 3.5 3.8V10a6.8 6.8 0 0 1-3.5-1v6.3A5.3 5.3 0 1 1 9 9.9v3.3a2.1 2.1 0 1 0 2 2.1V3h3Z"
-      fill="currentColor"
-      stroke="none"
-    />,
-    props,
-  );
+export function TiktokIcon({ className = "", size = 20 }: IconProps = {}) {
+  return <FaTiktok className={className} size={size} />;
 }
-
 export function LinkedinIcon({ className = "", size = 20 }: IconProps = {}) {
-  const maskId = useId();
-  return (
-    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <mask id={maskId}>
-        <rect x="3" y="3" width="18" height="18" rx="3" fill="white" />
-        <circle cx="7.2" cy="8" r="1.4" fill="black" />
-        <path d="M6 11h2.4v7H6z" fill="black" />
-        <path
-          d="M11 11h2.3v1.1c.5-.8 1.3-1.3 2.4-1.3 2 0 2.8 1.3 2.8 3.4V18h-2.4v-3.3c0-.9-.3-1.5-1.2-1.5-.9 0-1.5.6-1.5 1.6V18H11Z"
-          fill="black"
-        />
-      </mask>
-      <rect x="3" y="3" width="18" height="18" rx="3" fill="currentColor" mask={`url(#${maskId})`} />
-    </svg>
-  );
+  return <FaLinkedin className={className} size={size} />;
 }
-
-export function WhatsappIcon(props: IconProps) {
-  return base(
-    <path
-      d="M12 2a10 10 0 0 0-8.5 15.2L2 22l4.9-1.5A10 10 0 1 0 12 2Zm5.2 14.1c-.2.6-1.2 1.2-1.7 1.3-.4.1-1 .1-1.6-.1-.4-.1-.9-.3-1.5-.6-2.7-1.2-4.5-3.9-4.6-4.1-.1-.2-1.1-1.5-1.1-2.8 0-1.3.7-2 .9-2.2.2-.2.5-.3.7-.3h.5c.2 0 .4 0 .6.4.2.5.7 1.8.8 1.9.1.2.1.3 0 .5-.1.2-.2.3-.3.5-.2.2-.3.3-.5.5-.2.2-.3.4-.1.7.2.3.9 1.4 1.9 2.3 1.3 1.2 2.4 1.5 2.7 1.7.3.2.5.1.7-.1.2-.2.8-.9 1-1.2.2-.3.4-.2.7-.1.3.1 1.8.9 2.1 1 .3.2.5.2.6.3.1.2.1.6-.1 1.2Z"
-      fill="currentColor"
-      stroke="none"
-    />,
-    props,
-  );
+export function WhatsappIcon({ className = "", size = 20 }: IconProps = {}) {
+  return <FaWhatsapp className={className} size={size} />;
 }

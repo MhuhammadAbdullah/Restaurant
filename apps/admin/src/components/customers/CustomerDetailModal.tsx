@@ -7,6 +7,7 @@ import { formatPaisa } from "@restaurant/utils";
 import { api, ApiError } from "../../lib/api";
 import { useMe, hasPermission } from "../../lib/useMe";
 import { toast } from "../../store/useToastStore";
+import { confirmDialog } from "../../store/useConfirmStore";
 import { OrderDetailModal } from "../orders/OrderDetailModal";
 import { CloseIcon } from "../icons";
 
@@ -112,7 +113,7 @@ export function CustomerDetailModal({ id, onClose }: { id: string; onClose: () =
   async function toggleStatus() {
     if (!detail) return;
     const blocking = detail.status === "ACTIVE";
-    if (blocking && !confirm(`Block ${detail.name} (${detail.phone})? This phone number won't be able to place new orders until unblocked.`)) return;
+    if (blocking && !(await confirmDialog({ title: "Block this customer?", message: `${detail.name} (${detail.phone}) won't be able to place new orders until you unblock them.`, confirmLabel: "Block customer", tone: "danger" }))) return;
     setTogglingStatus(true);
     try {
       await api.patch(`/staff/customers/${id}/status`, { status: blocking ? "INACTIVE" : "ACTIVE" });

@@ -1,5 +1,6 @@
 "use client";
 
+import { SearchInput } from "../../../../components/SearchFilterBar";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -32,6 +33,7 @@ type Row = {
   tax: number;
   grandTotal: number;
   collectedAmount: number;
+  tipAmount?: number;
   outstandingAmount: number;
   refundAmount: number;
   transactionRef: string;
@@ -41,7 +43,7 @@ type Row = {
 type Breakdown = { key: string; label: string; orders: number; netSales: number; tax: number; totalBilled: number; collected: number; outstanding: number };
 type FinanceReport = {
   rows: Row[];
-  salesSummary: { orders: number; subtotal: number; discounts: number; netSales: number; deliveryFees: number; tax: number; totalBilled: number; averageOrderValue: number };
+  salesSummary: { orders: number; subtotal: number; discounts: number; netSales: number; deliveryFees: number; tax: number; roundOff: number; totalBilled: number; tips: number; averageOrderValue: number };
   byMethod: Breakdown[];
   byBranch: Breakdown[];
   byDay: (Breakdown & { refunds: number })[];
@@ -365,15 +367,7 @@ export default function FinanceReportsPage() {
         </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <div className="relative w-full sm:w-64">
-            <FaMagnifyingGlass size={12} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
-            <input
-              placeholder="Search order #, name, phone..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-neutral-300 py-2 pl-9 pr-3 text-sm placeholder:text-neutral-400 focus:border-brand-red focus:outline-none"
-            />
-          </div>
+          <SearchInput value={search} onChange={setSearch} placeholder="Search order #, name, phone..." widthClass="w-full sm:w-80" />
           {branches.length > 1 && (
             <Select value={branchId || "all"} onValueChange={(v) => setBranchId(v === "all" ? null : v)}>
               <SelectTrigger className="w-56"><SelectValue placeholder="All Branches" /></SelectTrigger>
@@ -427,8 +421,8 @@ export default function FinanceReportsPage() {
       </p>
 
       {!report ? (
-        <div className="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
+        <div className="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-5">
+          {Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="rounded-xl border border-neutral-200 p-4">
               <Skeleton className="h-3 w-24" />
               <Skeleton className="mt-3 h-7 w-32" />
@@ -438,7 +432,7 @@ export default function FinanceReportsPage() {
       ) : (
         <>
           {/* Headline numbers */}
-          <div className="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div className="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-5">
             <div className="rounded-xl border border-neutral-200 bg-white p-4">
               <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">Net sales</p>
               <p className="mt-1.5 text-2xl font-bold text-neutral-900">{formatPaisa(ss!.netSales)}</p>
@@ -459,6 +453,13 @@ export default function FinanceReportsPage() {
               <p className={`mt-1.5 text-2xl font-bold ${totalReceivable > 0 ? "text-amber-700" : "text-neutral-900"}`}>{formatPaisa(totalReceivable)}</p>
               <p className="mt-0.5 text-xs text-neutral-500">COD + pending online payments</p>
             </div>
+            <div className="rounded-xl border border-purple-200 bg-purple-50/40 p-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-purple-700">Tips collected</p>
+              <p className="mt-1.5 text-2xl font-bold text-purple-700">{formatPaisa(ss!.tips ?? 0)}</p>
+              <p className="mt-0.5 text-xs text-neutral-500">
+                {report.rows.filter((r) => r.isSale && (r.tipAmount ?? 0) > 0).length} order{report.rows.filter((r) => r.isSale && (r.tipAmount ?? 0) > 0).length === 1 ? "" : "s"} with a tip · not part of sales
+              </p>
+            </div>
           </div>
 
           {/* Statement + receivable */}
@@ -473,7 +474,9 @@ export default function FinanceReportsPage() {
                   <StatementLine label="Net sales" value={ss!.netSales} bold />
                   <StatementLine label="Add: delivery fees" value={ss!.deliveryFees} />
                   <StatementLine label="Add: tax collected" value={ss!.tax} />
+                  {ss!.roundOff !== 0 && <StatementLine label="Round off (whole rupee)" value={ss!.roundOff} />}
                   <StatementLine label="Total billed to customers" value={ss!.totalBilled} bold />
+                  {ss!.tips > 0 && <StatementLine label="Tips received (not part of sales)" value={ss!.tips} indent />}
                 </div>
                 <div className="pt-2">
                   <p className="pt-1 text-xs font-semibold uppercase tracking-wide text-neutral-400">Settlement</p>

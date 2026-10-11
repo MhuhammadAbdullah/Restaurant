@@ -1,8 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { FaCloudArrowUp, FaXmark } from "react-icons/fa6";
 import { api, ApiError } from "../lib/api";
-import { CloseIcon } from "./icons";
 
 type UploadSignature = {
   timestamp: number;
@@ -71,7 +71,7 @@ export function ComplaintImageUpload({ value, onChange }: { value: string[]; onC
     }
   }
 
-  function handleDrop(e: React.DragEvent<HTMLDivElement>) {
+  function handleDrop(e: React.DragEvent<HTMLElement>) {
     e.preventDefault();
     setDragOver(false);
     if (e.dataTransfer.files?.length) handleFiles(e.dataTransfer.files);
@@ -81,57 +81,63 @@ export function ComplaintImageUpload({ value, onChange }: { value: string[]; onC
     onChange(value.filter((_, i) => i !== index));
   }
 
+  const full = value.length >= MAX_IMAGES;
+
   return (
     <div>
-      <p className="mb-1 text-sm font-medium text-ink">
-        Attach photos <span className="font-normal text-muted">(optional, up to {MAX_IMAGES})</span>
-      </p>
-      <div className="flex flex-wrap gap-2">
-        {value.map((url, i) => (
-          <div key={url} className="group relative h-24 w-24 overflow-hidden rounded-xl border border-line">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={url} alt="" className="h-full w-full object-cover" />
-            <button
-              type="button"
-              onClick={() => removeAt(i)}
-              aria-label="Remove image"
-              className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80"
-            >
-              <CloseIcon size={11} />
-            </button>
-          </div>
-        ))}
+      {!full && (
+        <button
+          type="button"
+          onClick={() => !uploading && inputRef.current?.click()}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOver(true);
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={handleDrop}
+          disabled={uploading}
+          className={`flex w-full flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed px-4 py-6 text-center transition ${
+            dragOver ? "border-brand-red bg-red-50" : "border-line bg-surface hover:border-brand-red hover:bg-surface-alt"
+          } disabled:cursor-wait`}
+        >
+          {uploading ? (
+            <>
+              <span className="h-7 w-7 animate-spin rounded-full border-[3px] border-brand-red/20 border-t-brand-red" />
+              <span className="text-sm font-medium text-ink">Uploading...</span>
+            </>
+          ) : (
+            <>
+              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-red-50 text-brand-red">
+                <FaCloudArrowUp size={20} />
+              </span>
+              <span className="text-sm font-semibold text-ink">Click to upload or drag photos here</span>
+              <span className="text-xs text-muted">
+                JPG, PNG or WebP, up to 5MB each ({value.length}/{MAX_IMAGES} added)
+              </span>
+            </>
+          )}
+        </button>
+      )}
 
-        {value.length < MAX_IMAGES && (
-          <div
-            onClick={() => !uploading && inputRef.current?.click()}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setDragOver(true);
-            }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={handleDrop}
-            className={`flex h-24 w-24 cursor-pointer items-center justify-center rounded-xl border-2 border-dashed transition ${
-              dragOver ? "border-brand-red bg-red-50" : "border-line hover:border-brand-red hover:bg-surface-alt"
-            }`}
-          >
-            {uploading ? (
-              <svg className="h-5 w-5 animate-spin text-muted" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-              </svg>
-            ) : (
-              <div className="flex flex-col items-center gap-1 px-2 text-center text-muted">
-                <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 16V4M12 4l-4 4M12 4l4 4" />
-                  <path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
-                </svg>
-                <p className="text-xs font-medium">Upload</p>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+      {value.length > 0 && (
+        <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6">
+          {value.map((url, i) => (
+            <div key={url} className="group relative aspect-square overflow-hidden rounded-xl border border-line">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={url} alt={`Attached photo ${i + 1}`} className="h-full w-full object-cover" />
+              <button
+                type="button"
+                onClick={() => removeAt(i)}
+                aria-label="Remove photo"
+                className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/65 text-white transition hover:bg-brand-red"
+              >
+                <FaXmark size={11} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       <input
         ref={inputRef}
         type="file"

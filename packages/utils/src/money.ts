@@ -15,6 +15,14 @@ export function formatPaisa(paisa: number, currency = "Rs."): string {
   return `${currency} ${paisaToRupees(paisa).toLocaleString("en-PK", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 }
 
+/**
+ * Bills are settled in whole rupees: the total after tax/discounts is rounded to the nearest rupee
+ * (1945.64 -> 1946, 1267.23 -> 1267). Half a rupee rounds up.
+ */
+export function roundToRupee(paisa: number): number {
+  return Math.round(paisa / 100) * 100;
+}
+
 export function applyTax(amountPaisa: number, taxPct: number): number {
   return Math.round(amountPaisa * (taxPct / 100));
 }

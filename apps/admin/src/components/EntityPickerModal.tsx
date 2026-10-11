@@ -1,5 +1,6 @@
 "use client";
 
+import { SearchInput } from "./SearchFilterBar";
 import { useState } from "react";
 import { CloseIcon } from "./icons";
 
@@ -54,13 +55,7 @@ export function EntityPickerModal({
         </div>
 
         <div className="shrink-0 border-b border-neutral-200 p-3">
-          <input
-            autoFocus
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search..."
-            className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
-          />
+          <SearchInput autoFocus value={search} onChange={setSearch} placeholder="Search..." widthClass="w-full" compact />
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-2">

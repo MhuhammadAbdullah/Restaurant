@@ -61,6 +61,8 @@ export class NotificationsService {
     const recipients = await this.prisma.staffUser.findMany({
       where: {
         restaurantId: order.restaurantId,
+        deletedAt: null,
+        status: "ACTIVE",
         role: { name: { not: "Rider" } },
         OR: [{ role: { name: "Owner" } }, { branchAssignments: { some: { branchId: order.branchId } } }],
       },

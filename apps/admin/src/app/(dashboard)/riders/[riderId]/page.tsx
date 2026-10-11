@@ -400,7 +400,7 @@ export default function RiderDetailPage() {
                 <button
                   key={v || "all"}
                   onClick={() => setDeliveryFilter(v)}
-                  className={`rounded-full border px-3.5 py-1.5 text-xs font-medium transition ${
+                  className={`rounded-lg border px-3.5 py-1.5 text-xs font-medium transition ${
                     deliveryFilter === v ? "border-brand-red bg-brand-red text-white" : "border-neutral-300 text-neutral-600 hover:border-brand-red hover:text-brand-red"
                   }`}
                 >

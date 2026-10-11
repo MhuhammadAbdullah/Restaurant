@@ -187,6 +187,19 @@ export class CustomersService {
     return this.prisma.customer.update({ where: { id: customerId }, data: { email }, select: { id: true, name: true, email: true, phone: true } });
   }
 
+  /** Customer data as CSV (same search / registered-or-guest filters as the Customers list). */
+  async exportCsv(search?: string, status?: "registered" | "guest"): Promise<{ csv: string; count: number }> {
+    const rows = await this.listForStaff(search, status, 50_000);
+    const cell = (v: unknown) => {
+      let t = v == null ? "" : String(v);
+      if (/^[=+\-@\t\r]/.test(t)) t = `'${t}`; // stop spreadsheets running a cell as a formula
+      return /[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+    };
+    const header = ["Name", "Phone", "Email", "Account", "Status", "Orders", "Loyalty points", "Customer since"];
+    const lines = rows.map((c) => [c.name, c.phone, c.email ?? "", c.isGuest ? "Not registered" : "Registered", c.status, c.orderCount, c.loyaltyPoints, new Date(c.createdAt).toISOString().slice(0, 10)].map(cell).join(","));
+    return { csv: [header.join(","), ...lines].join("\n"), count: rows.length };
+  }
+
   async listForStaff(search?: string, status?: "registered" | "guest", cap = 200) {
     const restaurantId = await this.restaurantContext.getRestaurantId();
     const searchFilter = search

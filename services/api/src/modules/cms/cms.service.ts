@@ -74,6 +74,12 @@ export class CmsService {
     return { ...DEFAULT_ABOUT_CONTENT_CONFIG, ...stored };
   }
 
+  /** settings.receiptMessages: per-receipt-type thank-you lines (blank = use the general thank-you message). */
+  private resolveReceiptMessages(settings: unknown): { dineIn: string; takeaway: string; walkIn: string; delivery: string; preBill: string } {
+    const stored = (settings as { receiptMessages?: Record<string, string> } | null | undefined)?.receiptMessages ?? {};
+    return { dineIn: stored.dineIn ?? "", takeaway: stored.takeaway ?? "", walkIn: stored.walkIn ?? "", delivery: stored.delivery ?? "", preBill: stored.preBill ?? "" };
+  }
+
   async getStaticPage(slug: StaticPageSlug) {
     if (!STATIC_PAGE_SLUGS.includes(slug)) {
       throw new NotFoundException({ code: "PAGE_NOT_FOUND", message: "Page not found" });
@@ -93,13 +99,14 @@ export class CmsService {
   }
 
   /** Public — only what the customer website needs to render the slider. The admin-only title never leaves adminListBanners(). */
-  async listBanners() {
+  async listBanners(page: string = "HOME") {
     const restaurantId = await this.restaurantContext.getRestaurantId();
     const now = new Date();
     return this.prisma.banner.findMany({
       where: {
         restaurantId,
         status: "ACTIVE",
+        pages: { has: page.toUpperCase() },
         OR: [{ startDate: null }, { startDate: { lte: now } }],
       },
       orderBy: { sortOrder: "asc" },
@@ -138,6 +145,9 @@ export class CmsService {
       loyalty: resolveLoyaltyConfig(settings),
       appPromo: this.resolveAppPromoConfig(settings),
       aboutContent: this.resolveAboutContentConfig(settings),
+      receiptMessages: this.resolveReceiptMessages(settings),
+      seo: ((settings as { seo?: Record<string, unknown> } | null | undefined)?.seo ?? {}) as Record<string, unknown>,
+      adminLoginImageUrl: ((settings as { adminLoginImageUrl?: string } | null | undefined)?.adminLoginImageUrl ?? null) as string | null,
     };
   }
 
@@ -152,7 +162,10 @@ export class CmsService {
       input.locationPopup !== undefined ||
       input.loyalty !== undefined ||
       input.appPromo !== undefined ||
-      input.aboutContent !== undefined
+      input.aboutContent !== undefined ||
+      input.receiptMessages !== undefined ||
+      input.seo !== undefined ||
+      input.adminLoginImageUrl !== undefined
     ) {
       const current = await this.prisma.restaurant.findUniqueOrThrow({ where: { id: restaurantId }, select: { settings: true } });
       const currentSettings = (current.settings as Record<string, unknown> | null) ?? {};
@@ -192,6 +205,25 @@ export class CmsService {
       if (input.appPromo !== undefined) {
         const currentAppPromo = (currentSettings.appPromo as AppPromoConfig | undefined) ?? {};
         settingsPatch.appPromo = { ...currentAppPromo, ...input.appPromo };
+      }
+      if (input.receiptMessages !== undefined) {
+        const currentMessages = (currentSettings.receiptMessages as Record<string, string> | undefined) ?? {};
+        const merged: Record<string, string> = { ...currentMessages, ...input.receiptMessages };
+        for (const k of Object.keys(merged)) if (!merged[k]) delete merged[k];
+        settingsPatch.receiptMessages = merged;
+      }
+      if (input.adminLoginImageUrl !== undefined) {
+        if (input.adminLoginImageUrl) settingsPatch.adminLoginImageUrl = input.adminLoginImageUrl;
+        else delete settingsPatch.adminLoginImageUrl;
+      }
+      if (input.seo !== undefined) {
+        const currentSeo = (currentSettings.seo as Record<string, Record<string, unknown>> | undefined) ?? {};
+        const nextSeo: Record<string, unknown> = { ...currentSeo, ...input.seo };
+        // Sub-groups merge key by key so saving one screen (e.g. Tracking) never wipes another's fields.
+        for (const group of ["business", "tracking", "robots", "sitemap"] as const) {
+          if (input.seo[group] !== undefined) nextSeo[group] = { ...(currentSeo[group] ?? {}), ...input.seo[group] };
+        }
+        settingsPatch.seo = nextSeo;
       }
       if (input.aboutContent !== undefined) {
         const currentAboutContent = (currentSettings.aboutContent as AboutContentConfig | undefined) ?? {};
@@ -245,6 +277,7 @@ export class CmsService {
       loyalty: resolveLoyaltyConfig(settings),
       appPromo: this.resolveAppPromoConfig(settings),
       aboutContent: this.resolveAboutContentConfig(settings),
+      receiptMessages: this.resolveReceiptMessages(settings),
     };
   }
 
@@ -272,6 +305,7 @@ export class CmsService {
         endDate: input.endDate ? new Date(input.endDate) : undefined,
         sortOrder: input.sortOrder,
         status: input.status,
+        pages: input.pages,
       },
     });
     return this.toAdminBanner(banner);
@@ -297,6 +331,7 @@ export class CmsService {
         ...(input.endDate !== undefined ? { endDate: new Date(input.endDate) } : {}),
         ...(input.sortOrder !== undefined ? { sortOrder: input.sortOrder } : {}),
         ...(input.status !== undefined ? { status: input.status } : {}),
+        ...(input.pages !== undefined ? { pages: input.pages } : {}),
       },
     });
     return this.toAdminBanner(banner);

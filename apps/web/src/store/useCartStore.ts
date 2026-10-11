@@ -18,6 +18,28 @@ function makeCartItemId() {
   return `ci_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
 }
 
+/**
+ * Two cart lines are "the same" when they would be ordered identically: same product/deal, same choices,
+ * add-ons and note. Adding the same thing again then raises its quantity instead of creating a duplicate line.
+ */
+function lineSignature(item: CartItem): string {
+  const note = (item.specialInstructions ?? "").trim().toLowerCase();
+  if (item.kind === "product") {
+    const choices = item.choices.map((c) => `${c.choiceGroupId}:${c.choiceOptionId}`).sort().join(",");
+    const addons = item.addons.map((a) => `${a.addonId}x${a.quantity}`).sort().join(",");
+    return `p|${item.productId}|${choices}|${addons}|${note}`;
+  }
+  const slots = item.slots
+    .map((sl) => {
+      const choices = sl.choices.map((c) => `${c.choiceGroupId}:${c.choiceOptionId}`).sort().join(",");
+      const addons = sl.addons.map((a) => `${a.addonId}x${a.quantity}`).sort().join(",");
+      return `${sl.dealSlotId}=${sl.productId}[${choices}][${addons}]`;
+    })
+    .sort()
+    .join(";");
+  return `d|${item.dealId}|${slots}|${note}`;
+}
+
 export const useCartStore = create<CartState>()(
   persist(
     (set) => ({
@@ -25,7 +47,14 @@ export const useCartStore = create<CartState>()(
       hasHydrated: false,
       setHasHydrated: (hasHydrated) => set({ hasHydrated }),
       addItem: (item) =>
-        set((state) => ({ items: [...state.items, { ...item, cartItemId: item.cartItemId || makeCartItemId() }] })),
+        set((state) => {
+          const signature = lineSignature(item);
+          const existing = state.items.find((i) => lineSignature(i) === signature);
+          if (existing) {
+            return { items: state.items.map((i) => (i.cartItemId === existing.cartItemId ? { ...i, quantity: i.quantity + item.quantity } : i)) };
+          }
+          return { items: [...state.items, { ...item, cartItemId: item.cartItemId || makeCartItemId() }] };
+        }),
       removeItem: (cartItemId) => set((state) => ({ items: state.items.filter((i) => i.cartItemId !== cartItemId) })),
       updateQuantity: (cartItemId, quantity) =>
         set((state) => ({

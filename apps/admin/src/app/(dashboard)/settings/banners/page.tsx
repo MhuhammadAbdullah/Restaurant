@@ -11,9 +11,16 @@ import { CloseIcon, EditIcon, TrashIcon } from "../../../../components/icons";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../../components/ui/select";
 import { DatePopover } from "../../../../components/ui/date-popover";
 
+const BANNER_PAGES = [
+  { key: "HOME", label: "Home page" },
+  { key: "LOCATIONS", label: "Our Locations page" },
+] as const;
+const pageLabel = (k: string) => BANNER_PAGES.find((p) => p.key === k)?.label ?? k;
+
 type Banner = {
   id: string;
   image: string;
+  pages?: string[];
   title: string | null;
   startDate: string | null;
   endDate: string | null;
@@ -22,6 +29,7 @@ type Banner = {
 };
 
 const EMPTY_FORM = {
+  pages: ["HOME"] as string[],
   image: "",
   title: "",
   startDate: "",
@@ -60,6 +68,7 @@ export default function BannersSettingsPage() {
   function startEdit(b: Banner) {
     setEditingId(b.id);
     setForm({
+      pages: b.pages?.length ? b.pages : ["HOME"],
       image: b.image,
       title: b.title ?? "",
       startDate: toDateInputValue(b.startDate),
@@ -79,7 +88,13 @@ export default function BannersSettingsPage() {
     e.preventDefault();
     setSaving(true);
     try {
+      if (form.pages.length === 0) {
+        toast.error("Pick at least one page to show this banner on");
+        setSaving(false);
+        return;
+      }
       const body = {
+        pages: form.pages,
         image: form.image,
         title: form.title || undefined,
         startDate: form.startDate ? new Date(form.startDate).toISOString() : undefined,
@@ -145,6 +160,7 @@ export default function BannersSettingsPage() {
             <tr>
               <th className="px-4 py-2">Image</th>
               <th className="px-4 py-2">Title</th>
+              <th className="px-4 py-2">Shown on</th>
               <th className="px-4 py-2">Sort</th>
               <th className="px-4 py-2">Status</th>
               <th className="px-4 py-2">Action</th>
@@ -158,6 +174,13 @@ export default function BannersSettingsPage() {
                   <img src={b.image} alt="" className="h-10 w-16 rounded object-cover" />
                 </td>
                 <td className="px-4 py-2 text-neutral-600">{b.title || <span className="text-neutral-300">—</span>}</td>
+                <td className="px-4 py-2">
+                  <div className="flex flex-wrap gap-1">
+                    {(b.pages?.length ? b.pages : ["HOME"]).map((p) => (
+                      <span key={p} className="rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-medium text-neutral-600">{pageLabel(p)}</span>
+                    ))}
+                  </div>
+                </td>
                 <td className="px-4 py-2">{b.sortOrder}</td>
                 <td className="px-4 py-2">
                   <StatusToggle active={b.status === "ACTIVE"} onClick={() => toggleStatus(b)} disabled={!canEdit} />
@@ -209,6 +232,27 @@ export default function BannersSettingsPage() {
 
             <form onSubmit={submit} className="modal-scroll min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
               <ImageUploadField label="Banner Image" folder="banners" value={form.image} onChange={(url) => setForm({ ...form, image: url })} />
+
+              <div>
+                <p className="mb-1 text-xs font-medium text-neutral-500">Show this banner on *</p>
+                <div className="flex flex-wrap gap-2">
+                  {BANNER_PAGES.map((p) => {
+                    const on = form.pages.includes(p.key);
+                    return (
+                      <button
+                        key={p.key}
+                        type="button"
+                        onClick={() => setForm({ ...form, pages: on ? form.pages.filter((x) => x !== p.key) : [...form.pages, p.key] })}
+                        aria-pressed={on}
+                        className={`rounded-lg border px-3.5 py-2 text-sm font-medium transition ${on ? "border-brand-red bg-brand-red/10 text-brand-red" : "border-neutral-300 text-neutral-600 hover:border-neutral-400"}`}
+                      >
+                        {p.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="mt-1 text-xs text-neutral-400">The banner appears in the hero section of every page you pick.</p>
+              </div>
 
               <div>
                 <p className="mb-1 text-xs font-medium text-neutral-500">Internal Title</p>

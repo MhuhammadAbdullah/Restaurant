@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, ForbiddenException, Get, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
 import type { Request } from "express";
 import {
   createBannerSchema,
@@ -17,6 +17,7 @@ import { PermissionsGuard } from "../auth/guards/permissions.guard";
 import { RequirePermission } from "../auth/decorators/require-permission.decorator";
 import { CurrentStaff } from "../auth/decorators/current-staff.decorator";
 import { AuditLogService } from "../audit-logs/audit-log.service";
+import { PermissionsCheckService } from "../auth/permissions-check.service";
 import { CmsService } from "./cms.service";
 
 @Controller("cms")
@@ -24,6 +25,7 @@ export class CmsController {
   constructor(
     private readonly cms: CmsService,
     private readonly auditLogs: AuditLogService,
+    private readonly permissionsCheck: PermissionsCheckService,
   ) {}
 
   @Public()
@@ -35,8 +37,8 @@ export class CmsController {
 
   @Public()
   @Get("banners")
-  async banners() {
-    const data = await this.cms.listBanners();
+  async banners(@Query("page") page?: string) {
+    const data = await this.cms.listBanners(page || "HOME");
     return { success: true, data };
   }
 
@@ -55,13 +57,17 @@ export class CmsController {
   }
 
   @UseGuards(StaffJwtAuthGuard, PermissionsGuard)
-  @RequirePermission("settings.manage")
+  @RequirePermission("settings.manage", "seo.manage")
   @Patch("restaurant")
   async updateRestaurant(
     @Body(new ZodValidationPipe(updateRestaurantSettingsSchema)) body: UpdateRestaurantSettingsInput,
     @CurrentStaff() staff: StaffJwtPayload,
     @Req() req: Request,
   ) {
+    // Someone who may only manage SEO can change nothing but the SEO block.
+    if (Object.keys(body).some((k) => k !== "seo") && !(await this.permissionsCheck.hasPermission(staff, "settings.manage"))) {
+      throw new ForbiddenException({ code: "PERMISSION_DENIED", message: "Missing permission: settings.manage" });
+    }
     const data = await this.cms.updateRestaurantSettings(body);
     await this.auditLogs.recordForStaff(
       staff,

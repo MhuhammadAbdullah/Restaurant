@@ -5,6 +5,8 @@ import { ScheduleModule } from "@nestjs/schedule";
 import { APP_GUARD } from "@nestjs/core";
 import { PrismaModule } from "./common/prisma/prisma.module";
 import { EmailModule } from "./common/email/email.module";
+import { EmailsModule } from "./modules/emails/emails.module";
+import { RetentionModule } from "./modules/retention/retention.module";
 import { LoyaltyModule } from "./modules/loyalty/loyalty.module";
 import { HealthModule } from "./health/health.module";
 import { AuthModule } from "./modules/auth/auth.module";
@@ -43,6 +45,8 @@ import { validateEnv } from "./config/env.schema";
     ScheduleModule.forRoot(),
     PrismaModule,
     EmailModule,
+    EmailsModule,
+    RetentionModule,
     LoyaltyModule,
     HealthModule,
     AuthModule,

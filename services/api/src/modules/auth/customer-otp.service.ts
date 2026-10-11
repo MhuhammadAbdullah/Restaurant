@@ -1,10 +1,10 @@
 import { randomInt } from "node:crypto";
-import { ConflictException, Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
+import { ConflictException, Injectable, Logger, NotFoundException, ServiceUnavailableException, UnauthorizedException } from "@nestjs/common";
 import { hashPassword, verifyPassword } from "@restaurant/auth";
 import type { RequestEmailOtpInput, VerifyLoginOtpInput, VerifyRegisterOtpInput } from "@restaurant/validation";
 import { PrismaService } from "../../common/prisma/prisma.service";
 import { RestaurantContextService } from "../../common/restaurant/restaurant-context.service";
-import { EmailService } from "../../common/email/email.service";
+import { EmailsService } from "../emails/emails.service";
 import { LoyaltyService } from "../loyalty/loyalty.service";
 import { TokensService } from "./tokens.service";
 
@@ -23,7 +23,7 @@ export class CustomerOtpService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly restaurantContext: RestaurantContextService,
-    private readonly email: EmailService,
+    private readonly emails: EmailsService,
     private readonly loyalty: LoyaltyService,
     private readonly tokens: TokensService,
   ) {}
@@ -53,7 +53,14 @@ export class CustomerOtpService {
 
     // Send before persisting: a failed send should leave no OTP row behind, so a retry doesn't
     // have to compete with a phantom code the user never actually received.
-    await this.email.sendOtpEmail(input.email, code, input.purpose);
+    try {
+      await this.emails.sendOtp(restaurantId, input.email, code, input.purpose);
+    } catch (e) {
+      // Usually the mail account's credentials were rejected or the provider is down: say so plainly to the
+      // customer instead of a generic "something went wrong", and keep the real reason in the server log.
+      new Logger("CustomerOtp").error(`Could not send OTP email: ${e instanceof Error ? e.message : e}`);
+      throw new ServiceUnavailableException({ code: "EMAIL_SEND_FAILED", message: "We could not send the verification code right now. Please try again in a few minutes." });
+    }
 
     await this.prisma.emailOtp.create({
       data: { restaurantId, email: input.email, codeHash, purpose: input.purpose, expiresAt },

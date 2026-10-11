@@ -40,16 +40,19 @@ import {
   CalculatorIcon,
   XCircleIcon,
 } from "../../components/icons";
+import { WorkDashboard } from "../../components/dashboard/WorkDashboard";
+import { BranchInfoCard } from "../../components/dashboard/BranchInfoCard";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 
 type Summary = {
-  branches: { total: number; active: number };
+  branches: { total: number; active: number; picked?: { name: string; status: string } | null };
   revenue: { today: number; week: number; month: number };
   customers: { total: number; newToday: number };
   loyaltyPointsIssued: number;
   complaints: { open: number; total: number };
 };
 
-type PeriodTotals = { revenue: number; orders: number; avgOrderValue: number; cancelled: number };
+type PeriodTotals = { revenue: number; tips?: number; orders: number; avgOrderValue: number; cancelled: number };
 type Analytics = {
   granularity: "hour" | "day";
   totals: PeriodTotals;
@@ -250,8 +253,23 @@ export default function DashboardPage() {
   }));
   const topItemRows: BarRow[] = (topItems ?? []).map((p) => ({ key: p.productId, label: p.name, value: p.quantitySold }));
 
-  if (me && !canView) {
-    return <p className="text-neutral-500">Use the sidebar to access your modules.</p>;
+  // Until we know who is signed in, show neither dashboard: without this, someone with limited access briefly saw the
+  // full admin dashboard (its filters and empty cards) before their own page replaced it.
+  if (!me) {
+    return (
+      <div>
+        <Skeleton className="h-7 w-48" />
+        <Skeleton className="mt-2 h-4 w-72" />
+        <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-24 rounded-xl" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+  if (!canView) {
+    return <WorkDashboard />;
   }
 
   const totals = analytics?.totals;
@@ -294,19 +312,17 @@ export default function DashboardPage() {
       {/* Filters: branch (single / all) and period — they drive every number and chart below. */}
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-neutral-200 bg-white p-3">
         {branchList.length > 1 ? (
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="mr-1 text-xs font-medium text-neutral-500">Branch</span>
-            {[{ id: "", name: "All Branches" }, ...branchList].map((b) => (
-              <button
-                key={b.id || "all"}
-                onClick={() => setBranchId(b.id)}
-                className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
-                  branchId === b.id ? "border-brand-red bg-brand-red text-white" : "border-neutral-300 text-neutral-600 hover:border-brand-red hover:text-brand-red"
-                }`}
-              >
-                {b.name}
-              </button>
-            ))}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-neutral-500">Branch</span>
+            <Select value={branchId || "all"} onValueChange={(v) => setBranchId(v === "all" ? "" : v)}>
+              <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Branches</SelectItem>
+                {branchList.map((b) => (
+                  <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         ) : (
           <span className="text-xs font-medium text-neutral-500">{branchList[0]?.name ?? ""}</span>
@@ -338,8 +354,15 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Overview — fixed windows (today / week / month) and account-wide counters */}
-      <h2 className="mt-4 text-sm font-semibold text-neutral-700">Overview</h2>
+      {/* The branch being viewed: its details (or an overview of every branch), with a welcome for the signed-in person. */}
+      {me && (
+        <div className="mt-4">
+          <BranchInfoCard branchId={branchId} scopeIds={me.isOwner || me.allBranchesAccess ? undefined : branchList.map((b) => b.id)} greeting={{ name: me.name, role: me.role }} />
+        </div>
+      )}
+
+      {/* Overview — counters for the branch picked above (or every branch you can see) */}
+      <h2 className="mt-4 text-sm font-semibold text-neutral-700">Overview{selectedBranchName ? ` · ${selectedBranchName}` : ""}</h2>
       {!data ? (
         <div className="mt-2 grid grid-cols-2 gap-4 lg:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
@@ -352,17 +375,21 @@ export default function DashboardPage() {
         </div>
       ) : (
         <div className="mt-2 grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <StatCard icon={StoreIcon} color="text-blue-600 bg-blue-50" label="Branches" value={`${data.branches.active}/${data.branches.total}`} />
-          <StatCard icon={UsersIcon} color="text-purple-600 bg-purple-50" label="Total Customers" value={String(data.customers.total)} sub={`+${data.customers.newToday} today`} />
-          <StatCard icon={AlertCircleIcon} color="text-red-600 bg-red-50" label="Open Complaints" value={String(data.complaints.open)} warn={data.complaints.open > 0} />
-          <StatCard icon={StarIcon} color="text-pink-600 bg-pink-50" label="Loyalty Points Issued" value={String(data.loyaltyPointsIssued)} />
+          {data.branches.picked ? (
+            <StatCard icon={StoreIcon} color="text-blue-600 bg-blue-50" label={data.branches.picked.name} value={data.branches.picked.status === "ACTIVE" ? "Active" : data.branches.picked.status === "TEMPORARILY_CLOSED" ? "Closed" : "Inactive"} warn={data.branches.picked.status !== "ACTIVE"} />
+          ) : (
+            <StatCard icon={StoreIcon} color="text-blue-600 bg-blue-50" label="Branches" value={`${data.branches.active}/${data.branches.total}`} sub="active" />
+          )}
+          <StatCard icon={UsersIcon} color="text-purple-600 bg-purple-50" label={branchId ? "Customers (this branch)" : "Total Customers"} value={String(data.customers.total)} sub={`+${data.customers.newToday} today`} />
+          <StatCard icon={AlertCircleIcon} color="text-red-600 bg-red-50" label="Open Complaints" value={String(data.complaints.open)} sub={`${data.complaints.total} in total`} warn={data.complaints.open > 0} />
+          <StatCard icon={StarIcon} color="text-pink-600 bg-pink-50" label={branchId ? "Loyalty Points Issued (here)" : "Loyalty Points Issued"} value={String(data.loyaltyPointsIssued)} />
         </div>
       )}
 
       {/* KPIs for the selected period */}
-      <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-5">
         {!totals || !previous ? (
-          Array.from({ length: 4 }).map((_, i) => (
+          Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="rounded-xl border border-neutral-200 p-4">
               <Skeleton className="h-9 w-9 rounded-full" />
               <Skeleton className="mt-3 h-3 w-16" />
@@ -389,6 +416,14 @@ export default function DashboardPage() {
               change={pctChange(totals.cancelled, previous.cancelled)}
               note={compareNote(pctChange(totals.cancelled, previous.cancelled))}
               lowerIsBetter
+            />
+            <KpiCard
+              icon={BanknoteIcon}
+              color="text-purple-600 bg-purple-50"
+              label={kpiLabel("Tips Collected")}
+              value={formatPaisa(totals.tips ?? 0)}
+              change={pctChange(totals.tips ?? 0, previous.tips ?? 0)}
+              note={compareNote(pctChange(totals.tips ?? 0, previous.tips ?? 0))}
             />
           </>
         )}

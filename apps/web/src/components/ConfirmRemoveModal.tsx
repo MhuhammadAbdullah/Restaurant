@@ -1,5 +1,6 @@
 "use client";
 
+import { createPortal } from "react-dom";
 import { TrashIcon, CloseIcon } from "./icons";
 
 export function ConfirmRemoveModal({
@@ -11,8 +12,10 @@ export function ConfirmRemoveModal({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
-  return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" onClick={onCancel}>
+  // Rendered into <body>: this modal is opened from inside product cards, and a card's own stacking context /
+  // transform would otherwise trap it (neighbouring cards painted over it and it sat offset from the screen).
+  return createPortal(
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4" onClick={(e) => { e.stopPropagation(); onCancel(); }}>
       <div className="w-full max-w-sm rounded-2xl bg-surface p-5 text-ink shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
@@ -42,6 +45,7 @@ export function ConfirmRemoveModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

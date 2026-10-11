@@ -3,32 +3,60 @@
 import { SearchIcon, ChevronLeftIcon, ChevronRightIcon, CloseIcon } from "./icons";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 
+/**
+ * The one search box used across the admin: magnifier on the left, clear button on the right, Esc clears,
+ * and a clear focus ring. Styled directly (not through the shared `.input` class) so its icon padding can
+ * never be overridden by another stylesheet.
+ */
 export function SearchInput({
   value,
   onChange,
   placeholder = "Search...",
   className = "",
+  widthClass = "min-w-[220px] flex-1",
+  autoFocus,
+  compact,
 }: {
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
   className?: string;
+  /** Width behaviour of the whole box. Defaults to "grow to fill the row, at least 220px". */
+  widthClass?: string;
+  autoFocus?: boolean;
+  /** Slightly shorter, for search boxes inside popovers and small panels. */
+  compact?: boolean;
 }) {
   return (
-    <div className={`relative min-w-[220px] flex-1 ${className}`}>
-      <SearchIcon size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" />
+    <div className={`relative ${widthClass} ${className}`}>
+      <SearchIcon size={compact ? 14 : 16} className={`pointer-events-none absolute top-1/2 -translate-y-1/2 text-neutral-400 ${compact ? "left-3" : "left-3.5"}`} />
       <input
+        type="text"
+        role="searchbox"
+        aria-label={placeholder}
+        autoFocus={autoFocus}
+        autoComplete="off"
+        spellCheck={false}
+        enterKeyHint="search"
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Escape" && value) {
+            e.preventDefault();
+            e.stopPropagation();
+            onChange("");
+          }
+        }}
         placeholder={placeholder}
-        className="w-full rounded-xl border border-neutral-200 bg-white py-2.5 pl-10 pr-9 text-sm shadow-sm outline-none transition focus:border-brand-red focus:ring-4 focus:ring-brand-red/10"
+        style={{ paddingLeft: compact ? "2.25rem" : "2.6rem", paddingRight: "2.25rem" }}
+        className={`w-full rounded-xl border border-neutral-200 bg-white text-sm text-neutral-900 shadow-sm outline-none transition placeholder:text-neutral-400 hover:border-neutral-300 focus:border-brand-red focus:ring-4 focus:ring-brand-red/10 ${compact ? "py-2" : "py-2.5"}`}
       />
       {value && (
         <button
           type="button"
           onClick={() => onChange("")}
           aria-label="Clear search"
-          className="absolute right-2.5 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full text-neutral-300 hover:bg-neutral-100 hover:text-neutral-500"
+          className="absolute right-2.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700"
         >
           <CloseIcon size={12} />
         </button>

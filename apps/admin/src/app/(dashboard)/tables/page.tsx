@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { FaUsers } from "react-icons/fa6";
+import { FaChair, FaUsers } from "react-icons/fa6";
 import { formatPaisa } from "@restaurant/utils";
 import { api, ApiError } from "../../../lib/api";
 import { toast } from "../../../store/useToastStore";
@@ -298,8 +298,11 @@ export default function TablesPage() {
 
   if (!branchId && branches.length > 1) {
     return (
-      <div className="rounded-xl border border-dashed border-neutral-300 p-8 text-center">
-        <p className="text-sm font-medium text-neutral-700">Select a branch above to manage tables</p>
+      <div className="flex flex-col items-center rounded-xl border border-dashed border-neutral-300 p-8 text-center">
+        <span className="flex h-14 w-14 items-center justify-center rounded-full bg-red-50 text-brand-red">
+          <FaChair size={24} />
+        </span>
+        <p className="mt-4 text-sm font-medium text-neutral-700">Select a branch above to manage tables</p>
         <p className="mt-1 text-xs text-neutral-400">You have access to {branches.length} branches. Pick one from the switcher in the header.</p>
       </div>
     );

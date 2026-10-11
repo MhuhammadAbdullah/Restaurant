@@ -41,6 +41,8 @@ export type CreateComplaintInput = z.infer<typeof createComplaintSchema>;
 export const addComplaintMessageSchema = z.object({
   message: z.string().trim().min(1).max(2000),
   isInternalNote: z.boolean().default(false),
+  /** Also email this reply to the customer (ignored for internal notes or when no email is on file). */
+  emailCustomer: z.boolean().default(true),
   attachmentUrls: z.array(z.string().url()).default([]),
 });
 export type AddComplaintMessageInput = z.infer<typeof addComplaintMessageSchema>;

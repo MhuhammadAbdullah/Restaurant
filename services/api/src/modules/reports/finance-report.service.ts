@@ -52,6 +52,7 @@ export type FinanceReportRow = {
   tax: number;
   grandTotal: number;
   collectedAmount: number;
+  tipAmount: number;
   outstandingAmount: number;
   refundAmount: number;
   transactionRef: string;
@@ -68,7 +69,11 @@ export type SalesSummary = {
   netSales: number;
   deliveryFees: number;
   tax: number;
+  /** Whole-rupee rounding applied to bills (can be + or -): totalBilled = netSales + deliveryFees + tax + roundOff. */
+  roundOff: number;
   totalBilled: number;
+  /** Tips left by customers on recognised sales. Not revenue: shown below the statement. */
+  tips: number;
   averageOrderValue: number;
 };
 
@@ -167,7 +172,9 @@ export class FinanceReportService {
     });
 
     const rows: FinanceReportRow[] = orders.map((o) => {
-      const collectedAmount = o.payments.filter((p) => p.status === "PAID").reduce((s, p) => s + p.amount, 0);
+      // An online payment carries the tip on top of the bill; only the bill part counts as collected sales money.
+      const paidSum = o.payments.filter((p) => p.status === "PAID").reduce((s, p) => s + p.amount, 0);
+      const collectedAmount = Math.min(paidSum, o.grandTotal);
       const outstandingAmount = o.paymentMethod === "COD" ? Math.max(o.grandTotal - collectedAmount, 0) : 0;
       const refundAmount = o.status === "REFUNDED" ? collectedAmount : 0;
       const latest = [...o.payments].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
@@ -190,6 +197,7 @@ export class FinanceReportService {
         tax: o.taxAmount,
         grandTotal: o.grandTotal,
         collectedAmount,
+        tipAmount: o.tipAmount,
         outstandingAmount,
         refundAmount,
         transactionRef: latest?.transactionRef ?? "",
@@ -213,7 +221,9 @@ export class FinanceReportService {
       netSales: subtotalSum - discountSum,
       deliveryFees: sum(sales, "deliveryFee"),
       tax: sum(sales, "tax"),
+      roundOff: sum(sales, "grandTotal") - (subtotalSum - discountSum) - sum(sales, "deliveryFee") - sum(sales, "tax"),
       totalBilled: sum(sales, "grandTotal"),
+      tips: sum(sales, "tipAmount"),
       averageOrderValue: sales.length ? Math.round(sum(sales, "grandTotal") / sales.length) : 0,
     };
 

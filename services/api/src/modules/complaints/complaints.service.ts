@@ -10,6 +10,7 @@ import type { ComplaintCategory, ComplaintStatus, Prisma } from "@restaurant/dat
 import { PrismaService } from "../../common/prisma/prisma.service";
 import { RestaurantContextService } from "../../common/restaurant/restaurant-context.service";
 import { AuditLogService } from "../audit-logs/audit-log.service";
+import { EmailsService } from "../emails/emails.service";
 
 function assertStaffBranchAccess(staff: StaffJwtPayload, branchId: string | null) {
   if (staff.isOwner || staff.allBranchesAccess || !branchId) return;
@@ -31,13 +32,13 @@ const ORDER_TYPE_MATCHES: Record<string, string[]> = {
 const COMPLAINT_LIST_INCLUDE = {
   customer: { select: { name: true, phone: true, email: true } },
   branch: { select: { name: true, city: true } },
-  order: { select: { orderNumber: true } },
+  order: { select: { orderNumber: true, orderCode: true } },
 };
 
 const COMPLAINT_INCLUDE = {
   messages: { orderBy: { createdAt: "asc" as const }, include: { attachments: true, senderStaff: { select: { name: true } } } },
   attachments: true,
-  order: { select: { orderNumber: true, type: true, status: true, grandTotal: true, createdAt: true } },
+  order: { select: { orderNumber: true, orderCode: true, type: true, status: true, grandTotal: true, createdAt: true } },
   product: { select: { name: true } },
   branch: { select: { name: true, city: true, area: true } },
   assignedToStaff: { select: { name: true } },
@@ -50,6 +51,7 @@ export class ComplaintsService {
     private readonly prisma: PrismaService,
     private readonly restaurantContext: RestaurantContextService,
     private readonly auditLogs: AuditLogService,
+    private readonly emails: EmailsService,
   ) {}
 
   // ---------- Customer-facing ----------
@@ -63,8 +65,15 @@ export class ComplaintsService {
     // is still kept on the complaint for staff to search/reference manually.
     let orderId: string | undefined;
     if (orderNumberInput) {
+      // Customers quote what their receipt shows: the short Order ID (e.g. NWBNND), the Invoice No (202610110090)
+      // or the internal ORD-... number. All three find the same order.
+      const typed = orderNumberInput.replace(/s+/g, "");
+      const invoiceDigits = /^d{12}$/.test(typed) ? `ORD-${typed.slice(0, 8)}-${typed.slice(8)}` : null;
       const order = await this.prisma.order.findFirst({
-        where: { orderNumber: orderNumberInput, restaurantId },
+        where: {
+          restaurantId,
+          OR: [{ orderCode: typed.toUpperCase() }, { orderNumber: invoiceDigits ?? typed.toUpperCase() }, { orderNumber: orderNumberInput }],
+        },
       });
       const branchMatches = !order || !input.branchId || order.branchId === input.branchId;
       const typeMatches = !order || !input.orderType || ORDER_TYPE_MATCHES[input.orderType]?.includes(order.type);
@@ -111,7 +120,7 @@ export class ComplaintsService {
     return this.prisma.complaint.findMany({
       where: { customerId },
       orderBy: { createdAt: "desc" },
-      include: { order: { select: { orderNumber: true } } },
+      include: { order: { select: { orderNumber: true, orderCode: true } } },
     });
   }
 
@@ -170,6 +179,7 @@ export class ComplaintsService {
                 { customer: { phone: { contains: search } } },
                 { customer: { email: { contains: search, mode: "insensitive" as const } } },
                 { order: { orderNumber: { contains: search, mode: "insensitive" as const } } },
+                { order: { orderCode: { contains: search, mode: "insensitive" as const } } },
               ],
             }
           : {}),
@@ -217,13 +227,17 @@ export class ComplaintsService {
       },
       include: { attachments: true },
     });
+    let emailed = false;
     if (!input.isInternalNote) {
       await this.prisma.complaint.update({
         where: { id },
         data: { status: "IN_PROGRESS" },
       });
+      if (input.emailCustomer) {
+        emailed = await this.emails.sendComplaintReply(id, input.message, staff.sub).catch(() => false);
+      }
     }
-    return message;
+    return { ...message, emailed };
   }
 
   async updateStatus(staff: StaffJwtPayload, id: string, input: UpdateComplaintStatusInput) {
