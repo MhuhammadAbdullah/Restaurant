@@ -11,6 +11,8 @@ import {
   type AboutContentConfig,
   type AppPromoConfig,
   type CreateBannerInput,
+  type CreatePopupInput,
+  type UpdatePopupInput,
   type FooterConfig,
   type HeaderConfig,
   type LocationPopupConfig,
@@ -340,5 +342,72 @@ export class CmsService {
   async deleteBanner(id: string) {
     await this.findOwnedBanner(id);
     await this.prisma.banner.delete({ where: { id } });
+  }
+
+  // ---- Marketing pop-ups ----
+
+  private popupData(input: UpdatePopupInput) {
+    const d = (v: string | null | undefined) => (v === undefined ? undefined : v ? new Date(v) : null);
+    return {
+      ...(input.name !== undefined ? { name: input.name } : {}),
+      ...(input.image !== undefined ? { image: input.image } : {}),
+      ...(input.linkUrl !== undefined ? { linkUrl: input.linkUrl || null } : {}),
+      ...(input.pages !== undefined ? { pages: input.pages } : {}),
+      ...(input.audience !== undefined ? { audience: input.audience } : {}),
+      ...(input.device !== undefined ? { device: input.device } : {}),
+      ...(input.frequency !== undefined ? { frequency: input.frequency } : {}),
+      ...(input.repeatDays !== undefined ? { repeatDays: input.repeatDays } : {}),
+      ...(input.delaySeconds !== undefined ? { delaySeconds: input.delaySeconds } : {}),
+      ...(input.startDate !== undefined ? { startDate: d(input.startDate) } : {}),
+      ...(input.endDate !== undefined ? { endDate: d(input.endDate) } : {}),
+      ...(input.sortOrder !== undefined ? { sortOrder: input.sortOrder } : {}),
+      ...(input.status !== undefined ? { status: input.status } : {}),
+    };
+  }
+
+  /** Public — active pop-ups for a page; the first one in sort order is shown by the storefront. The end date counts through the end of that day. */
+  async listPopups(page: string) {
+    const restaurantId = await this.restaurantContext.getRestaurantId();
+    const now = new Date();
+    const rows = await this.prisma.marketingPopup.findMany({
+      where: { restaurantId, status: "ACTIVE", pages: { hasSome: [page.toUpperCase(), "ALL"] }, OR: [{ startDate: null }, { startDate: { lte: now } }] },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
+      select: { id: true, image: true, linkUrl: true, audience: true, device: true, frequency: true, repeatDays: true, delaySeconds: true, endDate: true, updatedAt: true },
+    });
+    const DAY = 24 * 60 * 60 * 1000;
+    return rows.filter((p) => !p.endDate || p.endDate.getTime() + DAY > now.getTime()).map(({ endDate, ...rest }) => rest);
+  }
+
+  async trackPopup(id: string, kind: "view" | "click") {
+    await this.prisma.marketingPopup
+      .update({ where: { id }, data: kind === "view" ? { viewCount: { increment: 1 } } : { clickCount: { increment: 1 } } })
+      .catch(() => undefined);
+  }
+
+  async adminListPopups() {
+    const restaurantId = await this.restaurantContext.getRestaurantId();
+    return this.prisma.marketingPopup.findMany({ where: { restaurantId }, orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }] });
+  }
+
+  async createPopup(input: CreatePopupInput) {
+    const restaurantId = await this.restaurantContext.getRestaurantId();
+    return this.prisma.marketingPopup.create({ data: { restaurantId, name: input.name, image: input.image, ...this.popupData(input) } });
+  }
+
+  private async findOwnedPopup(id: string) {
+    const restaurantId = await this.restaurantContext.getRestaurantId();
+    const popup = await this.prisma.marketingPopup.findUnique({ where: { id } });
+    if (!popup || popup.restaurantId !== restaurantId) throw new NotFoundException({ code: "POPUP_NOT_FOUND", message: "Pop-up not found" });
+    return popup;
+  }
+
+  async updatePopup(id: string, input: UpdatePopupInput) {
+    await this.findOwnedPopup(id);
+    return this.prisma.marketingPopup.update({ where: { id }, data: this.popupData(input) });
+  }
+
+  async deletePopup(id: string) {
+    await this.findOwnedPopup(id);
+    await this.prisma.marketingPopup.delete({ where: { id } });
   }
 }

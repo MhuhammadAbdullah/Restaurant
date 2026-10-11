@@ -370,3 +370,29 @@ export type CreateBannerInput = z.infer<typeof createBannerSchema>;
 
 export const updateBannerSchema = createBannerSchema.partial();
 export type UpdateBannerInput = z.infer<typeof updateBannerSchema>;
+
+/** ALL = every page, including ones added later. OTHER = any page not listed here (so new pages are covered too). */
+export const POPUP_PAGES = ["ALL", "HOME", "MENU", "LOCATIONS", "CHECKOUT", "ACCOUNT", "COMPLAINTS", "INFO", "OTHER"] as const;
+export const POPUP_AUDIENCES = ["ALL", "GUESTS", "CUSTOMERS"] as const;
+export const POPUP_DEVICES = ["ALL", "MOBILE", "DESKTOP"] as const;
+export const POPUP_FREQUENCIES = ["EVERY_VISIT", "SESSION", "DAILY", "EVERY_N_DAYS", "ONCE"] as const;
+
+export const createPopupSchema = z.object({
+  name: z.string().trim().min(1, "Give the pop-up a name").max(150),
+  image: z.string().trim().min(1).max(500),
+  linkUrl: z.string().trim().max(500).optional().or(z.literal("")),
+  pages: z.array(z.enum(POPUP_PAGES)).min(1, "Pick at least one page").default(["HOME"]),
+  audience: z.enum(POPUP_AUDIENCES).default("ALL"),
+  device: z.enum(POPUP_DEVICES).default("ALL"),
+  frequency: z.enum(POPUP_FREQUENCIES).default("SESSION"),
+  repeatDays: z.number().int().min(1).max(365).default(3),
+  delaySeconds: z.number().int().min(0).max(120).default(2),
+  startDate: z.string().trim().min(1).nullable().optional(),
+  endDate: z.string().trim().min(1).nullable().optional(),
+  sortOrder: z.number().int().min(0).default(0),
+  status: z.enum(["ACTIVE", "INACTIVE"]).default("ACTIVE"),
+});
+export type CreatePopupInput = z.infer<typeof createPopupSchema>;
+
+export const updatePopupSchema = createPopupSchema.partial();
+export type UpdatePopupInput = z.infer<typeof updatePopupSchema>;
