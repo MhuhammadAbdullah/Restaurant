@@ -74,12 +74,12 @@ export function PopularProductCard({ product, onClick }: { product: Product; onC
       <div className="relative mt-3 flex items-end justify-between gap-2 px-1">
         <div className="min-w-0 flex-1">
           <button onClick={onClick} className="block w-full text-left">
-            <p className="truncate font-poppins text-[14px] font-bold uppercase leading-[18px] text-ink sm:text-[16px] lg:text-[18px]">
+            <p className="truncate font-poppins text-[12px] font-bold uppercase leading-[16px] text-ink sm:text-[14px] lg:text-[16px]">
               {product.name}
             </p>
           </button>
-          <p className="mt-1.5 font-poppins text-[12px] font-semibold uppercase leading-[16px] text-muted sm:text-[13px] lg:text-[15px]">
-            {product.discountPrice != null && <span className="mr-1.5 text-[11px] font-normal line-through opacity-70">{formatPaisa(product.basePrice)}</span>}
+          <p className="mt-1 font-poppins text-[11px] font-semibold uppercase leading-[14px] text-muted sm:text-[12px] lg:text-[14px]">
+            {product.discountPrice != null && <span className="mr-1.5 text-[10px] font-normal line-through opacity-70">{formatPaisa(product.basePrice)}</span>}
             {formatPaisa(price)}
           </p>
         </div>
@@ -93,18 +93,18 @@ export function PopularProductCard({ product, onClick }: { product: Product; onC
               onDecrement={() => updateQuantity(simpleLine.cartItemId, quantity - 1)}
               onRemove={() => removeItem(simpleLine.cartItemId)}
               compact
-              className="!py-0 h-7 sm:h-8 lg:h-9"
+              className="!py-0 h-6 sm:h-7 lg:h-8"
             />
           ) : (
             <button
               onClick={handleAdd}
               disabled={checking}
               aria-label="Add to cart"
-              className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-red text-white transition hover:opacity-90 disabled:opacity-60 sm:h-8 sm:w-8 lg:h-9 lg:w-9"
+              className="flex h-6 w-6 items-center justify-center rounded-md bg-brand-red text-white transition hover:opacity-90 disabled:opacity-60 sm:h-7 sm:w-7 sm:rounded-lg lg:h-8 lg:w-8"
             >
-              <PlusIcon size={12} className="sm:hidden" />
-              <PlusIcon size={14} className="hidden sm:block lg:hidden" />
-              <PlusIcon size={16} className="hidden lg:block" />
+              <PlusIcon size={10} className="sm:hidden" />
+              <PlusIcon size={12} className="hidden sm:block lg:hidden" />
+              <PlusIcon size={14} className="hidden lg:block" />
             </button>
           )}
         </div>

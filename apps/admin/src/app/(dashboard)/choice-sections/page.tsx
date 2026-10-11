@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 type ChoiceOption = {
   id: string;
   name: string;
+  description: string | null;
   image: string | null;
   priceAdjustment: number;
   discountPriceAdjustment: number | null;
@@ -39,13 +40,14 @@ type ChoiceGroup = {
 type OptionForm = {
   id?: string;
   name: string;
+  description: string;
   image: string;
   priceAdjustment: number;
   discountPriceAdjustment: string;
   status: "ACTIVE" | "INACTIVE";
 };
 
-const EMPTY_OPTION: OptionForm = { name: "", image: "", priceAdjustment: 0, discountPriceAdjustment: "", status: "ACTIVE" };
+const EMPTY_OPTION: OptionForm = { name: "", description: "", image: "", priceAdjustment: 0, discountPriceAdjustment: "", status: "ACTIVE" };
 
 const EMPTY_FORM = {
   name: "",
@@ -122,6 +124,7 @@ export default function ChoiceSectionsPage() {
       options: g.options.map((o) => ({
         id: o.id,
         name: o.name,
+        description: o.description ?? "",
         image: o.image ?? "",
         priceAdjustment: o.priceAdjustment / 100,
         discountPriceAdjustment: o.discountPriceAdjustment != null ? String(o.discountPriceAdjustment / 100) : "",
@@ -186,6 +189,7 @@ export default function ChoiceSectionsPage() {
         .map((o, i) => ({
           id: o.id,
           name: o.name,
+          description: o.description.trim() || undefined,
           image: o.image || undefined,
           priceAdjustment: Math.round(o.priceAdjustment * 100),
           discountPriceAdjustment: o.discountPriceAdjustment.trim() ? Math.round(Number(o.discountPriceAdjustment) * 100) : null,
@@ -473,6 +477,17 @@ export default function ChoiceSectionsPage() {
                         </div>
                         <div className="min-w-0 flex-1 space-y-2">
                           <input placeholder="Option name *" value={o.name} onChange={(e) => updateOption(i, { name: e.target.value })} className="input w-full bg-white" />
+                          <div>
+                            <textarea
+                              rows={2}
+                              maxLength={300}
+                              placeholder="Description (optional), e.g. A crispy, golden-fried chicken leg piece"
+                              value={o.description}
+                              onChange={(e) => updateOption(i, { description: e.target.value })}
+                              className="input w-full resize-none bg-white"
+                            />
+                            <p className="mt-0.5 text-right text-[10px] text-neutral-400">{o.description.length}/300 · shown under the name on the website</p>
+                          </div>
                           <div className="grid grid-cols-2 gap-2">
                             <div>
                               <p className="mb-0.5 text-[11px] text-neutral-500">Extra price (Rs.)</p>

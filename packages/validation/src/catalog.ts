@@ -41,6 +41,7 @@ export type SetMainPageProductsInput = z.infer<typeof setMainPageProductsSchema>
 const choiceOptionShape = z.object({
   id: idSchema.optional(),
   name: z.string().trim().min(1).max(120),
+  description: z.string().trim().max(300).optional(),
   image: z.string().url().optional(),
   priceAdjustment: moneyPaisaSchema.default(0),
   discountPriceAdjustment: moneyPaisaSchema.nullable().optional(),
