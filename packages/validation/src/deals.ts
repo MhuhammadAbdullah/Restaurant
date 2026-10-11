@@ -34,7 +34,8 @@ const dealShape = z.object({
   sortOrder: z.number().int().default(0),
   startDate: z.coerce.date().optional(),
   endDate: z.coerce.date().optional(),
-  slots: z.array(dealSlotSchema).min(1),
+  /** Optional: a deal with no slots is a fixed bundle the customer just adds to the cart. */
+  slots: z.array(dealSlotSchema).default([]),
 });
 
 export const createDealSchema = dealShape.superRefine((data, ctx) => checkDealDiscount(data.dealPrice, data.originalPrice, ctx));
@@ -65,6 +66,6 @@ export const dealSlotSelectionSchema = z.object({
 export type DealSlotSelectionInput = z.infer<typeof dealSlotSelectionSchema>;
 
 export const dealPricePreviewSchema = z.object({
-  selections: z.array(dealSlotSelectionSchema).min(1),
+  selections: z.array(dealSlotSelectionSchema).default([]),
 });
 export type DealPricePreviewInput = z.infer<typeof dealPricePreviewSchema>;

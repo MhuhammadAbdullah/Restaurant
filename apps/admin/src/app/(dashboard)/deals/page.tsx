@@ -56,7 +56,7 @@ const EMPTY_FORM = {
   dealPrice: 0,
   originalPrice: "",
   isFeatured: false,
-  slots: [{ ...EMPTY_SLOT }] as SlotForm[],
+  slots: [] as SlotForm[],
 };
 
 /** Compact "+ Select" trigger (opens a searchable EntityPickerModal) + removable pills for what's already selected — used for all three per-slot pickers so none of them dump the full catalog inline. */
@@ -491,7 +491,7 @@ export default function DealsPage() {
               </section>
 
               <section className="space-y-3 rounded-xl border border-neutral-200 p-4">
-                <SectionTitle n={3} title="What's in the deal" hint="Each slot is one item the customer picks, e.g. 'Pizza' x2 from a list of allowed products." />
+                <SectionTitle n={3} title="What's in the deal (optional)" hint="Add slots only if the customer should pick items, e.g. 'Pizza' x2 from a list of allowed products. Leave empty for a fixed deal." />
                 <div className="space-y-3">
                   {form.slots.map((slot, i) => (
                     <div key={i} className="rounded-lg border border-neutral-200 bg-neutral-50 p-3">
@@ -514,7 +514,8 @@ export default function DealsPage() {
                             className="input w-16 bg-white"
                           />
                         </label>
-                        {form.slots.length > 1 && (
+                        {(
+
                           <button type="button" onClick={() => setForm((f) => ({ ...f, slots: f.slots.filter((_, j) => j !== i) }))} aria-label="Remove slot" className="text-neutral-400 hover:text-red-600">
                             <TrashIcon size={15} />
                           </button>
@@ -551,8 +552,9 @@ export default function DealsPage() {
                   ))}
                 </div>
 
+                {form.slots.length === 0 && <p className="rounded-lg bg-neutral-50 px-3 py-2 text-xs text-neutral-500">No slots: customers will add this deal as it is, with no choices to make.</p>}
                 <button type="button" onClick={() => setForm((f) => ({ ...f, slots: [...f.slots, { ...EMPTY_SLOT }] }))} className="w-full rounded-lg border border-dashed border-brand-red py-2 text-sm font-medium text-brand-red hover:bg-red-50">
-                  + Add another slot
+                  {form.slots.length === 0 ? "+ Add a slot" : "+ Add another slot"}
                 </button>
               </section>
 

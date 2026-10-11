@@ -19,7 +19,7 @@ const dealOrderItemSchema = z.object({
   kind: z.literal("deal"),
   dealId: idSchema,
   quantity: z.number().int().min(1).default(1),
-  selections: z.array(dealSlotSelectionSchema).min(1),
+  selections: z.array(dealSlotSelectionSchema).default([]),
   specialInstructions: z.string().trim().max(500).optional(),
 });
 export type DealOrderItemInput = z.infer<typeof dealOrderItemSchema>;
