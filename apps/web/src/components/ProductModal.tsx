@@ -201,7 +201,7 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
                     isOpen={openSection === sectionKey}
                     onToggle={() => setOpenSection(openSection === sectionKey ? null : sectionKey)}
                   >
-                    <div className="grid grid-cols-2 gap-2 py-2">
+                    <div className="grid grid-cols-1 gap-2 py-2">
                       {g.options.map((opt) => {
                         const optPrice = effectivePrice(opt.priceAdjustment, opt.discountPriceAdjustment);
                         return (
