@@ -1,5 +1,7 @@
 "use client";
 
+import { createPortal } from "react-dom";
+
 import { useEffect, useMemo, useState } from "react";
 import { formatPaisa } from "@restaurant/utils";
 import { resolveChoiceGroupRules, autoSelectSingleOption } from "@restaurant/utils";
@@ -190,9 +192,18 @@ export function DealModal({ deal, onClose }: { deal: Deal; onClose: () => void }
     onClose();
   }
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center sm:p-4">
-      <div className="relative flex h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl bg-surface sm:flex-row sm:rounded-2xl">
+  // Stop the page behind the sheet from scrolling while it is open.
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
+  return createPortal(
+    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/70 sm:items-center sm:p-4">
+      <div className="relative flex h-[90dvh] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl bg-surface sm:flex-row sm:rounded-2xl">
         <button
           onClick={onClose}
           aria-label="Close"
@@ -373,6 +384,7 @@ export function DealModal({ deal, onClose }: { deal: Deal; onClose: () => void }
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

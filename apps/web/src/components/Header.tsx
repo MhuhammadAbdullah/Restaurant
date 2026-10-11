@@ -69,7 +69,19 @@ export function Header() {
         {/* awning scallops along the top edge: equal-size red and white half-dots side by side */}
         <div
           aria-hidden="true"
-          className="h-6 w-full"
+          className="h-2.5 w-full sm:hidden"
+          style={{
+            backgroundImage: [
+              "radial-gradient(circle at 25% 0, #ED2320 0 5.5px, transparent 6px)",
+              "radial-gradient(circle at 75% 0, #ffffff 0 5.5px, rgba(0,0,0,0.18) 6px, transparent 8px)",
+            ].join(", "),
+            backgroundSize: "24px 10px",
+            backgroundRepeat: "repeat-x",
+          }}
+        />
+        <div
+          aria-hidden="true"
+          className="hidden h-6 w-full sm:block"
           style={{
             backgroundImage: [
               "radial-gradient(circle at 25% 0, #ED2320 0 14.5px, transparent 15px)",
@@ -79,22 +91,22 @@ export function Header() {
             backgroundRepeat: "repeat-x",
           }}
         />
-        <div className="mx-auto max-w-7xl px-3 pb-4 pt-7 sm:px-8 sm:pb-6 sm:pt-10">
+        <div className="mx-auto max-w-7xl px-3 pb-2 pt-4 sm:px-8 sm:pb-6 sm:pt-10">
           <div className="relative flex h-14 items-center justify-between gap-2 sm:h-16 sm:rounded-full sm:bg-surface-alt sm:px-8">
             <div className="flex min-w-0 items-center gap-2 sm:gap-4">
               {branch && (
                 <button
                   onClick={openChangeModal}
-                  className="flex min-w-0 items-center gap-1.5 rounded-xl border border-line bg-surface px-2 py-1.5 text-left text-ink transition hover:bg-surface-alt sm:gap-2 sm:px-2.5 sm:py-1.5"
+                  className="flex min-w-0 items-center gap-1 rounded-lg border border-line bg-surface px-1.5 py-[3px] text-left text-ink transition hover:bg-surface-alt sm:gap-2 sm:px-2.5 sm:py-1.5"
                 >
-                  <PinSolidIcon size={20} className="shrink-0 text-brand-red sm:hidden" />
+                  <PinSolidIcon size={13} className="shrink-0 text-brand-red sm:hidden" />
                   <PinSolidIcon size={22} className="hidden shrink-0 text-brand-red sm:block" />
                   <span className="flex min-w-0 flex-col leading-tight">
-                    <span className="flex items-center gap-1 text-xs font-semibold sm:text-sm">
+                    <span className="flex items-center gap-0.5 text-[10px] font-semibold sm:gap-1 sm:text-sm">
                       <span className="whitespace-nowrap">Change Location</span>
-                      <ChevronDownIcon size={12} className="ml-auto shrink-0 text-brand-red sm:size-[14px]" />
+                      <ChevronDownIcon size={8} className="ml-auto shrink-0 text-brand-red sm:size-[14px]" />
                     </span>
-                    <span className="max-w-[110px] truncate text-[10px] text-muted sm:max-w-[200px] sm:text-[11px]">{locationSubtitle}</span>
+                    <span className="max-w-[66px] truncate text-[9px] text-muted sm:max-w-[200px] sm:text-[11px]">{locationSubtitle}</span>
                   </span>
                 </button>
               )}
@@ -106,23 +118,23 @@ export function Header() {
 
             <Link
               href="/"
-              className="flex min-w-0 flex-1 items-center justify-center sm:absolute sm:left-1/2 sm:top-1/2 sm:flex-none sm:-translate-x-1/2 sm:-translate-y-1/2"
+              className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center"
             >
               {restaurantLoading ? (
-                <Skeleton className="h-12 w-20 rounded-md sm:h-24 sm:w-40" />
+                <Skeleton className="h-12 w-24 rounded-md sm:h-24 sm:w-40" />
               ) : restaurant?.logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={restaurant.logoUrl}
                   alt={restaurant.name}
-                  className="h-14 w-auto max-w-full object-contain sm:h-[7.5rem] sm:max-w-[40vw]"
+                  className="h-[4.5rem] w-auto max-w-[40vw] object-contain sm:h-[7.5rem] sm:max-w-[40vw]"
                 />
               ) : (
                 <span className="font-display text-xl text-brand-red sm:text-2xl">{restaurant?.name}</span>
               )}
             </Link>
 
-            <div className="flex shrink-0 items-center gap-2 sm:gap-4">
+            <div className="relative z-10 flex shrink-0 items-center gap-1.5 sm:gap-4">
               <div className="sm:hidden">
                 <ContactPopover variant="pill" triggerClassName="flex items-center gap-2.5 text-ink" />
               </div>
@@ -139,14 +151,18 @@ export function Header() {
                 </span>
               </Link>
               <span aria-hidden="true" className="hidden h-7 w-px bg-line lg:block" />
-              {customer && <CustomerNotificationBell />}
+              {customer && (
+                <div className="hidden sm:block">
+                  <CustomerNotificationBell />
+                </div>
+              )}
               {header.showCartIcon && (
                 <button onClick={openCart} className="relative" aria-label="Open cart">
                   {/* The glyph is a white PNG, so tint it via a mask: brand red in both light and dark mode. */}
                   <span
                     role="img"
                     aria-label="Cart"
-                    className="block h-9 w-9 bg-brand-red"
+                    className="block h-7 w-7 bg-brand-red sm:h-9 sm:w-9"
                     style={{
                       WebkitMask: `url(${CART_ICON_URL}) center / contain no-repeat`,
                       mask: `url(${CART_ICON_URL}) center / contain no-repeat`,
@@ -160,10 +176,10 @@ export function Header() {
               {header.showHamburgerIcon && (
                 <button
                   onClick={() => setMenuOpen(true)}
-                  className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-red/10 text-brand-red"
+                  className="flex h-7 w-7 items-center justify-center rounded-md bg-brand-red/10 text-brand-red sm:h-9 sm:w-9 sm:rounded-lg"
                   aria-label="Open menu"
                 >
-                  <FaBars size={18} />
+                  <FaBars size={15} className="sm:!h-[18px] sm:!w-[18px]" />
                 </button>
               )}
             </div>

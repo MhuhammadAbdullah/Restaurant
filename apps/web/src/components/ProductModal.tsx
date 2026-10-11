@@ -1,6 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
+
+import { useEffect, useMemo, useState } from "react";
 import { formatPaisa } from "@restaurant/utils";
 import { effectivePrice, resolveChoiceGroupRules, autoSelectSingleOption } from "@restaurant/utils";
 import type { Product } from "../lib/types";
@@ -132,15 +134,25 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
     }
   }
 
+  // Stop the page behind the sheet from scrolling while it is open.
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
   const glowButton =
     "flex h-11 w-11 items-center justify-center rounded-full bg-brand-red text-white shadow-[0_0_16px_rgba(237,35,32,0.55)] transition hover:opacity-90";
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center sm:p-4">
-      <div className="relative flex h-[90vh] w-full max-w-4xl flex-col overflow-y-auto rounded-t-3xl bg-surface sm:h-auto sm:max-h-[85vh] sm:flex-row sm:overflow-hidden sm:rounded-3xl">
-        {/* On mobile the whole sheet scrolls; this zero-height sticky row keeps share/close reachable while scrolling. */}
-        <div className="sticky top-0 z-20 h-0 shrink-0 sm:static sm:h-auto">
-          <div className="absolute right-4 top-4 z-10 flex gap-3">
+  // Portalled to <body> and above the floating search / cart buttons, so nothing from the page shows through the sheet.
+  return createPortal(
+    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/70 sm:items-center sm:p-4">
+      <div className="relative flex h-[90dvh] max-h-[90dvh] w-full max-w-4xl flex-col overflow-hidden rounded-t-3xl bg-surface sm:h-auto sm:max-h-[85vh] sm:flex-row sm:rounded-3xl">
+        {/* Share / close stay pinned to the top corner while the content scrolls. */}
+        <div className="absolute right-4 top-4 z-20">
+          <div className="flex gap-3">
             <button onClick={handleShare} aria-label="Share" className={glowButton}>
               <FaShareNodes size={16} />
             </button>
@@ -150,6 +162,7 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
           </div>
         </div>
 
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto sm:contents">
         <div className="relative h-72 w-full shrink-0 overflow-hidden bg-surface-alt sm:aspect-square sm:h-auto sm:w-[45%] sm:self-start">
           {/* blurred copy of the photo fills the panel so the sharp, uncropped image below never leaves bare bars */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -162,7 +175,7 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
           </h2>
         </div>
 
-        <div className="flex flex-1 flex-col sm:overflow-y-auto">
+        <div className="flex flex-col sm:flex-1 sm:overflow-y-auto">
           <div className="p-6 sm:p-8">
             <p className="pr-28 font-poppins text-3xl font-bold text-ink sm:text-4xl">
               {product.discountPrice != null && <span className="mr-2 text-xl font-normal text-muted line-through">{formatPaisa(product.basePrice)}</span>}
@@ -283,13 +296,13 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
             </div>
           </div>
 
-          <div className="sticky bottom-0 mt-auto flex items-center gap-4 bg-surface p-4 sm:px-8 sm:py-5">
-            <div className="flex items-center gap-3 rounded-full border border-brand-red/25 bg-brand-red/10 p-1">
+          <div className="sticky bottom-0 mt-auto hidden items-center gap-4 bg-surface p-4 sm:flex sm:px-8 sm:py-5">
+            <div className="flex shrink-0 items-center gap-1.5 rounded-full border border-brand-red/25 bg-brand-red/10 p-1 sm:gap-3">
               {quantity > 1 ? (
                 <button
                   onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                   aria-label="Decrease quantity"
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-surface text-brand-red"
+                  className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-surface text-brand-red"
                 >
                   <MinusIcon size={14} />
                 </button>
@@ -297,16 +310,16 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
                 <button
                   onClick={onClose}
                   aria-label="Discard item"
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-red/15 text-brand-red"
+                  className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-brand-red/15 text-brand-red"
                 >
                   <TrashIcon size={14} />
                 </button>
               )}
-              <span className="w-6 text-center text-sm font-semibold text-ink">{quantity}</span>
+              <span className="w-5 text-center text-sm font-semibold text-ink sm:w-6">{quantity}</span>
               <button
                 onClick={() => setQuantity((q) => q + 1)}
                 aria-label="Increase quantity"
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-red text-white"
+                className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-brand-red text-white"
               >
                 <PlusIcon size={14} />
               </button>
@@ -314,7 +327,7 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
             <button
               onClick={handleAdd}
               disabled={!isValid}
-              className="relative flex flex-1 items-center justify-center gap-4 overflow-hidden rounded-2xl bg-brand-red px-5 py-4 font-poppins text-[15px] font-bold leading-[16px] text-white shadow-[0_6px_20px_rgba(237,35,32,0.4)] disabled:opacity-50"
+              className="relative flex min-w-0 flex-1 items-center justify-center gap-2.5 overflow-hidden whitespace-nowrap rounded-2xl bg-brand-red px-3 py-3.5 font-poppins text-[13px] font-bold leading-[16px] text-white sm:gap-4 sm:px-5 sm:py-4 sm:text-[15px] shadow-[0_6px_20px_rgba(237,35,32,0.4)] disabled:opacity-50"
             >
               {isValid && (
                 <span className="pointer-events-none absolute inset-y-0 left-0 w-1/3 -translate-x-full animate-cart-shine bg-gradient-to-r from-transparent via-white/40 to-transparent" />
@@ -327,7 +340,52 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
             </button>
           </div>
         </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-2.5 border-t border-line bg-surface px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:hidden">
+            <div className="flex shrink-0 items-center gap-1.5 rounded-full border border-brand-red/25 bg-brand-red/10 p-1 sm:gap-3">
+              {quantity > 1 ? (
+                <button
+                  onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                  aria-label="Decrease quantity"
+                  className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-surface text-brand-red"
+                >
+                  <MinusIcon size={14} />
+                </button>
+              ) : (
+                <button
+                  onClick={onClose}
+                  aria-label="Discard item"
+                  className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-brand-red/15 text-brand-red"
+                >
+                  <TrashIcon size={14} />
+                </button>
+              )}
+              <span className="w-5 text-center text-sm font-semibold text-ink sm:w-6">{quantity}</span>
+              <button
+                onClick={() => setQuantity((q) => q + 1)}
+                aria-label="Increase quantity"
+                className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-brand-red text-white"
+              >
+                <PlusIcon size={14} />
+              </button>
+            </div>
+            <button
+              onClick={handleAdd}
+              disabled={!isValid}
+              className="relative flex min-w-0 flex-1 items-center justify-center gap-2.5 overflow-hidden whitespace-nowrap rounded-2xl bg-brand-red px-3 py-3.5 font-poppins text-[13px] font-bold leading-[16px] text-white sm:gap-4 sm:px-5 sm:py-4 sm:text-[15px] shadow-[0_6px_20px_rgba(237,35,32,0.4)] disabled:opacity-50"
+            >
+              {isValid && (
+                <span className="pointer-events-none absolute inset-y-0 left-0 w-1/3 -translate-x-full animate-cart-shine bg-gradient-to-r from-transparent via-white/40 to-transparent" />
+              )}
+              <span>{formatPaisa(unitPrice * quantity)}</span>
+              <span aria-hidden="true" className="h-4 w-px bg-white/70" />
+              <span className="flex items-center gap-2">
+                Add to Cart <ArrowRightIcon size={14} className="animate-ride" />
+              </span>
+            </button>
+        </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
