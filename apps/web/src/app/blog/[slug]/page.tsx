@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { FaArrowLeft, FaArrowRight, FaRegClock } from "react-icons/fa6";
-import { BlogCard } from "../../../components/BlogCard";
+import { BlogRelated } from "../../../components/BlogRelated";
 import { BlogShare } from "../../../components/BlogShare";
 import { MarkdownContent } from "../../../components/MarkdownContent";
 import { DEFAULT_AUTHOR_IMAGE, blogByline, blogImage, getBlogPost, type BlogSummary } from "../../../lib/blog";
@@ -112,16 +112,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
         <NeighbourCard post={next ?? post} direction="next" disabled={!next} />
       </div>
 
-      {related.length > 0 && (
-        <section className="mx-auto mt-14 w-full max-w-5xl px-4 sm:px-6">
-          <h2 className="text-xl font-extrabold text-ink">Related posts</h2>
-          <div className="mt-6 grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
-            {related.map((r) => (
-              <BlogCard key={r.id} post={r} compact />
-            ))}
-          </div>
-        </section>
-      )}
+      {related.length > 0 && <BlogRelated posts={related} />}
     </main>
   );
 }

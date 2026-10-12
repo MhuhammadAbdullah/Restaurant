@@ -68,10 +68,10 @@ export class BlogService {
     const [newer, older, others] = await Promise.all([
       this.prisma.blogPost.findFirst({ where: { ...where, id: { not: post.id }, publishedAt: { gt: when } }, orderBy: { publishedAt: "asc" }, select: SUMMARY_SELECT }),
       this.prisma.blogPost.findFirst({ where: { ...where, id: { not: post.id }, publishedAt: { lt: when } }, orderBy: { publishedAt: "desc" }, select: SUMMARY_SELECT }),
-      this.prisma.blogPost.findMany({ where: { ...where, id: { not: post.id } }, orderBy: [{ publishedAt: "desc" }], take: 12, select: SUMMARY_SELECT }),
+      this.prisma.blogPost.findMany({ where: { ...where, id: { not: post.id } }, orderBy: [{ publishedAt: "desc" }], take: 30, select: SUMMARY_SELECT }),
     ]);
     // Related: the same category first, then the newest others.
-    const related = [...others.filter((o) => o.category && o.category === post.category), ...others.filter((o) => !o.category || o.category !== post.category)].slice(0, 3);
+    const related = [...others.filter((o) => o.category && o.category === post.category), ...others.filter((o) => !o.category || o.category !== post.category)].slice(0, 12);
     return {
       post: { ...this.summary(post), excerpt: post.excerpt, content: post.content, metaTitle: post.metaTitle, metaDescription: post.metaDescription, updatedAt: post.updatedAt },
       // As on the blog list (newest first): "previous" is the post above this one, "next" the one below it.
