@@ -10,7 +10,7 @@ import type { Deal, DealSlot } from "../lib/types";
 import { groupAddonsByCategory, type AddonCategory } from "../lib/types";
 import { useCartStore, makeCartItemId } from "../store/useCartStore";
 import { useFallbackProductImage } from "../lib/image";
-import { ArrowRightIcon, CloseIcon, MinusIcon, PlusIcon } from "./icons";
+import { ArrowRightIcon, CloseIcon, MinusIcon, PlusIcon, TrashIcon } from "./icons";
 import { ChoiceOptionCard } from "./ChoiceOptionCard";
 import { useLocationStore } from "../store/useLocationStore";
 import { isOptionUnavailableAt } from "../lib/outOfStock";
@@ -206,30 +206,80 @@ export function DealModal({ deal, onClose }: { deal: Deal; onClose: () => void }
     };
   }, []);
 
+  const footerBar = (
+    <>
+      <div className="flex shrink-0 items-center gap-1.5 rounded-full border border-brand-red/25 bg-brand-red/10 p-1 sm:gap-3">
+        {quantity > 1 ? (
+          <button onClick={() => setQuantity((q) => Math.max(1, q - 1))} aria-label="Decrease quantity" className="flex h-8 w-8 items-center justify-center rounded-full bg-surface text-brand-red sm:h-9 sm:w-9">
+            <MinusIcon size={14} />
+          </button>
+        ) : (
+          <button onClick={onClose} aria-label="Discard item" className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-red/15 text-brand-red sm:h-9 sm:w-9">
+            <TrashIcon size={14} />
+          </button>
+        )}
+        <span className="w-5 text-center text-sm font-semibold text-ink sm:w-6">{quantity}</span>
+        <button onClick={() => setQuantity((q) => q + 1)} aria-label="Increase quantity" className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-red text-white sm:h-9 sm:w-9">
+          <PlusIcon size={14} />
+        </button>
+      </div>
+      <button
+        onClick={handleAdd}
+        disabled={!preview}
+        className="relative flex min-w-0 flex-1 items-center justify-center gap-2.5 overflow-hidden whitespace-nowrap rounded-2xl bg-brand-red px-3 py-3.5 font-poppins text-[13px] font-bold leading-[16px] text-white shadow-[0_6px_20px_rgba(237,35,32,0.4)] disabled:opacity-50 sm:gap-4 sm:px-5 sm:py-4 sm:text-[15px]"
+      >
+        {preview ? (
+          <>
+            <span className="pointer-events-none absolute inset-y-0 left-0 w-1/3 -translate-x-full animate-cart-shine bg-gradient-to-r from-transparent via-white/40 to-transparent" />
+            <span>{formatPaisa(preview.dealPrice * quantity)}</span>
+            <span aria-hidden="true" className="h-4 w-px bg-white/70" />
+            <span className="flex items-center gap-2">
+              Add to Cart <ArrowRightIcon size={14} className="animate-ride" />
+            </span>
+          </>
+        ) : (
+          <span>Select Required Options</span>
+        )}
+      </button>
+    </>
+  );
+
   return createPortal(
     <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/70 sm:items-center sm:p-4">
-      <div className="relative flex h-[90dvh] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl bg-surface sm:flex-row sm:rounded-2xl">
+      <div className="relative flex h-[90dvh] max-h-[90dvh] w-full max-w-4xl flex-col overflow-hidden rounded-t-3xl bg-surface sm:h-auto sm:max-h-[85vh] sm:flex-row sm:rounded-3xl">
         <button
           onClick={onClose}
           aria-label="Close"
-          className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-brand-red text-white shadow"
+          className="absolute right-4 top-4 z-20 flex h-11 w-11 items-center justify-center rounded-full bg-brand-red text-white shadow-[0_0_16px_rgba(237,35,32,0.55)] transition hover:opacity-90"
         >
-          <CloseIcon size={16} />
+          <CloseIcon size={18} />
         </button>
 
-        <div className="h-80 w-full shrink-0 bg-white p-2 sm:w-2/5 sm:self-start">
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto sm:contents">
+        <div className="relative w-full shrink-0 overflow-hidden bg-surface-alt sm:w-[45%] sm:self-stretch">
+          {/* soft blurred copy of the photo only shows below the square picture when the popup is taller than it */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={deal.image ?? fallbackImage} alt={deal.name} className="h-full w-full rounded-lg object-contain" />
+          <img src={deal.image ?? fallbackImage} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full scale-110 object-cover opacity-70 blur-2xl" />
+          {/* a square picture that fills the panel width, with the same gentle zoom the menu cards have */}
+          <div className="group relative aspect-square w-full overflow-hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={deal.image ?? fallbackImage}
+              alt={deal.name}
+              className="absolute inset-0 h-full w-full scale-[1.04] object-cover transition-transform duration-500 ease-out group-hover:scale-110"
+            />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/80 to-transparent" />
+            <h2 className="absolute inset-x-0 bottom-0 p-5 font-poppins text-2xl font-bold uppercase leading-tight text-white sm:p-6 sm:text-3xl">{deal.name}</h2>
+          </div>
         </div>
 
-        <div className="flex flex-1 flex-col overflow-y-auto">
-          <div className="p-5">
-            <h2 className="text-xl font-semibold text-ink">{deal.name}</h2>
-            <p className="mt-1 font-semibold">
-              {deal.originalPrice != null && <span className="mr-1.5 text-muted line-through">{formatPaisa(deal.originalPrice)}</span>}
-              <span className="text-brand-red">{formatPaisa(deal.dealPrice)}</span>
+        <div className="flex flex-col sm:flex-1 sm:overflow-y-auto">
+          <div className="p-6 sm:p-8">
+            <p className="pr-14 font-poppins text-3xl font-bold text-ink sm:text-4xl">
+              {deal.originalPrice != null && <span className="mr-2 text-xl font-normal text-muted line-through">{formatPaisa(deal.originalPrice)}</span>}
+              {formatPaisa(deal.dealPrice)}
             </p>
-            {deal.description && <p className="mt-2 text-sm text-muted">{deal.description}</p>}
+            {deal.description && <p className="mt-3 text-[15px] leading-relaxed text-muted">{deal.description}</p>}
 
             <div className="mt-5 space-y-3">
               {sections.map((section) => {
@@ -351,43 +401,10 @@ export function DealModal({ deal, onClose }: { deal: Deal; onClose: () => void }
             </div>
           </div>
 
-          <div className="sticky bottom-0 mt-auto flex items-center gap-3 border-t bg-surface p-4">
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                aria-label="Decrease quantity"
-                className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-alt text-ink"
-              >
-                <MinusIcon size={14} />
-              </button>
-              <span className="w-5 text-center">{quantity}</span>
-              <button
-                onClick={() => setQuantity((q) => q + 1)}
-                aria-label="Increase quantity"
-                className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-red text-white"
-              >
-                <PlusIcon size={14} />
-              </button>
-            </div>
-            <button
-              onClick={handleAdd}
-              disabled={!preview}
-              className="relative flex flex-1 items-center justify-between overflow-hidden rounded-lg bg-brand-red px-5 py-3 font-poppins text-[14px] font-bold leading-[14px] text-white disabled:opacity-50"
-            >
-              {preview ? (
-                <>
-                  <span className="pointer-events-none absolute inset-y-0 left-0 w-1/3 -translate-x-full animate-cart-shine bg-gradient-to-r from-transparent via-white/40 to-transparent" />
-                  <span>{formatPaisa(preview.dealPrice * quantity)}</span>
-                  <span className="flex items-center gap-1.5">
-                    Add to Cart <ArrowRightIcon size={12} className="animate-ride" />
-                  </span>
-                </>
-              ) : (
-                <span className="mx-auto">Select Required Options</span>
-              )}
-            </button>
-          </div>
+          <div className="sticky bottom-0 mt-auto hidden items-center gap-4 bg-surface p-4 sm:flex sm:px-8 sm:py-5">{footerBar}</div>
         </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-2.5 border-t border-line bg-surface px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:hidden">{footerBar}</div>
       </div>
     </div>,
     document.body,
