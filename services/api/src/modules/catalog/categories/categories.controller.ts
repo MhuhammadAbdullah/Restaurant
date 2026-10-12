@@ -30,6 +30,14 @@ export class CategoriesController {
     return { success: true, data };
   }
 
+  @UseGuards(StaffJwtAuthGuard, PermissionsGuard)
+  @RequirePermission("categories.view")
+  @Get("admin/all")
+  async listAll() {
+    const data = await this.categories.listAll();
+    return { success: true, data };
+  }
+
   @Public()
   @Get(":id")
   async findOne(@Param("id") id: string) {

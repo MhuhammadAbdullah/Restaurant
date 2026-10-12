@@ -1,6 +1,8 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
 import {
   choiceGroupsReorderSchema,
+  setBranchAvailabilitySchema,
+  type SetBranchAvailabilityInput,
   createChoiceGroupSchema,
   updateChoiceGroupSchema,
   type ChoiceGroupsReorderInput,
@@ -10,6 +12,7 @@ import {
 import { ZodValidationPipe } from "../../../common/pipes/zod-validation.pipe";
 import { StaffJwtAuthGuard } from "../../auth/guards/staff-jwt-auth.guard";
 import { PermissionsGuard } from "../../auth/guards/permissions.guard";
+import { BranchScopeGuard } from "../../auth/guards/branch-scope.guard";
 import { RequirePermission } from "../../auth/decorators/require-permission.decorator";
 import { Public } from "../../auth/decorators/public.decorator";
 import { ChoiceGroupsService } from "./choice-groups.service";
@@ -44,6 +47,14 @@ export class ChoiceGroupsController {
   @Patch("reorder")
   async reorder(@Body(new ZodValidationPipe(choiceGroupsReorderSchema)) body: ChoiceGroupsReorderInput) {
     const data = await this.choiceGroups.reorder(body.orderedIds);
+    return { success: true, data };
+  }
+
+  @UseGuards(BranchScopeGuard)
+  @RequirePermission("choiceGroups.edit")
+  @Patch("options/:optionId/stock")
+  async setOptionStock(@Param("optionId") optionId: string, @Body(new ZodValidationPipe(setBranchAvailabilitySchema)) body: SetBranchAvailabilityInput) {
+    const data = await this.choiceGroups.setOptionStock(optionId, body.branchId, body.isAvailable);
     return { success: true, data };
   }
 

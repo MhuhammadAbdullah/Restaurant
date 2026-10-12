@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { effectivePrice, resolveChoiceGroupRules, autoSelectSingleOption } from "@restaurant/utils";
+import { effectivePrice, resolveChoiceGroupRules, autoSelectSingleOption, choiceOptionAdjustment } from "@restaurant/utils";
 import { formatPaisa } from "@restaurant/utils";
 import { CloseIcon } from "../icons";
 
@@ -18,11 +18,12 @@ export type ProductDetail = {
     choiceGroup: {
       id: string;
       name: string;
+      priceReplacesBase?: boolean;
       isRequired: boolean;
       selectionType: "SINGLE" | "MULTIPLE";
       minSelect: number;
       maxSelect: number;
-      options: { id: string; name: string; priceAdjustment: number; discountPriceAdjustment: number | null; status: string }[];
+      options: { id: string; name: string; priceAdjustment: number; discountPriceAdjustment: number | null; useListingPrice?: boolean; status: string }[];
     };
   }[];
   addons: {
@@ -107,11 +108,11 @@ export function ProductConfigModal({
           choiceGroupId: choiceGroup.id,
           choiceOptionId: opt.id,
           name: opt.name,
-          priceAdjustment: effectivePrice(opt.priceAdjustment, opt.discountPriceAdjustment),
+          priceAdjustment: choiceOptionAdjustment(choiceGroup, opt, unitPrice, product.basePrice).adjustment,
         };
       }),
     );
-  }, [choices, product.choiceGroups]);
+  }, [choices, product.choiceGroups, unitPrice, product.basePrice]);
 
   const addonBreakdown = useMemo(() => {
     return product.addons
@@ -179,7 +180,7 @@ export function ProductConfigModal({
                       >
                         <span>{opt.name}</span>
                         <span className="flex items-center gap-2">
-                          {opt.priceAdjustment > 0 && <span className="text-xs text-neutral-500">+{formatPaisa(effectivePrice(opt.priceAdjustment, opt.discountPriceAdjustment))}</span>}
+                          {opt.priceAdjustment > 0 && !opt.useListingPrice && <span className="text-xs text-neutral-500">{choiceGroup.priceReplacesBase ? "" : "+"}{formatPaisa(effectivePrice(opt.priceAdjustment, opt.discountPriceAdjustment))}</span>}
                           <input
                             type={rules.selectionType === "SINGLE" ? "radio" : "checkbox"}
                             name={choiceGroupId}

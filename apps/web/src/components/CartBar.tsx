@@ -6,13 +6,17 @@ import { useCartStore } from "../store/useCartStore";
 import { useCartDrawerStore } from "../store/useCartDrawerStore";
 import { cartItemLineTotal } from "../lib/types";
 import { ArrowRightIcon } from "./icons";
+import { useCartAvailability } from "../lib/outOfStock";
 
 export function CartBar() {
   const items = useCartStore((s) => s.items);
   const openCart = useCartDrawerStore((s) => s.open);
   const pathname = usePathname();
-  const count = items.reduce((s, i) => s + i.quantity, 0);
-  const total = items.reduce((s, i) => s + cartItemLineTotal(i), 0);
+  const { reasonFor } = useCartAvailability();
+  // Sold-out lines are not counted or charged.
+  const orderable = items.filter((i) => !reasonFor(i));
+  const count = orderable.reduce((s, i) => s + i.quantity, 0);
+  const total = orderable.reduce((s, i) => s + cartItemLineTotal(i), 0);
 
   if (count === 0 || pathname === "/checkout" || pathname.startsWith("/account") || pathname.startsWith("/complaints") || pathname.startsWith("/our-locations") || ["/terms", "/privacy-policy", "/faqs"].includes(pathname)) return null;
 

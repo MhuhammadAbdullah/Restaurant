@@ -56,7 +56,7 @@ export function useSeo() {
 }
 
 export function useCategoryPages() {
-  const { data } = useQuery({ queryKey: ["admin-categories"], queryFn: () => api.get<{ id: string; name: string; status: string; description: string | null; image: string | null }[]>("/catalog/categories") });
+  const { data } = useQuery({ queryKey: ["admin-categories"], queryFn: () => api.get<{ id: string; name: string; status: string; description: string | null; image: string | null }[]>("/catalog/categories/admin/all") });
   return (data ?? []).filter((c) => c.status === "ACTIVE").map((c) => ({ key: `category:${slugify(c.name)}`, label: c.name, path: `/category/${slugify(c.name)}`, hint: "Category page.", description: c.description, image: c.image }));
 }
 

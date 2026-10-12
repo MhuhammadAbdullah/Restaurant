@@ -5,10 +5,12 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { ChevronDownIcon } from "./icons";
 import { optimizeImage } from "../lib/image";
+import { MarkdownContent } from "./MarkdownContent";
 
 type RestaurantInfo = {
   appPromo: {
     bannerImage: string | null;
+    showOnCategoryPages?: boolean;
   };
   aboutContent: {
     enabled: boolean;
@@ -27,51 +29,53 @@ function AppPromoBanner({ bannerImage }: { bannerImage: string }) {
   );
 }
 
+/** Text length without the formatting marks, so "Show more" depends on what people actually read. */
+function plainLength(markdown: string): number {
+  return markdown
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/[*_`~#>]/g, "")
+    .trim().length;
+}
+
 function AboutTextSection({ about }: { about: RestaurantInfo["aboutContent"] }) {
   const [open, setOpen] = useState(false);
-  const needsTruncation = about.paragraph.length > about.truncateLength;
-
-  const preview = needsTruncation ? about.paragraph.slice(0, about.truncateLength).trimEnd() + "…" : about.paragraph;
-  const paragraphs = about.paragraph.split(/\n{2,}/).filter(Boolean);
+  const needsTruncation = plainLength(about.paragraph) > about.truncateLength;
+  // About 95 characters fit on a line, so the collapsed height follows the admin's character limit.
+  const collapsedRem = Math.max(2, Math.ceil(about.truncateLength / 95)) * 1.75;
 
   return (
-    <section className="mx-auto mt-14 max-w-4xl px-4 text-center sm:px-8">
-      {about.heading && <h2 className="text-xl font-bold text-ink sm:text-2xl">{about.heading}</h2>}
+    <section className="mx-auto mt-14 max-w-7xl px-4 sm:px-8">
+      <div className="text-left">
+        {about.heading && <h2 className="text-xl font-bold text-ink sm:text-2xl">{about.heading}</h2>}
 
-      <div className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
-        <div className="overflow-hidden">
-          <div className="mt-4 space-y-4 text-sm leading-relaxed text-muted">
-            {paragraphs.map((p, i) => (
-              <p key={i}>{p}</p>
-            ))}
-          </div>
+        <div className="relative overflow-hidden" style={!open && needsTruncation ? { maxHeight: `${collapsedRem}rem` } : undefined}>
+          <MarkdownContent content={about.paragraph} />
+          {!open && needsTruncation && <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-page to-transparent" />}
         </div>
+
+        {needsTruncation && (
+          <button type="button" onClick={() => setOpen((v) => !v)} className="mt-3 flex items-center gap-1 text-sm font-semibold text-muted hover:opacity-80">
+            {open ? "Show Less" : "Show More"}
+            <ChevronDownIcon size={16} className={`transition-transform duration-300 ${open ? "rotate-180" : ""}`} />
+          </button>
+        )}
       </div>
-
-      {!open && <p className="mt-4 text-sm leading-relaxed text-muted">{preview}</p>}
-
-      {needsTruncation && (
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          className="mx-auto mt-3 flex items-center gap-1 text-sm font-semibold text-muted hover:opacity-80"
-        >
-          {open ? "Show Less" : "Show More"}
-          <ChevronDownIcon size={16} className={`transition-transform duration-300 ${open ? "rotate-180" : ""}`} />
-        </button>
-      )}
     </section>
   );
 }
 
 /** Renders just above the footer on the homepage. The promo banner shows only once an image is uploaded; the about section is independently admin-toggleable. */
-export function HomeFooterPromo() {
+export function HomeFooterPromo({ variant = "home" }: { variant?: "home" | "category" } = {}) {
   const { data: restaurant } = useQuery({
     queryKey: ["cms-restaurant-home-footer-promo"],
     queryFn: () => api.public.get<RestaurantInfo>("/cms/restaurant"),
   });
 
   if (!restaurant) return null;
+
+  // Category pages repeat the same banner and About text as the homepage, unless the admin switched that off.
+  if (variant === "category" && restaurant.appPromo.showOnCategoryPages === false) return null;
 
   return (
     <>

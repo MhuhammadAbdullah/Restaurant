@@ -12,6 +12,8 @@ import { useCartStore, makeCartItemId } from "../store/useCartStore";
 import { useFallbackProductImage } from "../lib/image";
 import { ArrowRightIcon, CloseIcon, MinusIcon, PlusIcon } from "./icons";
 import { ChoiceOptionCard } from "./ChoiceOptionCard";
+import { useLocationStore } from "../store/useLocationStore";
+import { isOptionUnavailableAt } from "../lib/outOfStock";
 import { AccordionSection } from "./AccordionSection";
 import { toast } from "../store/useToastStore";
 
@@ -64,7 +66,7 @@ function buildInitialSelections(deal: Deal): Record<string, SlotSelection> {
   for (const slot of deal.slots) {
     const choices: Record<string, string[]> = {};
     for (const { choiceGroupId, choiceGroup } of slot.choiceGroups) {
-      const auto = autoSelectSingleOption(choiceGroup.options);
+      const auto = autoSelectSingleOption(choiceGroup.options.filter((o) => !isOptionUnavailableAt(o, useLocationStore.getState().branch?.id)));
       if (auto.length > 0) choices[choiceGroupId] = auto;
     }
     // Only pre-fill the product when there's a single option (nothing to actually choose) —
@@ -150,6 +152,8 @@ export function DealModal({ deal, onClose }: { deal: Deal; onClose: () => void }
   }
 
   function toggleChoice(slotId: string, group: { id: string; selectionType: string; maxSelect: number }, optionId: string) {
+    const unavailable = deal.slots.some((sl) => sl.choiceGroups.some((cg) => cg.choiceGroup.options.some((o) => o.id === optionId && isOptionUnavailableAt(o, useLocationStore.getState().branch?.id))));
+    if (unavailable) return; // out of stock at this branch
     setSelections((prev) => {
       const sel = prev[slotId]!;
       const current = sel.choices[group.id] ?? [];
@@ -279,8 +283,9 @@ export function DealModal({ deal, onClose }: { deal: Deal; onClose: () => void }
                                 opt.id,
                               )
                             }
-                            priceLabel={opt.priceAdjustment > 0 ? `+ ${formatPaisa(opt.priceAdjustment)}` : undefined}
+                            priceLabel={opt.showPrice !== false && !opt.useListingPrice && opt.priceAdjustment > 0 ? `${section.choiceGroup.priceReplacesBase ? "" : "+ "}${formatPaisa(opt.priceAdjustment)}` : undefined}
                             description={opt.description}
+                            unavailable={isOptionUnavailableAt(opt, useLocationStore.getState().branch?.id)}
                           />
                         ))}
                       </div>

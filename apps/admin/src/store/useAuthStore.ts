@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import { clearTokens, setTokens } from "../lib/api";
+import { clearTokens, serverLogout, setTokens } from "../lib/api";
 import { getQueryClient } from "../lib/queryClient";
 
 type Staff = { id: string; name: string; email: string; role: string };
@@ -33,6 +33,7 @@ export const useAuthStore = create<AuthState>()(
         set({ staff });
       },
       logout: () => {
+        serverLogout();
         clearTokens();
         getQueryClient().clear();
         set({ staff: null });
@@ -42,8 +43,8 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: "restaurant_staff_auth",
-      // Session-only (cleared when the browser or tab is closed), in step with the tokens in lib/api.ts.
-      storage: createJSONStorage(() => sessionStorage),
+      // Kept on the device, in step with the tokens in lib/api.ts: the person stays signed in until they sign out.
+      storage: createJSONStorage(() => localStorage),
       // Without this flag, `staff` reads null for a beat after every hard refresh (persist
       // rehydration from localStorage is async), which sends a still-logged-in user to /login.
       onRehydrateStorage: () => (state) => {

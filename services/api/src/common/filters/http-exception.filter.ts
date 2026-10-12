@@ -25,6 +25,24 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       return;
     }
 
+    // Known database rules, reported in plain words instead of a generic failure.
+    const db = exception as { code?: string; meta?: { target?: string[] | string } };
+    if (db?.code === "P2002") {
+      const target = [db.meta?.target ?? []].flat().join(",");
+      const message = target.includes("name")
+        ? "Something with this name already exists. If you cannot see it in the list, it may be inactive or filtered out."
+        : "This value is already in use. Please choose a different one.";
+      response.status(HttpStatus.CONFLICT).json({ success: false, error: { code: "ALREADY_EXISTS", message } });
+      return;
+    }
+    if (db?.code === "P2003") {
+      response.status(HttpStatus.CONFLICT).json({
+        success: false,
+        error: { code: "IN_USE", message: "This is still used by other records. Remove or move them first." },
+      });
+      return;
+    }
+
     this.logger.error(exception instanceof Error ? exception.stack : exception);
     response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
       success: false,

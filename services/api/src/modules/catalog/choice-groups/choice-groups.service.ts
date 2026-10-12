@@ -14,7 +14,7 @@ export class ChoiceGroupsService {
     const restaurantId = await this.restaurantContext.getRestaurantId();
     return this.prisma.choiceGroup.findMany({
       where: { restaurantId },
-      include: { options: { orderBy: { sortOrder: "asc" } } },
+      include: { options: { orderBy: { sortOrder: "asc" }, include: { outOfStock: { select: { branchId: true } } } } },
       orderBy: { sortOrder: "asc" },
     });
   }
@@ -22,10 +22,29 @@ export class ChoiceGroupsService {
   async findOne(id: string) {
     const group = await this.prisma.choiceGroup.findUnique({
       where: { id },
-      include: { options: { orderBy: { sortOrder: "asc" } } },
+      include: { options: { orderBy: { sortOrder: "asc" }, include: { outOfStock: { select: { branchId: true } } } } },
     });
     if (!group) throw new NotFoundException({ code: "CHOICE_GROUP_NOT_FOUND", message: "Choice group not found" });
     return group;
+  }
+
+  /** Marks an option out of stock ("Not available") at one branch, or back in stock. */
+  async setOptionStock(optionId: string, branchId: string, isAvailable: boolean) {
+    const restaurantId = await this.restaurantContext.getRestaurantId();
+    const option = await this.prisma.choiceOption.findUnique({ where: { id: optionId }, include: { choiceGroup: { select: { restaurantId: true } } } });
+    if (!option || option.choiceGroup.restaurantId !== restaurantId) {
+      throw new NotFoundException({ code: "CHOICE_OPTION_NOT_FOUND", message: "Option not found" });
+    }
+    if (isAvailable) {
+      await this.prisma.choiceOptionOutOfStock.deleteMany({ where: { choiceOptionId: optionId, branchId } });
+    } else {
+      await this.prisma.choiceOptionOutOfStock.upsert({
+        where: { choiceOptionId_branchId: { choiceOptionId: optionId, branchId } },
+        create: { choiceOptionId: optionId, branchId },
+        update: {},
+      });
+    }
+    return { choiceOptionId: optionId, branchId, isAvailable };
   }
 
   async create(input: CreateChoiceGroupInput) {
@@ -34,6 +53,8 @@ export class ChoiceGroupsService {
       data: {
         restaurantId,
         name: input.name,
+        internalName: input.internalName || null,
+        priceReplacesBase: input.selectionType === "MULTIPLE" ? false : input.priceReplacesBase,
         description: input.description,
         isRequired: input.isRequired,
         selectionType: input.selectionType,
@@ -45,8 +66,10 @@ export class ChoiceGroupsService {
             name: o.name,
             description: o.description,
             image: o.image,
-            priceAdjustment: o.priceAdjustment,
-            discountPriceAdjustment: o.discountPriceAdjustment,
+            priceAdjustment: o.useListingPrice ? 0 : o.priceAdjustment,
+            discountPriceAdjustment: o.useListingPrice ? null : o.discountPriceAdjustment,
+            useListingPrice: o.useListingPrice,
+            showPrice: o.showPrice,
             sortOrder: o.sortOrder,
             status: o.status,
           })),
@@ -71,8 +94,10 @@ export class ChoiceGroupsService {
                 name: option.name,
                 description: option.description ?? null,
                 image: option.image,
-                priceAdjustment: option.priceAdjustment,
-                discountPriceAdjustment: option.discountPriceAdjustment,
+                priceAdjustment: option.useListingPrice ? 0 : option.priceAdjustment,
+                discountPriceAdjustment: option.useListingPrice ? null : option.discountPriceAdjustment,
+                useListingPrice: option.useListingPrice,
+                showPrice: option.showPrice,
                 sortOrder: option.sortOrder,
                 status: option.status,
               },
@@ -84,8 +109,10 @@ export class ChoiceGroupsService {
                 name: option.name,
                 description: option.description ?? null,
                 image: option.image,
-                priceAdjustment: option.priceAdjustment,
-                discountPriceAdjustment: option.discountPriceAdjustment,
+                priceAdjustment: option.useListingPrice ? 0 : option.priceAdjustment,
+                discountPriceAdjustment: option.useListingPrice ? null : option.discountPriceAdjustment,
+                useListingPrice: option.useListingPrice,
+                showPrice: option.showPrice,
                 sortOrder: option.sortOrder,
                 status: option.status,
               },
@@ -98,6 +125,8 @@ export class ChoiceGroupsService {
         where: { id },
         data: {
           name: input.name,
+          ...(input.internalName !== undefined ? { internalName: input.internalName || null } : {}),
+          ...(input.priceReplacesBase !== undefined ? { priceReplacesBase: input.selectionType === "MULTIPLE" ? false : input.priceReplacesBase } : {}),
           description: input.description,
           isRequired: input.isRequired,
           selectionType: input.selectionType,
@@ -106,7 +135,7 @@ export class ChoiceGroupsService {
           sortOrder: input.sortOrder,
           status: input.status,
         },
-        include: { options: { orderBy: { sortOrder: "asc" } } },
+        include: { options: { orderBy: { sortOrder: "asc" }, include: { outOfStock: { select: { branchId: true } } } } },
       });
     });
   }

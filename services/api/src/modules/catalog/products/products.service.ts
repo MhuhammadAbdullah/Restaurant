@@ -18,7 +18,7 @@ const PRODUCT_DETAIL_INCLUDE = {
   branchAvailability: true,
   choiceGroups: {
     include: {
-      choiceGroup: { include: { options: { where: { status: "ACTIVE" as const }, orderBy: { sortOrder: "asc" as const } } } },
+      choiceGroup: { include: { options: { where: { status: "ACTIVE" as const }, orderBy: { sortOrder: "asc" as const }, include: { outOfStock: { select: { branchId: true } } } } } },
       defaultChoiceOption: true,
     },
   },
@@ -55,7 +55,7 @@ export class ProductsService {
         showOnMainPage: query.mainPage ? true : undefined,
         name: query.search ? { contains: query.search, mode: "insensitive" } : undefined,
         ...(query.branchId
-          ? { branchAvailability: { some: { branchId: query.branchId, isAvailable: true } } }
+          ? { branchAvailability: { some: query.includeOutOfStock === "true" ? { branchId: query.branchId } : { branchId: query.branchId, isAvailable: true } } }
           : {}),
       },
       include: {
@@ -66,6 +66,67 @@ export class ProductsService {
       orderBy: query.mainPage ? { mainPageSortOrder: "asc" } : { createdAt: "desc" },
       take,
     });
+  }
+
+  /** Admin view: every product, including inactive ones (the public list() only returns active ones). */
+  async listAll() {
+    const restaurantId = await this.restaurantContext.getRestaurantId();
+    return this.prisma.product.findMany({
+      where: { restaurantId },
+      include: {
+        images: { orderBy: { sortOrder: "asc" } },
+        branchAvailability: true,
+        category: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  /**
+   * Which of these cart items can no longer be ordered at the branch: inactive/removed ones, and ones switched
+   * off ("out of stock") for this branch.
+   */
+  async cartAvailability(input: { branchId: string; productIds: string[]; dealIds: string[]; choiceOptionIds?: string[] }) {
+    const unavailable: { kind: "product" | "deal" | "choice"; id: string; reason: "INACTIVE" | "OUT_OF_STOCK" }[] = [];
+    const [products, deals] = await Promise.all([
+      input.productIds.length
+        ? this.prisma.product.findMany({
+            where: { id: { in: input.productIds } },
+            select: { id: true, status: true, branchAvailability: { where: { branchId: input.branchId }, select: { isAvailable: true } } },
+          })
+        : [],
+      input.dealIds.length
+        ? this.prisma.deal.findMany({
+            where: { id: { in: input.dealIds } },
+            select: { id: true, status: true, branchAvailability: { where: { branchId: input.branchId }, select: { isAvailable: true } } },
+          })
+        : [],
+    ]);
+    const check = (kind: "product" | "deal", ids: string[], rows: { id: string; status: string; branchAvailability: { isAvailable: boolean }[] }[]) => {
+      const byId = new Map(rows.map((r) => [r.id, r]));
+      for (const id of ids) {
+        const row = byId.get(id);
+        if (!row || row.status !== "ACTIVE") unavailable.push({ kind, id, reason: "INACTIVE" });
+        else if (!row.branchAvailability[0]?.isAvailable) unavailable.push({ kind, id, reason: "OUT_OF_STOCK" });
+      }
+    };
+    check("product", input.productIds, products);
+    check("deal", input.dealIds, deals);
+
+    const optionIds = input.choiceOptionIds ?? [];
+    if (optionIds.length) {
+      const options = await this.prisma.choiceOption.findMany({
+        where: { id: { in: optionIds } },
+        select: { id: true, status: true, outOfStock: { where: { branchId: input.branchId }, select: { branchId: true } } },
+      });
+      const byId = new Map(options.map((o) => [o.id, o]));
+      for (const id of optionIds) {
+        const o = byId.get(id);
+        if (!o || o.status !== "ACTIVE") unavailable.push({ kind: "choice", id, reason: "INACTIVE" });
+        else if (o.outOfStock.length > 0) unavailable.push({ kind: "choice", id, reason: "OUT_OF_STOCK" });
+      }
+    }
+    return { unavailable };
   }
 
   async findOne(id: string) {

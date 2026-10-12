@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 type Category = {
   id: string;
   name: string;
+  pageHeading?: string | null;
   description: string | null;
   image: string | null;
   banner: string | null;
@@ -26,6 +27,7 @@ type CategoryProduct = { id: string; name: string; showOnMainPage: boolean; main
 
 const EMPTY_FORM = {
   name: "",
+  pageHeading: "",
   description: "",
   image: "",
   banner: "",
@@ -40,7 +42,7 @@ export default function CategoriesPage() {
   const canEdit = hasPermission(me, "categories.edit");
   const canDelete = hasPermission(me, "categories.delete");
 
-  const { data: categories } = useQuery({ queryKey: ["admin-categories"], queryFn: () => api.get<Category[]>("/catalog/categories") });
+  const { data: categories } = useQuery({ queryKey: ["admin-categories"], queryFn: () => api.get<Category[]>("/catalog/categories/admin/all") });
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -75,6 +77,7 @@ export default function CategoriesPage() {
     setEditingId(c.id);
     setForm({
       name: c.name,
+      pageHeading: c.pageHeading ?? "",
       description: c.description ?? "",
       image: c.image ?? "",
       banner: c.banner ?? "",
@@ -95,7 +98,8 @@ export default function CategoriesPage() {
     try {
       const body = {
         name: form.name,
-        description: form.description || undefined,
+        pageHeading: form.pageHeading.trim(),
+        description: form.description.trim(),
         image: form.image || undefined,
         banner: form.banner || undefined,
         mainPageLimit: form.mainPageLimit.trim() ? Number(form.mainPageLimit) : null,
@@ -274,8 +278,14 @@ export default function CategoriesPage() {
                 <input placeholder="e.g. Burgers" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="input w-full" required />
               </div>
               <div>
+                <p className="mb-1 text-xs font-medium text-neutral-500">Page heading</p>
+                <input placeholder="e.g. Kababjees Fried Chicken: Redefining the fast-food experience" value={form.pageHeading} maxLength={200} onChange={(e) => setForm({ ...form, pageHeading: e.target.value })} className="input w-full" />
+                <p className="mt-1 text-xs text-neutral-400">Shown under the banner on this category&apos;s page. Leave empty to use the category name.</p>
+              </div>
+              <div>
                 <p className="mb-1 text-xs font-medium text-neutral-500">Description</p>
-                <input placeholder="Optional short description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="input w-full" />
+                <textarea placeholder="A few lines about this category. Long text is shortened with a Show More link." rows={4} maxLength={2000} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="input w-full resize-y" />
+                <p className="mt-1 text-right text-[10px] text-neutral-400">{form.description.length}/2000 · shown under the page heading</p>
               </div>
 
               <ImageUploadField label="Category Image (square, 1:1)" folder="categories" shape="square" hint="Square 1:1 · e.g. 600×600" value={form.image} onChange={(url) => setForm({ ...form, image: url })} />

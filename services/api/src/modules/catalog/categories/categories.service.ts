@@ -27,6 +27,16 @@ export class CategoriesService {
     });
   }
 
+  /** Admin view: every category, including inactive ones (the public list() only returns active ones). */
+  async listAll() {
+    const restaurantId = await this.restaurantContext.getRestaurantId();
+    return this.prisma.category.findMany({
+      where: { restaurantId },
+      orderBy: { sortOrder: "asc" },
+      include: { branchAvailability: true },
+    });
+  }
+
   async listProducts(categoryId: string) {
     await this.findOne(categoryId);
     return this.prisma.product.findMany({
@@ -52,7 +62,8 @@ export class CategoriesService {
       data: {
         restaurantId,
         name: input.name,
-        description: input.description,
+        pageHeading: input.pageHeading || null,
+        description: input.description || null,
         image: input.image,
         banner: input.banner,
         sortOrder: input.sortOrder,
@@ -71,7 +82,9 @@ export class CategoriesService {
       where: { id },
       data: {
         name: input.name,
-        description: input.description,
+        // "" clears the text, undefined leaves it as it is
+        pageHeading: input.pageHeading === undefined ? undefined : input.pageHeading || null,
+        description: input.description === undefined ? undefined : input.description || null,
         image: input.image,
         banner: input.banner,
         sortOrder: input.sortOrder,

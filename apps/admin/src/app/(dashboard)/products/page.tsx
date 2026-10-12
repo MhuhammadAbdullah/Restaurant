@@ -11,6 +11,7 @@ import { StatusToggle } from "../../../components/StatusToggle";
 import { EntityPickerModal, type PickableEntity } from "../../../components/EntityPickerModal";
 import { SearchInput, FilterBar, FilterSelect, ClearFiltersButton, ResultsSummary, Pagination } from "../../../components/SearchFilterBar";
 import { CloseIcon, EditIcon, TrashIcon } from "../../../components/icons";
+import { BranchStockModal, outOfStockBranchCount } from "../../../components/BranchStockModal";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select";
 
 const PAGE_SIZE = 20;
@@ -25,7 +26,7 @@ const PRODUCT_TAG_LABELS: Record<ProductTag, string> = {
 };
 type Category = { id: string; name: string; mainPageLimit: number | null };
 type ChoiceOption = { id: string; name: string; status: "ACTIVE" | "INACTIVE" };
-type ChoiceGroup = { id: string; name: string; isRequired: boolean; minSelect: number; maxSelect: number; options: ChoiceOption[] };
+type ChoiceGroup = { id: string; name: string; internalName?: string | null; isRequired: boolean; minSelect: number; maxSelect: number; options: ChoiceOption[] };
 type Addon = { id: string; addonGroupId: string; name: string; price: number; status: "ACTIVE" | "INACTIVE" };
 type Product = {
   id: string;
@@ -42,6 +43,7 @@ type Product = {
   mainPageSortOrder: number;
   category: { id: string; name: string };
   images: { url: string }[];
+  branchAvailability?: { branchId: string; isAvailable: boolean }[];
 };
 type ProductChoiceGroupAssignment = {
   choiceGroupId: string;
@@ -92,8 +94,8 @@ export default function ProductsPage() {
   const canEdit = hasPermission(me, "products.edit");
   const canDelete = hasPermission(me, "products.delete");
 
-  const { data: products } = useQuery({ queryKey: ["admin-products"], queryFn: () => api.get<Product[]>("/catalog/products") });
-  const { data: categories } = useQuery({ queryKey: ["admin-categories"], queryFn: () => api.get<Category[]>("/catalog/categories") });
+  const { data: products } = useQuery({ queryKey: ["admin-products"], queryFn: () => api.get<Product[]>("/catalog/products/admin/all") });
+  const { data: categories } = useQuery({ queryKey: ["admin-categories"], queryFn: () => api.get<Category[]>("/catalog/categories/admin/all") });
   const { data: choiceGroups } = useQuery({ queryKey: ["choice-groups"], queryFn: () => api.get<ChoiceGroup[]>("/catalog/choice-groups") });
   const { data: addons } = useQuery({ queryKey: ["addons", ""], queryFn: () => api.get<Addon[]>("/catalog/addons") });
 
@@ -102,6 +104,7 @@ export default function ProductsPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
+  const [stockTarget, setStockTarget] = useState<Product | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [pickerOpen, setPickerOpen] = useState<"choices" | "addons" | null>(null);
 
@@ -330,7 +333,7 @@ export default function ProductsPage() {
   const selectedCategory = categories?.find((c) => c.id === form.categoryId);
   const choiceGroupPickerItems: PickableEntity[] = (choiceGroups ?? []).map((g) => {
     const activeCount = g.options.filter((o) => o.status === "ACTIVE").length;
-    return { id: g.id, label: g.name, sublabel: `${activeCount} active option${activeCount === 1 ? "" : "s"}`, warning: activeCount === 0 ? "No active options; won't show to customers" : undefined };
+    return { id: g.id, label: g.internalName || g.name, sublabel: `${g.internalName ? `Customers see: ${g.name} · ` : ""}${activeCount} active option${activeCount === 1 ? "" : "s"}`, warning: activeCount === 0 ? "No active options; won't show to customers" : undefined };
   });
   const addonPickerItems: PickableEntity[] = (addons ?? []).map((a) => ({ id: a.id, label: a.name, sublabel: formatPaisa(a.price) }));
 
@@ -478,6 +481,7 @@ export default function ProductsPage() {
                   </th>
                 );
               })}
+              <th className="px-4 py-2">Stock</th>
               <th className="px-4 py-2">Action</th>
             </tr>
           </thead>
@@ -510,6 +514,15 @@ export default function ProductsPage() {
                 </td>
                 <td className="px-4 py-2">
                   <StatusToggle active={p.status === "ACTIVE"} onClick={() => toggleStatus(p)} disabled={!canEdit} />
+                </td>
+                <td className="px-4 py-2">
+                  {canEdit ? (
+                    <button type="button" onClick={() => setStockTarget(p)} className={`whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-medium ${outOfStockBranchCount(p.branchAvailability) > 0 ? "border-brand-red/40 bg-red-50 text-brand-red" : "border-neutral-300 text-neutral-600 hover:border-brand-red hover:text-brand-red"}`}>
+                      {outOfStockBranchCount(p.branchAvailability) > 0 ? `Sold out in ${outOfStockBranchCount(p.branchAvailability)}` : "In stock"}
+                    </button>
+                  ) : (
+                    <span className="text-xs text-neutral-400">{outOfStockBranchCount(p.branchAvailability) > 0 ? `Sold out in ${outOfStockBranchCount(p.branchAvailability)}` : "In stock"}</span>
+                  )}
                 </td>
                 <td className="px-4 py-2">
                   <div className="flex items-center gap-3">
@@ -684,7 +697,10 @@ export default function ProductsPage() {
                     return (
                       <div key={assignment.choiceGroupId} className="rounded-lg border border-neutral-200 bg-neutral-50 p-3">
                         <div className="flex items-center justify-between">
-                          <p className="text-sm font-medium text-neutral-900">{group.name}</p>
+                          <p className="text-sm font-medium text-neutral-900">
+                            {group.internalName || group.name}
+                            {group.internalName && <span className="ml-2 text-xs font-normal text-neutral-400">(customers see: {group.name})</span>}
+                          </p>
                           <button type="button" onClick={() => toggleChoiceGroup(assignment.choiceGroupId)} className="text-xs text-red-600 hover:underline">
                             Remove
                           </button>
@@ -818,6 +834,17 @@ export default function ProductsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {stockTarget && (
+        <BranchStockModal
+          kind="products"
+          itemId={stockTarget.id}
+          itemName={stockTarget.name}
+          availability={stockTarget.branchAvailability}
+          onClose={() => setStockTarget(null)}
+          onChanged={() => queryClient.invalidateQueries({ queryKey: ["admin-products"] })}
+        />
       )}
 
       {deleteTarget && (

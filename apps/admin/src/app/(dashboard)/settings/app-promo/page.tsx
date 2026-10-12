@@ -8,6 +8,7 @@ import { useMe, hasPermission } from "../../../../lib/useMe";
 import { toast } from "../../../../store/useToastStore";
 import { ImageUploadField } from "../../../../components/ImageUploadField";
 import { Switch } from "../../../../components/ui/switch";
+import { RichTextEditor } from "../../../../components/RichTextEditor";
 
 type RestaurantInfo = {
   appPromo: Required<AppPromoConfig>;
@@ -15,6 +16,16 @@ type RestaurantInfo = {
 };
 
 const PARAGRAPH_MAX = 5000;
+
+/** The text people read, without the formatting marks the editor adds (for length counts and the preview). */
+function plainText(markdown: string): string {
+  return markdown
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/^\s*(?:#{1,6}|>|[-*+]|\d+\.)\s+/gm, "")
+    .replace(/[*_`~]/g, "")
+    .trim();
+}
 const HEADING_MAX = 200;
 
 function SectionCard({ n, title, description, right, children }: { n: number; title: string; description: string; right?: React.ReactNode; children: React.ReactNode }) {
@@ -47,46 +58,55 @@ export default function AppPromoSettingsPage() {
   const { data: restaurant } = useQuery({ queryKey: ["cms-restaurant"], queryFn: () => api.get<RestaurantInfo>("/cms/restaurant") });
 
   const [bannerImage, setBannerImage] = useState("");
+  const [showOnCategoryPages, setShowOnCategoryPages] = useState(true);
   const [aboutEnabled, setAboutEnabled] = useState(false);
   const [aboutHeading, setAboutHeading] = useState("");
   const [aboutParagraph, setAboutParagraph] = useState("");
+  // bumped whenever the text is replaced from outside (loading, Reset), so the editor shows the new text
+  const [editorVersion, setEditorVersion] = useState(0);
   const [truncateLength, setTruncateLength] = useState(280);
   const [saved, setSaved] = useState("");
   const [saving, setSaving] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
 
-  const snapshot = useMemo(() => JSON.stringify({ bannerImage, aboutEnabled, aboutHeading, aboutParagraph, truncateLength }), [bannerImage, aboutEnabled, aboutHeading, aboutParagraph, truncateLength]);
+  const snapshot = useMemo(() => JSON.stringify({ bannerImage, showOnCategoryPages, aboutEnabled, aboutHeading, aboutParagraph, truncateLength }), [bannerImage, showOnCategoryPages, aboutEnabled, aboutHeading, aboutParagraph, truncateLength]);
   const dirty = saved !== "" && snapshot !== saved;
 
   useEffect(() => {
     if (!restaurant) return;
     const next = {
       bannerImage: restaurant.appPromo.bannerImage ?? "",
+      showOnCategoryPages: restaurant.appPromo.showOnCategoryPages ?? true,
       aboutEnabled: restaurant.aboutContent.enabled,
       aboutHeading: restaurant.aboutContent.heading,
       aboutParagraph: restaurant.aboutContent.paragraph,
       truncateLength: restaurant.aboutContent.truncateLength,
     };
     setBannerImage(next.bannerImage);
+    setShowOnCategoryPages(next.showOnCategoryPages);
     setAboutEnabled(next.aboutEnabled);
     setAboutHeading(next.aboutHeading);
     setAboutParagraph(next.aboutParagraph);
+    setEditorVersion((v) => v + 1);
     setTruncateLength(next.truncateLength);
     setSaved(JSON.stringify(next));
   }, [restaurant]);
 
   function reset() {
     if (!saved) return;
-    const s = JSON.parse(saved) as { bannerImage: string; aboutEnabled: boolean; aboutHeading: string; aboutParagraph: string; truncateLength: number };
+    const s = JSON.parse(saved) as { bannerImage: string; showOnCategoryPages: boolean; aboutEnabled: boolean; aboutHeading: string; aboutParagraph: string; truncateLength: number };
     setBannerImage(s.bannerImage);
+    setShowOnCategoryPages(s.showOnCategoryPages);
     setAboutEnabled(s.aboutEnabled);
     setAboutHeading(s.aboutHeading);
     setAboutParagraph(s.aboutParagraph);
+    setEditorVersion((v) => v + 1);
     setTruncateLength(s.truncateLength);
   }
 
   const truncateValid = truncateLength >= 50 && truncateLength <= 2000;
-  const needsTruncation = aboutParagraph.length > truncateLength;
+  const aboutPlain = plainText(aboutParagraph);
+  const needsTruncation = aboutPlain.length > truncateLength;
   const headingMissing = aboutEnabled && !aboutHeading.trim();
 
   async function submit(e: React.FormEvent) {
@@ -99,10 +119,14 @@ export default function AppPromoSettingsPage() {
       toast.error("Collapse length must be between 50 and 2000 characters");
       return;
     }
+    if (aboutParagraph.length > PARAGRAPH_MAX) {
+      toast.error(`The About text is too long (${aboutParagraph.length}/${PARAGRAPH_MAX}). Please shorten it.`);
+      return;
+    }
     setSaving(true);
     try {
       await api.patch("/cms/restaurant", {
-        appPromo: { bannerImage: bannerImage || null },
+        appPromo: { bannerImage: bannerImage || null, showOnCategoryPages },
         aboutContent: {
           enabled: aboutEnabled,
           // The API rejects an empty heading even when the section is off, so keep the last good one.
@@ -120,8 +144,8 @@ export default function AppPromoSettingsPage() {
     }
   }
 
-  const paragraphs = aboutParagraph.split(/\n{2,}/).filter(Boolean);
-  const preview = needsTruncation ? aboutParagraph.slice(0, truncateLength).trimEnd() + "…" : aboutParagraph;
+  const paragraphs = aboutPlain.split(/\n{2,}/).filter(Boolean);
+  const preview = needsTruncation ? aboutPlain.slice(0, truncateLength).trimEnd() + "…" : aboutPlain;
 
   return (
     <div>
@@ -140,10 +164,17 @@ export default function AppPromoSettingsPage() {
             <SectionCard
               n={1}
               title="Promo banner"
-              description="A wide image shown on the homepage. No image means nothing is shown."
+              description="A wide image shown on the homepage, and on category pages if you leave the switch below on. No image means nothing is shown."
               right={<StatusPill on={!!bannerImage} onText="Visible" offText="Hidden" />}
             >
               <ImageUploadField label="Banner image" folder="banners" value={bannerImage} onChange={setBannerImage} shape="landscape" hint="Landscape, e.g. 1680×600 (JPG, PNG or WEBP)" />
+              <label className="flex items-start justify-between gap-3 rounded-lg border border-neutral-200 bg-neutral-50 p-3">
+                <span>
+                  <span className="block text-sm font-medium text-neutral-800">Also show on category pages</span>
+                  <span className="block text-xs text-neutral-500">The banner and the About text (if it is switched on below) also appear at the bottom of every category page (Burgers, BBQ, Deals and so on). Turn off to keep both on the homepage only.</span>
+                </span>
+                <Switch checked={showOnCategoryPages} onCheckedChange={setShowOnCategoryPages} aria-label="Show the promo banner on category pages" />
+              </label>
             </SectionCard>
 
             <SectionCard
@@ -165,17 +196,11 @@ export default function AppPromoSettingsPage() {
                   {headingMissing && <p className="mt-1 text-xs text-red-600">A heading is required while this section is on.</p>}
                 </div>
                 <div>
-                  <p className="mb-1 text-xs font-medium text-neutral-500">Paragraph</p>
-                  <textarea
-                    value={aboutParagraph}
-                    onChange={(e) => setAboutParagraph(e.target.value.slice(0, PARAGRAPH_MAX))}
-                    className="input w-full"
-                    rows={9}
-                    placeholder="Tell customers about your food, story and values. Leave a blank line between paragraphs."
-                  />
+                  <p className="mb-1 text-xs font-medium text-neutral-500">Text</p>
+                  <RichTextEditor key={editorVersion} value={aboutParagraph} onChange={setAboutParagraph} />
                   <div className="mt-1 flex items-center justify-between text-[11px] text-neutral-400">
-                    <span>Leave a blank line to start a new paragraph.</span>
-                    <span>{aboutParagraph.length}/{PARAGRAPH_MAX}</span>
+                    <span>Use the toolbar for headings, bold, lists and links. What you see here is how it will be formatted.</span>
+                    <span className={aboutParagraph.length > PARAGRAPH_MAX ? "font-semibold text-red-600" : ""}>{aboutParagraph.length}/{PARAGRAPH_MAX}</span>
                   </div>
                 </div>
                 <div>
@@ -187,11 +212,11 @@ export default function AppPromoSettingsPage() {
                   <p className="mt-1 text-xs text-neutral-400">
                     {!truncateValid
                       ? "Enter a number between 50 and 2000."
-                      : aboutParagraph.length === 0
+                      : aboutPlain.length === 0
                         ? "Add a paragraph to see how it will collapse."
                         : needsTruncation
-                          ? `Your text is ${aboutParagraph.length} characters, so customers will see a “Show more” button.`
-                          : `Your text is ${aboutParagraph.length} characters, shorter than the limit, so it is shown in full with no button.`}
+                          ? `Your text is ${aboutPlain.length} characters, so customers will see a “Show more” button.`
+                          : `Your text is ${aboutPlain.length} characters, shorter than the limit, so it is shown in full with no button.`}
                   </p>
                 </div>
               </div>
@@ -209,7 +234,7 @@ export default function AppPromoSettingsPage() {
                   <p className="rounded-xl border border-dashed border-neutral-300 py-5 text-center text-xs text-neutral-400">No promo banner (hidden)</p>
                 )}
                 {aboutEnabled && (aboutHeading.trim() || aboutParagraph.trim()) ? (
-                  <div className="text-center">
+                  <div className="text-left">
                     {aboutHeading.trim() && <h3 className="text-base font-bold text-neutral-900">{aboutHeading}</h3>}
                     <div className="mt-2 text-xs leading-relaxed text-neutral-500">
                       {previewOpen ? paragraphs.map((p, i) => <p key={i} className={i > 0 ? "mt-2" : ""}>{p}</p>) : <p>{preview}</p>}

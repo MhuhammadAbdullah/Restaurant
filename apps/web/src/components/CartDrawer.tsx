@@ -10,6 +10,7 @@ import { cartItemLineTotal, type CartItem } from "../lib/types";
 import { CloseIcon, PlusIcon, CalculatorIcon, DollarIcon, TruckIcon } from "./icons";
 import { QtyStepper } from "./QtyStepper";
 import { CartRecommendations } from "./CartRecommendations";
+import { OPTION_OUT_CART_MESSAGE, SOLD_OUT_CART_MESSAGE, SOLD_OUT_INACTIVE_MESSAGE, useCartAvailability, type CartIssue } from "../lib/outOfStock";
 
 // Same cart glyph used in the header/scroll FAB — it's a white silhouette, so it needs a solid
 // (brand red) circle behind it rather than the light circle a generic icon would sit on.
@@ -23,7 +24,10 @@ export function CartDrawer() {
   const { branch, orderType, isBranchOpen } = useLocationStore();
   const router = useRouter();
 
-  const subtotal = items.reduce((s, i) => s + cartItemLineTotal(i), 0);
+  const { reasonFor, hasUnavailable } = useCartAvailability();
+
+  // Sold-out lines stay visible (so the customer can remove them) but are not charged for.
+  const subtotal = items.reduce((s, i) => (reasonFor(i) ? s : s + cartItemLineTotal(i)), 0);
   const deliveryFee = orderType === "DELIVERY" ? (branch?.deliveryFee ?? 0) : 0;
   const estimatedTax = Math.round(subtotal * 0.15);
   const estimatedTotal = subtotal + deliveryFee + estimatedTax;
@@ -85,6 +89,7 @@ export function CartDrawer() {
                   <CartLine
                     key={item.cartItemId}
                     item={item}
+                    unavailable={reasonFor(item)}
                     onRemove={() => removeItem(item.cartItemId)}
                     onIncrement={() => updateQuantity(item.cartItemId, item.quantity + 1)}
                     onDecrement={() => updateQuantity(item.cartItemId, item.quantity - 1)}
@@ -119,6 +124,12 @@ export function CartDrawer() {
                 </p>
               )}
 
+              {hasUnavailable && (
+                <p className="mt-3 rounded-lg bg-brand-red/10 px-3 py-2 text-center text-xs font-medium text-brand-red">
+                  Some items just sold out. Remove them to continue to checkout.
+                </p>
+              )}
+
               {!isBranchOpen && (
                 <p className="mt-3 text-center text-xs font-medium text-amber-700">
                   {branch?.name} is currently closed, so checkout is unavailable until it reopens.
@@ -127,10 +138,10 @@ export function CartDrawer() {
 
               <button
                 onClick={goToCheckout}
-                disabled={!isBranchOpen}
+                disabled={!isBranchOpen || hasUnavailable}
                 className="mt-4 w-full rounded-xl bg-brand-red py-3.5 font-semibold text-white disabled:opacity-50"
               >
-                {isBranchOpen ? "Proceed to Checkout" : "Branch Closed"}
+                {!isBranchOpen ? "Branch Closed" : hasUnavailable ? "Remove sold-out items" : "Proceed to Checkout"}
               </button>
             </div>
           </>
@@ -168,23 +179,30 @@ function Row({
 
 function CartLine({
   item,
+  unavailable,
   onRemove,
   onIncrement,
   onDecrement,
 }: {
   item: CartItem;
+  unavailable: CartIssue | null;
   onRemove: () => void;
   onIncrement: () => void;
   onDecrement: () => void;
 }) {
+  const soldOut = unavailable !== null;
   return (
-    <div className="flex gap-3 rounded-xl border border-line p-3">
+    <div className={`flex gap-3 rounded-xl border p-3 ${soldOut ? "border-brand-red/40 bg-brand-red/5" : "border-line"}`}>
       {item.image && (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={item.image} alt={item.name} className="h-16 w-16 rounded-lg object-cover" />
+        <img src={item.image} alt={item.name} className={`h-16 w-16 rounded-lg object-cover ${soldOut ? "opacity-40 grayscale" : ""}`} />
       )}
       <div className="flex-1">
-        <p className="text-sm font-medium text-ink">{item.name}</p>
+        <div className="flex items-start justify-between gap-2">
+          <p className={`text-sm font-medium ${soldOut ? "text-muted" : "text-ink"}`}>{item.name}</p>
+          {soldOut && <span className="shrink-0 -rotate-3 rounded-md border-2 border-brand-red bg-white px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-widest text-brand-red">{unavailable === "OPTION_OUT" ? "Not available" : "Sold out"}</span>}
+        </div>
+        {soldOut && <p className="mt-1 text-xs font-medium text-brand-red">{unavailable === "INACTIVE" ? SOLD_OUT_INACTIVE_MESSAGE : unavailable === "OPTION_OUT" ? OPTION_OUT_CART_MESSAGE : SOLD_OUT_CART_MESSAGE}</p>}
         {item.kind === "product" ? (
           <>
             {item.choices.length > 0 && <p className="text-xs text-muted">{item.choices.map((c) => c.name).join(", ")}</p>}
@@ -203,8 +221,14 @@ function CartLine({
           </div>
         )}
         <div className="mt-2 flex items-center justify-between">
-          <QtyStepper quantity={item.quantity} itemName={item.name} onIncrement={onIncrement} onDecrement={onDecrement} onRemove={onRemove} />
-          <span className="text-sm font-semibold text-brand-red">
+          {soldOut ? (
+            <button onClick={onRemove} className="rounded-lg border border-brand-red px-3 py-1.5 text-xs font-semibold text-brand-red hover:bg-brand-red/10">
+              Remove
+            </button>
+          ) : (
+            <QtyStepper quantity={item.quantity} itemName={item.name} onIncrement={onIncrement} onDecrement={onDecrement} onRemove={onRemove} />
+          )}
+          <span className={`text-sm font-semibold ${soldOut ? "text-muted line-through" : "text-brand-red"}`}>
             {formatPaisa(item.kind === "product" ? item.unitPrice * item.quantity : item.dealPrice * item.quantity)}
           </span>
         </div>

@@ -10,11 +10,17 @@ import { PlusIcon } from "./icons";
 import { resolveProductImage, useFallbackProductImage } from "../lib/image";
 import { toast } from "../store/useToastStore";
 import { ProductTagBadge } from "./ProductTagBadge";
+import { SoldOutStamp } from "./SoldOutStamp";
+import { useLocationStore } from "../store/useLocationStore";
+import { isSoldOutAt, soldOutToast } from "../lib/outOfStock";
 
 export function PopularProductCard({ product, onClick }: { product: Product; onClick: () => void }) {
   const fallback = useFallbackProductImage();
   const image = resolveProductImage(product, fallback);
   const price = effectivePrice(product.basePrice, product.discountPrice);
+  const branchId = useLocationStore((s) => s.branch?.id);
+  const soldOut = isSoldOutAt(product.branchAvailability, branchId);
+  const open = () => (soldOut ? soldOutToast(product.name) : onClick());
 
   const items = useCartStore((s) => s.items);
   const addItem = useCartStore((s) => s.addItem);
@@ -59,7 +65,7 @@ export function PopularProductCard({ product, onClick }: { product: Product; onC
     <div className="group relative z-0 flex flex-col">
       <ProductTagBadge tag={product.tag} />
       <button
-        onClick={onClick}
+        onClick={open}
         aria-label={product.name}
         className="relative block aspect-square w-full overflow-hidden rounded-3xl bg-surface-alt"
       >
@@ -67,13 +73,14 @@ export function PopularProductCard({ product, onClick }: { product: Product; onC
         <img
           src={image}
           alt={product.name}
-          className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
+          className={`h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105 ${soldOut ? "opacity-40 grayscale" : ""}`}
         />
+        {soldOut && <SoldOutStamp />}
       </button>
 
       <div className="relative mt-3 flex items-end justify-between gap-2 px-1">
-        <div className="min-w-0 flex-1">
-          <button onClick={onClick} className="block w-full text-left">
+        <div className={`min-w-0 flex-1 ${soldOut ? "opacity-60" : ""}`}>
+          <button onClick={open} className="block w-full text-left">
             <p className="truncate font-poppins text-[12px] font-bold uppercase leading-[16px] text-ink sm:text-[14px] lg:text-[16px]">
               {product.name}
             </p>
@@ -85,7 +92,9 @@ export function PopularProductCard({ product, onClick }: { product: Product; onC
         </div>
 
         <div className="shrink-0">
-          {quantity > 0 && simpleLine ? (
+          {soldOut ? (
+            <span className="flex h-6 shrink-0 items-center rounded-md bg-surface-alt px-2 text-[10px] font-semibold uppercase tracking-wide text-muted sm:h-7 sm:text-[11px]">Sold out</span>
+          ) : quantity > 0 && simpleLine ? (
             <QtyStepper
               quantity={quantity}
               itemName={product.name}

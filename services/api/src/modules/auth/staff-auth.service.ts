@@ -4,6 +4,15 @@ import type { StaffLoginInput } from "@restaurant/validation";
 import { PrismaService } from "../../common/prisma/prisma.service";
 import { TokensService } from "./tokens.service";
 
+// A person can be signed in on this many devices at once; the oldest one is dropped beyond that.
+const MAX_SESSIONS_PER_STAFF = 25;
+// A refresh token that has not been used for this long no longer works (sessions in daily use never reach it).
+const SESSION_IDLE_DAYS = 120;
+// A refresh token is swapped for a new one once it is this old, so a session in daily use keeps sliding forward.
+const ROTATE_AFTER_MS = 12 * 60 * 60 * 1000;
+// Older tokens of the same session stay valid, so two tabs refreshing at the same moment never sign each other out.
+const KEPT_TOKEN_HASHES = 5;
+
 @Injectable()
 export class StaffAuthService {
   constructor(
@@ -30,16 +39,24 @@ export class StaffAuthService {
       allBranchesAccess: staff.allBranchesAccess,
     });
 
-    await this.prisma.staffUser.update({
-      where: { id: staff.id },
-      data: { refreshTokenHash: pair.refreshTokenHash, lastLoginAt: new Date() },
-    });
+    await this.prisma.staffUser.update({ where: { id: staff.id }, data: { lastLoginAt: new Date() } });
+    await this.startSession(staff.id, pair.refreshTokenHash);
 
     return {
       accessToken: pair.accessToken,
       refreshToken: pair.refreshToken,
       staff: { id: staff.id, name: staff.name, email: staff.email, role: staff.role.name },
     };
+  }
+
+  /** Records a new signed-in device and tidies up old or surplus ones. */
+  private async startSession(staffId: string, tokenHash: string) {
+    await this.prisma.staffSession.create({ data: { staffUserId: staffId, tokenHashes: [tokenHash] } });
+    await this.prisma.staffSession.deleteMany({ where: { staffUserId: staffId, lastUsedAt: { lt: new Date(Date.now() - SESSION_IDLE_DAYS * 86_400_000) } } });
+    const all = await this.prisma.staffSession.findMany({ where: { staffUserId: staffId }, orderBy: { lastUsedAt: "desc" }, select: { id: true } });
+    if (all.length > MAX_SESSIONS_PER_STAFF) {
+      await this.prisma.staffSession.deleteMany({ where: { id: { in: all.slice(MAX_SESSIONS_PER_STAFF).map((x) => x.id) } } });
+    }
   }
 
   async refresh(refreshToken: string) {
@@ -57,8 +74,18 @@ export class StaffAuthService {
       where: { id: payload.sub },
       include: { role: true, branchAssignments: true },
     });
+    // A deactivated or deleted account cannot keep a session alive.
+    if (!staff || staff.status !== "ACTIVE" || staff.deletedAt) {
+      throw new UnauthorizedException({ code: "REFRESH_TOKEN_REVOKED", message: "Session no longer valid" });
+    }
+
     const incomingHash = this.tokens.hashToken(refreshToken);
-    if (!staff || staff.refreshTokenHash !== incomingHash) {
+    let session = await this.prisma.staffSession.findFirst({ where: { staffUserId: staff.id, tokenHashes: { has: incomingHash } } });
+    if (!session && staff.refreshTokenHash === incomingHash) {
+      // a login from before sessions existed: carry it over instead of signing the person out
+      session = await this.prisma.staffSession.create({ data: { staffUserId: staff.id, tokenHashes: [incomingHash] } });
+    }
+    if (!session) {
       throw new UnauthorizedException({ code: "REFRESH_TOKEN_REVOKED", message: "Session no longer valid" });
     }
 
@@ -70,12 +97,28 @@ export class StaffAuthService {
       isOwner: staff.role.name === "Owner",
       allBranchesAccess: staff.allBranchesAccess,
     });
-    await this.prisma.staffUser.update({ where: { id: staff.id }, data: { refreshTokenHash: pair.refreshTokenHash } });
 
-    return { accessToken: pair.accessToken, refreshToken: pair.refreshToken };
+    // The refresh token is only replaced now and then; in between the same one keeps working.
+    const issuedAtMs = ((payload as { iat?: number }).iat ?? 0) * 1000;
+    const rotate = Date.now() - issuedAtMs > ROTATE_AFTER_MS;
+    await this.prisma.staffSession.update({
+      where: { id: session.id },
+      data: {
+        lastUsedAt: new Date(),
+        ...(rotate ? { tokenHashes: [...session.tokenHashes, pair.refreshTokenHash].slice(-KEPT_TOKEN_HASHES) } : {}),
+      },
+    });
+
+    return { accessToken: pair.accessToken, refreshToken: rotate ? pair.refreshToken : refreshToken };
   }
 
-  async logout(staffId: string) {
+  /** Signs out one device (when its refresh token is given) or, without it, every device of this person. */
+  async logout(staffId: string, refreshToken?: string) {
+    if (refreshToken) {
+      await this.prisma.staffSession.deleteMany({ where: { staffUserId: staffId, tokenHashes: { has: this.tokens.hashToken(refreshToken) } } });
+      return;
+    }
+    await this.prisma.staffSession.deleteMany({ where: { staffUserId: staffId } });
     await this.prisma.staffUser.update({ where: { id: staffId }, data: { refreshTokenHash: null } });
   }
 
@@ -153,7 +196,9 @@ export class StaffAuthService {
       isOwner: staff.role.name === "Owner",
       allBranchesAccess: staff.allBranchesAccess,
     });
-    await this.prisma.staffUser.update({ where: { id: staff.id }, data: { passwordHash: await hashPassword(input.newPassword), refreshTokenHash: pair.refreshTokenHash } });
+    await this.prisma.staffUser.update({ where: { id: staff.id }, data: { passwordHash: await hashPassword(input.newPassword), refreshTokenHash: null } });
+    await this.prisma.staffSession.deleteMany({ where: { staffUserId: staff.id } });
+    await this.startSession(staff.id, pair.refreshTokenHash);
     return { accessToken: pair.accessToken, refreshToken: pair.refreshToken };
   }
 

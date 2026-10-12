@@ -52,8 +52,11 @@ export class StaffAuthController {
 
   @Post("logout")
   @HttpCode(200)
-  async logout(@CurrentStaff() staff: StaffJwtPayload) {
-    await this.authService.logout(staff.sub);
+  async logout(
+    @CurrentStaff() staff: StaffJwtPayload,
+    @Body(new ZodValidationPipe(z.object({ refreshToken: z.string().min(10).optional() }).default({}))) body: { refreshToken?: string },
+  ) {
+    await this.authService.logout(staff.sub, body.refreshToken);
     return { success: true, data: { loggedOut: true } };
   }
 

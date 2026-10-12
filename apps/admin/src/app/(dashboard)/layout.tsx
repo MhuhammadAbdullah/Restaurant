@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuthStore } from "../../store/useAuthStore";
-import { SESSION_EXPIRED_EVENT } from "../../lib/api";
+import { SESSION_EXPIRED_EVENT, startSessionKeepAlive } from "../../lib/api";
 import { toggleSidebarForViewport } from "../../store/useSidebarStore";
 import { Sidebar, NAV_GROUPS } from "../../components/Sidebar";
 import { BranchPicker } from "../../components/BranchPicker";
@@ -66,6 +66,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     // otherwise every hard refresh redirects a still-logged-in staff member to /login.
     if (hasHydrated && !staff) router.push("/login");
   }, [hasHydrated, staff, router]);
+
+  // Keep the login fresh in the background for as long as the dashboard is open.
+  useEffect(() => {
+    startSessionKeepAlive();
+  }, []);
 
   // The saved login stopped being accepted (it expired, or the account was signed out elsewhere): leave quietly for the login page.
   useEffect(() => {

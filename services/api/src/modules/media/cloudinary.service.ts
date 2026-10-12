@@ -35,6 +35,45 @@ export class CloudinaryService {
     }
   }
 
+  /** Start of every image URL this account serves, used to refuse registering images from anywhere else. */
+  urlPrefix(): string | null {
+    const cloudName = this.config.get("CLOUDINARY_CLOUD_NAME", { infer: true });
+    return this.configured && cloudName ? `https://res.cloudinary.com/${cloudName}/` : null;
+  }
+
+  /** Images already in the account (one page), limited to the folders the app uploads into. */
+  async listImages(cursor?: string) {
+    if (!this.configured) {
+      throw new ServiceUnavailableException({ code: "CLOUDINARY_NOT_CONFIGURED", message: "Image storage is not configured yet." });
+    }
+    const res = (await cloudinary.api.resources({ type: "upload", resource_type: "image", max_results: 200, next_cursor: cursor })) as {
+      resources: { public_id: string; secure_url: string; width?: number; height?: number; bytes?: number; format?: string; created_at: string; folder?: string; asset_folder?: string }[];
+      next_cursor?: string;
+    };
+    const resources = res.resources
+      .map((r) => {
+        const folder = (r.folder ?? r.asset_folder ?? r.public_id.split("/").slice(0, -1).join("/")) || "restaurant";
+        return {
+          publicId: r.public_id,
+          url: r.secure_url,
+          filename: r.public_id.split("/").pop() ?? r.public_id,
+          folder: folder.split("/")[0]!,
+          width: r.width,
+          height: r.height,
+          bytes: r.bytes,
+          format: r.format,
+          createdAt: new Date(r.created_at),
+        };
+      })
+      .filter((r) => ALLOWED_UPLOAD_FOLDERS.has(r.folder));
+    return { resources, nextCursor: res.next_cursor ?? null };
+  }
+
+  async destroy(publicId: string) {
+    if (!this.configured) return;
+    await cloudinary.uploader.destroy(publicId, { resource_type: "image", invalidate: true });
+  }
+
   getUploadSignature(requestedFolder: string): UploadSignature {
     if (!this.configured) {
       throw new ServiceUnavailableException({

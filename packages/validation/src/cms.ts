@@ -211,12 +211,15 @@ You may request access to, correction of, or deletion of your personal data at a
 export const appPromoConfigSchema = z
   .object({
     bannerImage: z.string().trim().url().max(500).nullable(),
+    /** Also show the banner at the bottom of every category page. */
+    showOnCategoryPages: z.boolean(),
   })
   .partial();
 export type AppPromoConfig = z.infer<typeof appPromoConfigSchema>;
 
 export const DEFAULT_APP_PROMO_CONFIG: Required<AppPromoConfig> = {
   bannerImage: null,
+  showOnCategoryPages: true,
 };
 
 /** Heading + long-form paragraph shown just above the footer, collapsed to `truncateLength` characters with a Show more/less toggle. */

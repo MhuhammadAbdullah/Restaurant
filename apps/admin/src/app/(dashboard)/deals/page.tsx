@@ -11,6 +11,7 @@ import { StatusToggle } from "../../../components/StatusToggle";
 import { EntityPickerModal, type PickableEntity } from "../../../components/EntityPickerModal";
 import { SearchInput, FilterBar, FilterSelect, ClearFiltersButton, ResultsSummary } from "../../../components/SearchFilterBar";
 import { CloseIcon, EditIcon, TrashIcon } from "../../../components/icons";
+import { BranchStockModal, outOfStockBranchCount } from "../../../components/BranchStockModal";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select";
 
 type Category = { id: string; name: string };
@@ -21,7 +22,7 @@ type Product = {
   discountPrice: number | null;
   images: { url: string; isPrimary: boolean }[];
 };
-type ChoiceGroup = { id: string; name: string };
+type ChoiceGroup = { id: string; name: string; internalName?: string | null };
 type Addon = { id: string; name: string; price: number };
 type Deal = {
   id: string;
@@ -34,6 +35,7 @@ type Deal = {
   isFeatured: boolean;
   sortOrder: number;
   status: "ACTIVE" | "INACTIVE";
+  branchAvailability?: { branchId: string; isAvailable: boolean }[];
   slots: {
     id: string;
     label: string;
@@ -121,8 +123,8 @@ export default function DealsPage() {
   const canEdit = hasPermission(me, "deals.edit");
   const canDelete = hasPermission(me, "deals.delete");
 
-  const { data: deals } = useQuery({ queryKey: ["admin-deals"], queryFn: () => api.get<Deal[]>("/deals") });
-  const { data: categories } = useQuery({ queryKey: ["admin-categories"], queryFn: () => api.get<Category[]>("/catalog/categories") });
+  const { data: deals } = useQuery({ queryKey: ["admin-deals"], queryFn: () => api.get<Deal[]>("/deals/admin/all") });
+  const { data: categories } = useQuery({ queryKey: ["admin-categories"], queryFn: () => api.get<Category[]>("/catalog/categories/admin/all") });
   const { data: products } = useQuery({ queryKey: ["admin-products-lite"], queryFn: () => api.get<Product[]>("/catalog/products") });
   const { data: choiceGroups } = useQuery({ queryKey: ["choice-groups"], queryFn: () => api.get<ChoiceGroup[]>("/catalog/choice-groups") });
   const { data: addons } = useQuery({ queryKey: ["addons", ""], queryFn: () => api.get<Addon[]>("/catalog/addons") });
@@ -132,6 +134,7 @@ export default function DealsPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Deal | null>(null);
+  const [stockTarget, setStockTarget] = useState<Deal | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [picker, setPicker] = useState<{ slot: number; field: "productIds" | "choiceGroupIds" | "addonIds" } | null>(null);
 
@@ -267,7 +270,7 @@ export default function DealsPage() {
     sublabel: p.discountPrice != null ? `${formatPaisa(p.discountPrice)} (was ${formatPaisa(p.basePrice)})` : formatPaisa(p.basePrice),
     image: p.images.find((i) => i.isPrimary)?.url ?? p.images[0]?.url ?? null,
   }));
-  const choiceGroupPickerItems: PickableEntity[] = (choiceGroups ?? []).map((g) => ({ id: g.id, label: g.name }));
+  const choiceGroupPickerItems: PickableEntity[] = (choiceGroups ?? []).map((g) => ({ id: g.id, label: g.internalName || g.name }));
   const addonPickerItems: PickableEntity[] = (addons ?? []).map((a) => ({ id: a.id, label: a.name, sublabel: formatPaisa(a.price) }));
 
   const pickerTitles: Record<"productIds" | "choiceGroupIds" | "addonIds", string> = {
@@ -399,6 +402,11 @@ export default function DealsPage() {
                 <div className="mt-auto flex items-center justify-between gap-3 border-t border-neutral-100 pt-3 text-xs">
                   <StatusToggle active={d.status === "ACTIVE"} onClick={() => toggleStatus(d)} disabled={!canEdit} />
                   <div className="flex items-center gap-3">
+                    {canEdit && (
+                      <button onClick={() => setStockTarget(d)} className={outOfStockBranchCount(d.branchAvailability) > 0 ? "font-medium text-brand-red" : "text-neutral-500 hover:text-brand-red"}>
+                        {outOfStockBranchCount(d.branchAvailability) > 0 ? `Sold out in ${outOfStockBranchCount(d.branchAvailability)}` : "Stock"}
+                      </button>
+                    )}
                     {canEdit && (
                       <button onClick={() => startEdit(d)} aria-label="Edit deal" className="flex items-center gap-1 text-neutral-500 hover:text-brand-red">
                         <EditIcon size={14} /> Edit
@@ -579,6 +587,17 @@ export default function DealsPage() {
           onToggle={(id) => toggleInSlot(picker.slot, picker.field, id)}
           onClose={() => setPicker(null)}
           variant={picker.field === "productIds" ? "table" : "list"}
+        />
+      )}
+
+      {stockTarget && (
+        <BranchStockModal
+          kind="deals"
+          itemId={stockTarget.id}
+          itemName={stockTarget.name}
+          availability={stockTarget.branchAvailability}
+          onClose={() => setStockTarget(null)}
+          onChanged={() => queryClient.invalidateQueries({ queryKey: ["admin-deals"] })}
         />
       )}
 

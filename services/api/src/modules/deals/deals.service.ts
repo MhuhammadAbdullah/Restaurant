@@ -10,7 +10,7 @@ const DEAL_DETAIL_INCLUDE = {
     orderBy: { sortOrder: "asc" as const },
     include: {
       productOptions: { include: { product: true } },
-      choiceGroups: { include: { choiceGroup: { include: { options: { orderBy: { sortOrder: "asc" as const } } } } } },
+      choiceGroups: { include: { choiceGroup: { include: { options: { orderBy: { sortOrder: "asc" as const }, include: { outOfStock: { select: { branchId: true } } } } } } } },
       addons: { include: { addon: { include: { addonGroup: true } } }, orderBy: { sortOrder: "asc" as const } },
     },
   },
@@ -29,13 +29,19 @@ export class DealsService {
     private readonly restaurantContext: RestaurantContextService,
   ) {}
 
-  async list(branchId?: string) {
+  /** Admin view: every deal, including inactive ones. */
+  async listAll() {
+    const restaurantId = await this.restaurantContext.getRestaurantId();
+    return this.prisma.deal.findMany({ where: { restaurantId }, include: DEAL_DETAIL_INCLUDE, orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }] });
+  }
+
+  async list(branchId?: string, includeOutOfStock = false) {
     const restaurantId = await this.restaurantContext.getRestaurantId();
     return this.prisma.deal.findMany({
       where: {
         restaurantId,
         status: "ACTIVE",
-        ...(branchId ? { branchAvailability: { some: { branchId, isAvailable: true } } } : {}),
+        ...(branchId ? { branchAvailability: { some: includeOutOfStock ? { branchId } : { branchId, isAvailable: true } } } : {}),
       },
       include: DEAL_DETAIL_INCLUDE,
       orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
