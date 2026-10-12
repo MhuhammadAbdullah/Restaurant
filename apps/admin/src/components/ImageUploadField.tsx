@@ -1,17 +1,11 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { api, ApiError } from "../lib/api";
+import { ApiError } from "../lib/api";
+import { uploadToLibrary } from "../lib/media";
 import { CloseIcon } from "./icons";
+import { MediaPickerModal } from "./media/MediaPickerModal";
 
-type UploadSignature = {
-  timestamp: number;
-  signature: string;
-  apiKey: string;
-  cloudName: string;
-  folder: string;
-  allowedFormats: string;
-};
 
 /**
  * Uploads directly to Cloudinary via a short-lived signed payload from our API (the binary
@@ -54,23 +48,15 @@ export function ImageUploadField({
   const [error, setError] = useState<string | null>(null);
   const [showUrlField, setShowUrlField] = useState(false);
 
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  /** Files dropped on the field are uploaded to the media library and used right away. */
   async function handleFile(file: File) {
     setError(null);
     setUploading(true);
     try {
-      const sig = await api.get<UploadSignature>(`/media/cloudinary-signature?folder=${folder}`);
-      const body = new FormData();
-      body.append("file", file);
-      body.append("api_key", sig.apiKey);
-      body.append("timestamp", String(sig.timestamp));
-      body.append("signature", sig.signature);
-      body.append("folder", sig.folder);
-      body.append("allowed_formats", sig.allowedFormats);
-
-      const res = await fetch(`https://api.cloudinary.com/v1_1/${sig.cloudName}/image/upload`, { method: "POST", body });
-      const json = await res.json();
-      if (!res.ok || !json.secure_url) throw new Error(json.error?.message ?? "Upload failed");
-      onChange(json.secure_url);
+      const asset = await uploadToLibrary(file, folder);
+      onChange(asset.url);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Could not upload image");
     } finally {
@@ -91,7 +77,7 @@ export function ImageUploadField({
       {!hideLabel && <p className="mb-1 text-xs font-medium text-neutral-500">{label}</p>}
 
       <div
-        onClick={() => !uploading && inputRef.current?.click()}
+        onClick={() => !uploading && setPickerOpen(true)}
         onDragOver={(e) => {
           e.preventDefault();
           setDragOver(true);
@@ -107,7 +93,7 @@ export function ImageUploadField({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={value} alt="" className={`h-full w-full ${shape === "landscape" ? "object-contain" : icon ? "object-contain p-2" : "object-cover"}`} />
             <div className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition group-hover:bg-black/50 group-hover:opacity-100">
-              <span className="rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-neutral-900">{icon ? "Replace" : "Click or drop to replace"}</span>
+              <span className="rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-neutral-900">{icon ? "Replace" : "Choose or upload"}</span>
             </div>
             <button
               type="button"
@@ -154,6 +140,8 @@ export function ImageUploadField({
         className="hidden"
         onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
       />
+
+      {pickerOpen && <MediaPickerModal uploadFolder={folder} selectedUrl={value} onSelect={onChange} onClose={() => setPickerOpen(false)} />}
 
       {error && <p className="mt-1.5 text-xs text-red-600">{error}</p>}
 

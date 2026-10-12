@@ -5,11 +5,19 @@ export type ChoiceOption = {
   image: string | null;
   priceAdjustment: number;
   discountPriceAdjustment: number | null;
+  /** Uses the product's listing price (no change). */
+  useListingPrice?: boolean;
+  /** Customers see this option's price. */
+  showPrice?: boolean;
+  /** Branches where this option is not available right now. */
+  outOfStock?: { branchId: string }[];
   sortOrder: number;
 };
 export type ChoiceGroup = {
   id: string;
   name: string;
+  /** Options' prices are full item prices (replace the product price) instead of extras. */
+  priceReplacesBase?: boolean;
   description: string | null;
   isRequired: boolean;
   selectionType: "SINGLE" | "MULTIPLE";
@@ -49,6 +57,8 @@ export type Product = {
   isFeatured: boolean;
   isPopular: boolean;
   tag?: "HOUSE_FAVORITE" | "NEW_ARRIVAL" | "BEST_SELLER" | null;
+  /** One row per branch; isAvailable false means sold out at that branch. */
+  branchAvailability?: { branchId: string; isAvailable: boolean }[];
   images: { url: string; isPrimary: boolean }[];
   choiceGroups?: ProductChoiceGroupAssignment[];
   addons?: { addonId: string; sortOrder: number; addon: Addon }[];
@@ -74,10 +84,11 @@ export type Deal = {
   dealPrice: number;
   originalPrice: number | null;
   isFeatured: boolean;
+  branchAvailability?: { branchId: string; isAvailable: boolean }[];
   slots: DealSlot[];
 };
 
-export type Category = { id: string; name: string; image: string | null; banner: string | null; sortOrder: number; mainPageLimit: number | null };
+export type Category = { id: string; name: string; pageHeading?: string | null; description?: string | null; image: string | null; banner: string | null; sortOrder: number; mainPageLimit: number | null };
 
 export type WebsiteSection = {
   id: string;

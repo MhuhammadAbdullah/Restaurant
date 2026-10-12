@@ -1899,7 +1899,7 @@ export class OrdersService {
         if (!dealAvailability?.isAvailable) {
           throw new BadRequestException({ code: "DEAL_UNAVAILABLE_AT_BRANCH", message: "This deal is not available at the selected branch" });
         }
-        const priced = await this.dealPricing.priceSelections(item.dealId, item.selections);
+        const priced = await this.dealPricing.priceSelections(item.dealId, item.selections, branchId);
         pricedLines.push({ kind: "deal", input: item, priced });
       }
     }

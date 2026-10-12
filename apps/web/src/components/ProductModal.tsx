@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 
 import { useEffect, useMemo, useState } from "react";
 import { formatPaisa } from "@restaurant/utils";
-import { effectivePrice, resolveChoiceGroupRules, autoSelectSingleOption } from "@restaurant/utils";
+import { effectivePrice, resolveChoiceGroupRules, autoSelectSingleOption, choiceOptionAdjustment } from "@restaurant/utils";
 import type { Product } from "../lib/types";
 import { groupAddonsByCategory } from "../lib/types";
 import { useCartStore, makeCartItemId } from "../store/useCartStore";
@@ -12,6 +12,8 @@ import { resolveProductImage, useFallbackProductImage } from "../lib/image";
 import { FaShareNodes } from "react-icons/fa6";
 import { ArrowRightIcon, CloseIcon, MinusIcon, PlusIcon, TrashIcon } from "./icons";
 import { ChoiceOptionCard } from "./ChoiceOptionCard";
+import { useLocationStore } from "../store/useLocationStore";
+import { isOptionUnavailableAt } from "../lib/outOfStock";
 import { AccordionSection } from "./AccordionSection";
 import { toast } from "../store/useToastStore";
 
@@ -23,11 +25,19 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
   const choiceAssignments = product.choiceGroups ?? [];
   const addonCategories = useMemo(() => groupAddonsByCategory((product.addons ?? []).map((a) => a.addon)), [product.addons]);
   const basePrice = effectivePrice(product.basePrice, product.discountPrice);
+  /** What picking this option adds to the product price (for "full price" sections, the difference from the product price). */
+  const optAdj = (group: { priceReplacesBase?: boolean }, opt: { priceAdjustment: number; discountPriceAdjustment: number | null }) =>
+    choiceOptionAdjustment(group, opt, basePrice, product.basePrice).adjustment;
+  const hasFullPriceSection = choiceAssignments.some((c) => c.choiceGroup.priceReplacesBase);
+
+  const branchId = useLocationStore((s) => s.branch?.id);
+  const optionOut = (opt: { outOfStock?: { branchId: string }[] }) => isOptionUnavailableAt(opt, branchId);
 
   const [selectedChoices, setSelectedChoices] = useState<Record<string, string[]>>(() => {
     const initial: Record<string, string[]> = {};
     for (const assignment of choiceAssignments) {
-      const auto = autoSelectSingleOption(assignment.choiceGroup.options);
+      const here = useLocationStore.getState().branch?.id;
+      const auto = autoSelectSingleOption(assignment.choiceGroup.options.filter((o) => !isOptionUnavailableAt(o, here)));
       if (auto.length > 0) initial[assignment.choiceGroupId] = auto;
     }
     return initial;
@@ -56,7 +66,7 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
     for (const c of choiceAssignments) {
       for (const optId of selectedChoices[c.choiceGroupId] ?? []) {
         const opt = c.choiceGroup.options.find((o) => o.id === optId);
-        if (opt) total += effectivePrice(opt.priceAdjustment, opt.discountPriceAdjustment);
+        if (opt) total += choiceOptionAdjustment(c.choiceGroup, opt, basePrice, product.basePrice).adjustment;
       }
     }
     for (const category of addonCategories) {
@@ -70,6 +80,8 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
 
   function toggleChoice(assignment: (typeof choiceAssignments)[number], optionId: string) {
     const rules = resolveChoiceGroupRules(assignment.choiceGroup, assignment);
+    const target = assignment.choiceGroup.options.find((o) => o.id === optionId);
+    if (target && optionOut(target)) return; // out of stock at this branch
     setSelectedChoices((prev) => {
       const current = prev[assignment.choiceGroupId] ?? [];
       if (rules.selectionType === "SINGLE") {
@@ -95,7 +107,7 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
           choiceGroupId: c.choiceGroupId,
           choiceOptionId: opt.id,
           name: opt.name,
-          priceAdjustment: effectivePrice(opt.priceAdjustment, opt.discountPriceAdjustment),
+          priceAdjustment: optAdj(c.choiceGroup, opt),
         };
       }),
     );
@@ -179,8 +191,15 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
         <div className="flex flex-col sm:flex-1 sm:overflow-y-auto">
           <div className="p-6 sm:p-8">
             <p className="pr-28 font-poppins text-3xl font-bold text-ink sm:text-4xl">
-              {product.discountPrice != null && <span className="mr-2 text-xl font-normal text-muted line-through">{formatPaisa(product.basePrice)}</span>}
-              {formatPaisa(basePrice)}
+              {product.discountPrice != null && !hasFullPriceSection && <span className="mr-2 text-xl font-normal text-muted line-through">{formatPaisa(product.basePrice)}</span>}
+              {formatPaisa(
+                hasFullPriceSection
+                  ? basePrice + choiceAssignments.reduce((sum, c) => sum + (selectedChoices[c.choiceGroupId] ?? []).reduce((s2, id) => {
+                      const o = c.choiceGroup.options.find((x) => x.id === id);
+                      return o && c.choiceGroup.priceReplacesBase ? s2 + optAdj(c.choiceGroup, o) : s2;
+                    }, 0), 0)
+                  : basePrice,
+              )}
             </p>
             {product.description && <p className="mt-3 text-[15px] leading-relaxed text-muted">{product.description}</p>}
             <div className="mt-4 border-t border-line" />
@@ -204,6 +223,17 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
                     <div className="grid grid-cols-1 gap-2 py-2">
                       {g.options.map((opt) => {
                         const optPrice = effectivePrice(opt.priceAdjustment, opt.discountPriceAdjustment);
+                        const showPrice = opt.showPrice !== false;
+                        // Listing-price options show the product's own price (in "full price" sections) or nothing (extras).
+                        const label = !showPrice
+                          ? undefined
+                          : opt.useListingPrice
+                            ? g.priceReplacesBase
+                              ? formatPaisa(basePrice)
+                              : undefined
+                            : optPrice > 0
+                              ? `${g.priceReplacesBase ? "" : "+ "}${formatPaisa(optPrice)}`
+                              : undefined;
                         return (
                           <ChoiceOptionCard
                             key={opt.id}
@@ -212,9 +242,10 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
                             type={rules.selectionType === "SINGLE" ? "radio" : "checkbox"}
                             checked={(selectedChoices[assignment.choiceGroupId] ?? []).includes(opt.id)}
                             onChange={() => toggleChoice(assignment, opt.id)}
-                            priceLabel={optPrice > 0 ? `+ ${formatPaisa(optPrice)}` : undefined}
-                            oldPriceLabel={optPrice > 0 && opt.discountPriceAdjustment != null ? `+ ${formatPaisa(opt.priceAdjustment)}` : undefined}
+                            priceLabel={label}
+                            oldPriceLabel={showPrice && !opt.useListingPrice && optPrice > 0 && opt.discountPriceAdjustment != null ? `${g.priceReplacesBase ? "" : "+ "}${formatPaisa(opt.priceAdjustment)}` : undefined}
                             description={opt.description}
+                            unavailable={optionOut(opt)}
                           />
                         );
                       })}

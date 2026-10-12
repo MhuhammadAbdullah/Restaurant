@@ -9,6 +9,7 @@ import { useAuthStore } from "../../store/useAuthStore";
 import { useAuthModalStore } from "../../store/useAuthModalStore";
 import { useCartStore } from "../../store/useCartStore";
 import { useLocationStore } from "../../store/useLocationStore";
+import { OPTION_OUT_CART_MESSAGE, SOLD_OUT_CART_MESSAGE, SOLD_OUT_INACTIVE_MESSAGE, useCartAvailability } from "../../lib/outOfStock";
 import type { CartDealItem, CartProductItem } from "../../lib/types";
 import { FaCheck, FaFileInvoiceDollar, FaHandHoldingDollar, FaTag } from "react-icons/fa6";
 import { FiShoppingBag } from "react-icons/fi";
@@ -48,7 +49,8 @@ export default function CheckoutPage() {
   const customer = useAuthStore((s) => s.customer);
   const authHasHydrated = useAuthStore((s) => s.hasHydrated);
   const openAuthModal = useAuthModalStore((s) => s.open);
-  const { items, clear, hasHydrated } = useCartStore();
+  const { items, clear, hasHydrated, removeItem } = useCartStore();
+  const { reasonFor, hasUnavailable } = useCartAvailability();
   const { branch, orderType, city, area, isBranchOpen } = useLocationStore();
 
   useEffect(() => {
@@ -151,7 +153,8 @@ export default function CheckoutPage() {
     );
   }
 
-  const subtotal = items.reduce((s, i) => s + (i.kind === "product" ? i.unitPrice * i.quantity : i.dealPrice * i.quantity), 0);
+  // Sold-out lines are shown (so they can be removed) but never charged.
+  const subtotal = items.reduce((s, i) => (reasonFor(i) ? s : s + (i.kind === "product" ? i.unitPrice * i.quantity : i.dealPrice * i.quantity)), 0);
   const estimatedTax = Math.round(subtotal * 0.15);
   const deliveryFee = orderType === "DELIVERY" ? (branch?.deliveryFee ?? 0) : 0;
   const couponDiscount = appliedCoupon?.discountAmount ?? 0;
@@ -543,21 +546,31 @@ export default function CheckoutPage() {
         <div className="h-fit rounded-2xl border border-line bg-surface p-5 lg:sticky lg:top-6">
           <div className="space-y-3">
             {(showAllItems ? items : items.slice(0, 3)).map((i) => (
-              <div key={i.cartItemId} className="flex items-center gap-3 rounded-xl border border-line p-3 transition duration-200 hover:border-brand-red/30 hover:shadow-lg">
+              <div key={i.cartItemId} className={`flex items-center gap-3 rounded-xl border p-3 transition duration-200 hover:shadow-lg ${reasonFor(i) ? "border-brand-red/40 bg-brand-red/5" : "border-line hover:border-brand-red/30"}`}>
                 <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-surface-alt">
                   {i.image && (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={i.image} alt={i.name} className="h-full w-full object-cover" />
+                    <img src={i.image} alt={i.name} className={`h-full w-full object-cover ${reasonFor(i) ? "opacity-40 grayscale" : ""}`} />
                   )}
                 </div>
-                <div className="min-w-0">
-                  <p className="text-[15px] font-semibold text-ink">
+                <div className="min-w-0 flex-1">
+                  <p className={`text-[15px] font-semibold ${reasonFor(i) ? "text-muted" : "text-ink"}`}>
                     <span className="mr-1.5 text-xs font-semibold text-muted">{i.quantity} x</span>
                     {i.name}
+                    {reasonFor(i) && <span className="ml-2 inline-block -rotate-3 rounded-md border-2 border-brand-red bg-white px-1.5 py-0.5 align-middle text-[10px] font-extrabold uppercase tracking-widest text-brand-red">{reasonFor(i) === "OPTION_OUT" ? "Not available" : "Sold out"}</span>}
                   </p>
-                  <p className="mt-1 font-semibold text-brand-red">
-                    {formatPaisa(i.kind === "product" ? i.unitPrice * i.quantity : i.dealPrice * i.quantity)}
-                  </p>
+                  {reasonFor(i) ? (
+                    <>
+                      <p className="mt-1 text-xs font-medium text-brand-red">{reasonFor(i) === "INACTIVE" ? SOLD_OUT_INACTIVE_MESSAGE : reasonFor(i) === "OPTION_OUT" ? OPTION_OUT_CART_MESSAGE : SOLD_OUT_CART_MESSAGE}</p>
+                      <button type="button" onClick={() => removeItem(i.cartItemId)} className="mt-1.5 rounded-lg border border-brand-red px-3 py-1 text-xs font-semibold text-brand-red hover:bg-brand-red/10">
+                        Remove
+                      </button>
+                    </>
+                  ) : (
+                    <p className="mt-1 font-semibold text-brand-red">
+                      {formatPaisa(i.kind === "product" ? i.unitPrice * i.quantity : i.dealPrice * i.quantity)}
+                    </p>
+                  )}
                 </div>
               </div>
             ))}
@@ -714,11 +727,11 @@ export default function CheckoutPage() {
           <div className="mt-5 border-t border-line pt-5">
             <button
               onClick={placeOrder}
-              disabled={submitting || (orderType === "DELIVERY" && (needsCustomAddress || guestAddressIncomplete))}
+              disabled={submitting || hasUnavailable || (orderType === "DELIVERY" && (needsCustomAddress || guestAddressIncomplete))}
               className="flex w-full items-center justify-center gap-2.5 rounded-lg bg-brand-red py-3.5 font-semibold text-white shadow-md transition hover:opacity-95 disabled:opacity-60"
             >
               <FiShoppingBag size={20} />
-              {submitting ? "Placing Order..." : "Place Order"}
+              {submitting ? "Placing Order..." : hasUnavailable ? "Remove sold-out items first" : "Place Order"}
             </button>
             <button onClick={() => router.push("/")} className="mt-4 flex w-full items-center justify-center gap-1.5 text-center text-sm font-medium text-brand-red">
               <ArrowLeftIcon size={12} /> continue to add more items

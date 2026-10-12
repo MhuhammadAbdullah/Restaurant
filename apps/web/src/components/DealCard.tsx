@@ -3,28 +3,34 @@
 import { formatPaisa } from "@restaurant/utils";
 import type { Deal } from "../lib/types";
 import { PlusIcon } from "./icons";
+import { SoldOutStamp } from "./SoldOutStamp";
+import { useLocationStore } from "../store/useLocationStore";
+import { isSoldOutAt, soldOutToast } from "../lib/outOfStock";
 
 export function DealCard({ deal, onClick }: { deal: Deal; onClick: () => void }) {
+  const branchId = useLocationStore((s) => s.branch?.id);
+  const soldOut = isSoldOutAt(deal.branchAvailability, branchId);
   return (
     <button
-      onClick={onClick}
-      className="group relative z-0 flex flex-col overflow-hidden rounded-2xl border border-brand-red bg-surface text-left transition duration-200 ease-out hover:z-10 hover:shadow-lg"
+      onClick={() => (soldOut ? soldOutToast(deal.name) : onClick())}
+      className={`group relative z-0 flex flex-col overflow-hidden rounded-2xl border bg-surface text-left transition duration-200 ease-out hover:z-10 hover:shadow-lg ${soldOut ? "border-line" : "border-brand-red"}`}
     >
       <div className="p-1.5">
         {deal.image ? (
-          <div className="aspect-square w-full overflow-hidden rounded-2xl">
+          <div className="relative aspect-square w-full overflow-hidden rounded-2xl">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={deal.image}
               alt={deal.name}
-              className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-110"
+              className={`h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-110 ${soldOut ? "opacity-40 grayscale" : ""}`}
             />
+            {soldOut && <SoldOutStamp />}
           </div>
         ) : (
           <div className="aspect-square w-full rounded-2xl bg-surface-alt" />
         )}
       </div>
-      <div className="flex w-full flex-1 flex-col px-2.5 pb-2.5 pt-1 sm:px-3 sm:pb-3 sm:pt-1.5">
+      <div className={`flex w-full flex-1 flex-col px-2.5 pb-2.5 pt-1 sm:px-3 sm:pb-3 sm:pt-1.5 ${soldOut ? "opacity-60" : ""}`}>
         <p className="font-poppins text-[12px] font-bold uppercase leading-[15px] text-ink sm:text-[14px] sm:leading-[17px] lg:text-[16px] lg:leading-[19px]">
           {deal.name}
         </p>
@@ -37,14 +43,18 @@ export function DealCard({ deal, onClick }: { deal: Deal; onClick: () => void })
           <span className="font-poppins text-[12px] font-bold uppercase leading-[14px] text-ink sm:text-[13px] sm:leading-[15px] lg:text-[15px] lg:leading-[16px]">
             From {formatPaisa(deal.dealPrice)}
           </span>
-          <span
-            aria-label="Add to cart"
-            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-brand-red text-white sm:h-7 sm:w-7 sm:rounded-lg lg:h-8 lg:w-8"
-          >
-            <PlusIcon size={10} className="sm:hidden" />
-            <PlusIcon size={12} className="hidden sm:block lg:hidden" />
-            <PlusIcon size={14} className="hidden lg:block" />
-          </span>
+          {soldOut ? (
+            <span className="flex h-6 shrink-0 items-center rounded-md bg-surface-alt px-2 text-[10px] font-semibold uppercase tracking-wide text-muted sm:h-7 sm:text-[11px]">Sold out</span>
+          ) : (
+            <span
+              aria-label="Add to cart"
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-brand-red text-white sm:h-7 sm:w-7 sm:rounded-lg lg:h-8 lg:w-8"
+            >
+              <PlusIcon size={10} className="sm:hidden" />
+              <PlusIcon size={12} className="hidden sm:block lg:hidden" />
+              <PlusIcon size={14} className="hidden lg:block" />
+            </span>
+          )}
         </div>
       </div>
     </button>

@@ -13,6 +13,8 @@ export type SetBranchAvailabilityInput = z.infer<typeof setBranchAvailabilitySch
 
 const categoryShape = z.object({
   name: z.string().trim().min(1).max(120),
+  /** Heading under the banner on the website's category page. */
+  pageHeading: z.string().trim().max(200).optional(),
   description: z.string().trim().max(2000).optional(),
   image: z.string().url().optional(),
   banner: z.string().url().optional(),
@@ -45,6 +47,10 @@ const choiceOptionShape = z.object({
   image: z.string().url().optional(),
   priceAdjustment: moneyPaisaSchema.default(0),
   discountPriceAdjustment: moneyPaisaSchema.nullable().optional(),
+  /** Use the product's listing price: this option changes nothing about the price. */
+  useListingPrice: z.boolean().default(false),
+  /** Show this option's price to customers. */
+  showPrice: z.boolean().default(true),
   sortOrder: z.number().int().default(0),
   status: z.enum(["ACTIVE", "INACTIVE"]).default("ACTIVE"),
 });
@@ -69,6 +75,10 @@ function checkOptionDiscounts(
 
 const choiceGroupShape = z.object({
   name: z.string().trim().min(1).max(120),
+  /** Admin-only: which product/use this section is for. */
+  internalName: z.string().trim().max(150).optional(),
+  /** Option prices are full item prices (replace the product price) instead of extras. Only for "pick one". */
+  priceReplacesBase: z.boolean().default(false),
   description: z.string().trim().max(2000).optional(),
   isRequired: z.boolean().default(true),
   selectionType: z.enum(["SINGLE", "MULTIPLE"]).default("SINGLE"),
@@ -213,5 +223,17 @@ export const listProductsQuerySchema = z.object({
   popular: z.coerce.boolean().optional(),
   mainPage: z.coerce.boolean().optional(),
   search: z.string().trim().max(150).optional(),
+  /** Storefront: also return items switched off for this branch (shown as "sold out") instead of hiding them. */
+  includeOutOfStock: z.enum(["true", "false"]).optional(),
 });
 export type ListProductsQuery = z.infer<typeof listProductsQuerySchema>;
+
+/** Storefront cart check: which items in the cart can no longer be ordered at this branch. */
+export const cartAvailabilitySchema = z.object({
+  branchId: idSchema,
+  productIds: z.array(idSchema).max(100).default([]),
+  dealIds: z.array(idSchema).max(100).default([]),
+  /** Options picked on cart lines (product choices and deal-slot choices). */
+  choiceOptionIds: z.array(idSchema).max(300).default([]),
+});
+export type CartAvailabilityInput = z.infer<typeof cartAvailabilitySchema>;

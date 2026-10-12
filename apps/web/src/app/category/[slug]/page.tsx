@@ -11,6 +11,8 @@ import { ProductModal } from "../../../components/ProductModal";
 import { DealCard } from "../../../components/DealCard";
 import { DealModal } from "../../../components/DealModal";
 import { SectionBanner } from "../../../components/SectionBanner";
+import { CategoryIntro } from "../../../components/CategoryIntro";
+import { HomeFooterPromo } from "../../../components/HomeFooterPromo";
 import { SkeletonGrid, SkeletonProductCard, SkeletonSectionBanner } from "../../../components/skeletons";
 
 export default function CategoryPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -30,14 +32,14 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
 
   const { data: products, isLoading: productsLoading } = useQuery({
     queryKey: ["category-products", category?.id, branch?.id],
-    queryFn: () => api.public.get<Product[]>(`/catalog/products?branchId=${branch?.id}&categoryId=${category?.id}`),
+    queryFn: () => api.public.get<Product[]>(`/catalog/products?branchId=${branch?.id}&categoryId=${category?.id}&includeOutOfStock=true`),
     enabled: !!branch && !!category && !isDealsCategory,
     placeholderData: keepPreviousData,
   });
 
   const { data: deals, isLoading: dealsLoading } = useQuery({
     queryKey: ["deals", branch?.id],
-    queryFn: () => api.public.get<Deal[]>(`/deals?branchId=${branch?.id}`),
+    queryFn: () => api.public.get<Deal[]>(`/deals?branchId=${branch?.id}&includeOutOfStock=true`),
     enabled: !!branch && isDealsCategory,
     placeholderData: keepPreviousData,
   });
@@ -61,6 +63,8 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-8">
         {categoriesLoading ? <SkeletonSectionBanner /> : <SectionBanner heading={category?.name ?? ""} image={category?.banner ?? category?.image} />}
 
+        {!categoriesLoading && category && <CategoryIntro heading={category.pageHeading || category.name} description={category.description} />}
+
         {!isResolved ? (
           <p className="p-10 text-center text-muted">Select your location to see the menu.</p>
         ) : categoriesLoading || itemsLoading ? (
@@ -78,6 +82,8 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
         )}
         {isResolved && categories && !category && <p className="text-sm text-muted">Category not found.</p>}
       </div>
+
+      <HomeFooterPromo variant="category" />
 
       {activeProduct && <ProductModal product={activeProduct} onClose={() => setActiveProduct(null)} />}
       {activeDeal && <DealModal deal={activeDeal} onClose={() => setActiveDeal(null)} />}

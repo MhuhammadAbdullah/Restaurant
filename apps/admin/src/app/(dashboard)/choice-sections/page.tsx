@@ -8,6 +8,8 @@ import { useMe, hasPermission } from "../../../lib/useMe";
 import { toast } from "../../../store/useToastStore";
 import { ImageUploadField } from "../../../components/ImageUploadField";
 import { StatusToggle } from "../../../components/StatusToggle";
+import { BranchStockModal } from "../../../components/BranchStockModal";
+import { useSelectedBranch } from "../../../lib/useSelectedBranch";
 import { ReorderableList } from "../../../components/ReorderableList";
 import { SearchInput, FilterBar, FilterSelect, ClearFiltersButton, ResultsSummary } from "../../../components/SearchFilterBar";
 import { CloseIcon, EditIcon, TrashIcon } from "../../../components/icons";
@@ -20,11 +22,16 @@ type ChoiceOption = {
   image: string | null;
   priceAdjustment: number;
   discountPriceAdjustment: number | null;
+  useListingPrice?: boolean;
+  showPrice?: boolean;
+  outOfStock?: { branchId: string }[];
   sortOrder: number;
   status: "ACTIVE" | "INACTIVE";
 };
 
 type ChoiceGroup = {
+  internalName?: string | null;
+  priceReplacesBase?: boolean;
   id: string;
   name: string;
   description: string | null;
@@ -44,13 +51,17 @@ type OptionForm = {
   image: string;
   priceAdjustment: number;
   discountPriceAdjustment: string;
+  useListingPrice: boolean;
+  showPrice: boolean;
   status: "ACTIVE" | "INACTIVE";
 };
 
-const EMPTY_OPTION: OptionForm = { name: "", description: "", image: "", priceAdjustment: 0, discountPriceAdjustment: "", status: "ACTIVE" };
+const EMPTY_OPTION: OptionForm = { name: "", description: "", image: "", priceAdjustment: 0, discountPriceAdjustment: "", useListingPrice: false, showPrice: true, status: "ACTIVE" };
 
 const EMPTY_FORM = {
   name: "",
+  internalName: "",
+  priceReplacesBase: false,
   description: "",
   isRequired: true,
   selectionType: "SINGLE" as "SINGLE" | "MULTIPLE",
@@ -74,6 +85,8 @@ function SectionTitle({ n, title, hint }: { n: number; title: string; hint: stri
 
 export default function ChoiceSectionsPage() {
   const queryClient = useQueryClient();
+  const { branches } = useSelectedBranch();
+  const [stockOption, setStockOption] = useState<{ groupName: string; option: ChoiceOption } | null>(null);
   const { data: me } = useMe();
   const canCreate = hasPermission(me, "choiceGroups.create");
   const canEdit = hasPermission(me, "choiceGroups.edit");
@@ -115,6 +128,8 @@ export default function ChoiceSectionsPage() {
     setEditingId(g.id);
     setForm({
       name: g.name,
+      internalName: g.internalName ?? "",
+      priceReplacesBase: g.priceReplacesBase ?? false,
       description: g.description ?? "",
       isRequired: g.isRequired,
       selectionType: g.selectionType,
@@ -128,6 +143,8 @@ export default function ChoiceSectionsPage() {
         image: o.image ?? "",
         priceAdjustment: o.priceAdjustment / 100,
         discountPriceAdjustment: o.discountPriceAdjustment != null ? String(o.discountPriceAdjustment / 100) : "",
+        useListingPrice: o.useListingPrice ?? false,
+        showPrice: o.showPrice ?? true,
         status: o.status,
       })),
     });
@@ -191,12 +208,17 @@ export default function ChoiceSectionsPage() {
           name: o.name,
           description: o.description.trim() || undefined,
           image: o.image || undefined,
-          priceAdjustment: Math.round(o.priceAdjustment * 100),
-          discountPriceAdjustment: o.discountPriceAdjustment.trim() ? Math.round(Number(o.discountPriceAdjustment) * 100) : null,
+          priceAdjustment: o.useListingPrice ? 0 : Math.round(o.priceAdjustment * 100),
+          discountPriceAdjustment: !o.useListingPrice && o.discountPriceAdjustment.trim() ? Math.round(Number(o.discountPriceAdjustment) * 100) : null,
+          useListingPrice: o.useListingPrice,
+          showPrice: o.showPrice,
+          status: o.status,
           sortOrder: i,
         }));
       const body = {
         name: form.name,
+        internalName: form.internalName.trim(),
+        priceReplacesBase: form.selectionType === "SINGLE" && form.priceReplacesBase,
         description: form.description || undefined,
         isRequired: form.isRequired,
         selectionType: form.selectionType,
@@ -316,7 +338,7 @@ export default function ChoiceSectionsPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-semibold text-neutral-900">{g.name}</p>
+                      <p className="font-semibold text-neutral-900">{g.internalName || g.name}</p>
                       <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${g.status === "ACTIVE" ? "bg-green-50 text-green-700" : "bg-neutral-100 text-neutral-500"}`}>
                         {g.status === "ACTIVE" ? "Active" : "Inactive"}
                       </span>
@@ -327,6 +349,7 @@ export default function ChoiceSectionsPage() {
                         {g.selectionType === "SINGLE" ? "Pick one" : `Pick ${g.minSelect === g.maxSelect ? g.maxSelect : `${g.minSelect}-${g.maxSelect}`}`}
                       </span>
                     </div>
+                    {g.internalName && <p className="mt-0.5 text-xs text-neutral-500">Customers see: {g.name}</p>}
                     {g.description && <p className="mt-0.5 text-xs text-neutral-500">{g.description}</p>}
                   </div>
                   <div className="flex shrink-0 items-center gap-3">
@@ -354,7 +377,22 @@ export default function ChoiceSectionsPage() {
                         <span className="flex h-6 w-6 items-center justify-center rounded-full bg-neutral-200 text-[10px] font-semibold text-neutral-500">{o.name.charAt(0).toUpperCase()}</span>
                       )}
                       <span className="font-medium text-neutral-800">{o.name}</span>
-                      {o.priceAdjustment > 0 && <span className="text-neutral-400">+{formatPaisa(o.discountPriceAdjustment ?? o.priceAdjustment)}</span>}
+                      {o.useListingPrice ? (
+                        <span className="text-neutral-400">{g.priceReplacesBase ? "Listing price" : "No change"}</span>
+                      ) : (
+                        o.priceAdjustment > 0 && <span className="text-neutral-400">{g.priceReplacesBase ? "" : "+"}{formatPaisa(o.discountPriceAdjustment ?? o.priceAdjustment)}</span>
+                      )}
+                      {o.showPrice === false && <span className="rounded bg-neutral-100 px-1 text-[9px] font-medium uppercase text-neutral-500">Price hidden</span>}
+                      {canEdit && (
+                        <button
+                          type="button"
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={() => setStockOption({ groupName: g.internalName || g.name, option: o })}
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${(o.outOfStock?.length ?? 0) > 0 ? "bg-red-50 text-brand-red" : "text-neutral-400 hover:text-brand-red"}`}
+                        >
+                          {(o.outOfStock?.length ?? 0) > 0 ? `Not available in ${o.outOfStock!.length}` : "Stock"}
+                        </button>
+                      )}
                     </span>
                   ))}
                   {g.options.length === 0 && <span className="text-xs text-amber-600">No options yet</span>}
@@ -401,6 +439,11 @@ export default function ChoiceSectionsPage() {
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+                <div>
+                  <p className="mb-1 text-xs font-medium text-neutral-500">Internal name</p>
+                  <input placeholder="e.g. Broast: chicken part (which product this is for)" value={form.internalName} onChange={(e) => setForm({ ...form, internalName: e.target.value })} maxLength={150} className="input w-full" />
+                  <p className="mt-1 text-xs text-neutral-400">For your team only, to tell similar sections apart. Customers never see it.</p>
                 </div>
                 <div>
                   <p className="mb-1 text-xs font-medium text-neutral-500">Description</p>
@@ -457,7 +500,19 @@ export default function ChoiceSectionsPage() {
               </section>
 
               <section className="space-y-3 rounded-xl border border-neutral-200 p-4">
-                <SectionTitle n={3} title="Options" hint="Extra price is added to the product price when this option is picked." />
+                <SectionTitle n={3} title="Options" hint={form.selectionType === "SINGLE" && form.priceReplacesBase ? "Each option's price is the full price of the item (e.g. Regular 1,990 / Full 3,690)." : "Extra price is added to the product price when this option is picked."} />
+                {form.selectionType === "SINGLE" && (
+                  <label className="flex items-start gap-3 rounded-lg border border-neutral-200 bg-neutral-50 p-3 text-sm">
+                    <StatusToggle active={form.priceReplacesBase} onClick={() => setForm({ ...form, priceReplacesBase: !form.priceReplacesBase })} onLabel="Full prices: click to switch to extras" offLabel="Extras: click to switch to full prices" />
+                    <span>
+                      <span className="block font-medium text-neutral-800">Option prices are full prices</span>
+                      <span className="block text-xs text-neutral-500">
+                        On: the price of the picked option is the item&apos;s price (Regular Rs. 1,990, Full Rs. 3,690), and the product price is not added on top.
+                        Off: the price is an extra added to the product price. Set the product price to the lowest option so menu cards show &quot;from&quot; correctly.
+                      </span>
+                    </span>
+                  </label>
+                )}
                 <div className="space-y-3">
                   {form.options.map((o, i) => (
                     <div key={i} className={`rounded-lg border bg-neutral-50 p-3 ${o.status === "INACTIVE" ? "border-neutral-200 opacity-70" : "border-neutral-200"}`}>
@@ -488,16 +543,40 @@ export default function ChoiceSectionsPage() {
                             />
                             <p className="mt-0.5 text-right text-[10px] text-neutral-400">{o.description.length}/300 · shown under the name on the website</p>
                           </div>
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <p className="mb-0.5 text-[11px] text-neutral-500">Extra price (Rs.)</p>
-                              <input type="number" min={0} value={o.priceAdjustment} onChange={(e) => updateOption(i, { priceAdjustment: Number(e.target.value) })} className="input w-full bg-white" />
-                            </div>
-                            <div>
-                              <p className="mb-0.5 text-[11px] text-neutral-500">Discounted extra (optional)</p>
-                              <input type="number" min={0} value={o.discountPriceAdjustment} onChange={(e) => updateOption(i, { discountPriceAdjustment: e.target.value })} className="input w-full bg-white" />
+                          <div>
+                            <p className="mb-0.5 text-[11px] text-neutral-500">Price of this option</p>
+                            <div className="grid grid-cols-2 gap-2">
+                              {[
+                                [true, form.selectionType === "SINGLE" && form.priceReplacesBase ? "Same as listing price" : "No price change"],
+                                [false, form.selectionType === "SINGLE" && form.priceReplacesBase ? "Custom price" : "Extra price"],
+                              ].map(([value, text]) => (
+                                <button
+                                  key={String(value)}
+                                  type="button"
+                                  onClick={() => updateOption(i, { useListingPrice: value as boolean })}
+                                  className={`rounded-lg border px-2 py-1.5 text-xs font-medium ${o.useListingPrice === value ? "border-brand-red bg-red-50 text-brand-red" : "border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50"}`}
+                                >
+                                  {text as string}
+                                </button>
+                              ))}
                             </div>
                           </div>
+                          {!o.useListingPrice && (
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <p className="mb-0.5 text-[11px] text-neutral-500">{form.selectionType === "SINGLE" && form.priceReplacesBase ? "Price (Rs.)" : "Extra price (Rs.)"}</p>
+                                <input type="number" min={0} value={o.priceAdjustment} onChange={(e) => updateOption(i, { priceAdjustment: Number(e.target.value) })} className="input w-full bg-white" />
+                              </div>
+                              <div>
+                                <p className="mb-0.5 text-[11px] text-neutral-500">{form.selectionType === "SINGLE" && form.priceReplacesBase ? "Discounted price (optional)" : "Discounted extra (optional)"}</p>
+                                <input type="number" min={0} value={o.discountPriceAdjustment} onChange={(e) => updateOption(i, { discountPriceAdjustment: e.target.value })} className="input w-full bg-white" />
+                              </div>
+                            </div>
+                          )}
+                          <label className="flex items-center gap-2 text-xs text-neutral-600">
+                            <StatusToggle active={o.showPrice} onClick={() => updateOption(i, { showPrice: !o.showPrice })} onLabel="Price shown: click to hide" offLabel="Price hidden: click to show" />
+                            {o.showPrice ? "Show this option's price to customers" : "Hide this option's price from customers"}
+                          </label>
                           <label className="flex items-center gap-2 text-xs text-neutral-600">
                             <StatusToggle active={o.status === "ACTIVE"} onClick={() => updateOption(i, { status: o.status === "ACTIVE" ? "INACTIVE" : "ACTIVE" })} />
                             {o.status === "ACTIVE" ? "Available" : "Hidden from customers"}
@@ -523,6 +602,17 @@ export default function ChoiceSectionsPage() {
             </form>
           </div>
         </div>
+      )}
+
+      {stockOption && (
+        <BranchStockModal
+          kind="options"
+          itemId={stockOption.option.id}
+          itemName={`${stockOption.groupName} › ${stockOption.option.name}`}
+          availability={branches.map((b) => ({ branchId: b.id, isAvailable: !stockOption.option.outOfStock?.some((x) => x.branchId === b.id) }))}
+          onClose={() => setStockOption(null)}
+          onChanged={() => queryClient.invalidateQueries({ queryKey: ["choice-groups"] })}
+        />
       )}
 
       {deleteTarget && (

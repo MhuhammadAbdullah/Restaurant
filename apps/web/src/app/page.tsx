@@ -79,7 +79,7 @@ export default function HomePage() {
 
   const { data: deals, isLoading: dealsLoading } = useQuery({
     queryKey: ["deals", branch?.id],
-    queryFn: () => api.public.get<Deal[]>(`/deals?branchId=${branch?.id}`),
+    queryFn: () => api.public.get<Deal[]>(`/deals?branchId=${branch?.id}&includeOutOfStock=true`),
     enabled: !!branch,
     placeholderData: keepPreviousData,
   });
@@ -93,21 +93,21 @@ export default function HomePage() {
 
   const { data: popularProducts, isLoading: popularLoading } = useQuery({
     queryKey: ["popular-products", branch?.id],
-    queryFn: () => api.public.get<Product[]>(`/catalog/products?branchId=${branch?.id}&popular=true`),
+    queryFn: () => api.public.get<Product[]>(`/catalog/products?branchId=${branch?.id}&popular=true&includeOutOfStock=true`),
     enabled: !!branch,
     placeholderData: keepPreviousData,
   });
 
   const { data: allProducts, isLoading: allProductsLoading } = useQuery({
     queryKey: ["all-products", branch?.id],
-    queryFn: () => api.public.get<Product[]>(`/catalog/products?branchId=${branch?.id}`),
+    queryFn: () => api.public.get<Product[]>(`/catalog/products?branchId=${branch?.id}&includeOutOfStock=true`),
     enabled: !!branch,
     placeholderData: keepPreviousData,
   });
 
   const { data: searchResults, isLoading: searchLoading } = useQuery({
     queryKey: ["search-products", branch?.id, submittedQuery],
-    queryFn: () => api.public.get<Product[]>(`/catalog/products?branchId=${branch?.id}&search=${encodeURIComponent(submittedQuery)}`),
+    queryFn: () => api.public.get<Product[]>(`/catalog/products?branchId=${branch?.id}&search=${encodeURIComponent(submittedQuery)}&includeOutOfStock=true`),
     enabled: !!branch && submittedQuery.trim().length > 1,
     placeholderData: keepPreviousData,
   });
@@ -370,7 +370,7 @@ function CategoryProductSection({
   const router = useRouter();
   const { data: products, isLoading } = useQuery({
     queryKey: ["products", "mainPage", section.categoryId, branchId],
-    queryFn: () => api.public.get<Product[]>(`/catalog/products?branchId=${branchId}&categoryId=${section.categoryId}&mainPage=true`),
+    queryFn: () => api.public.get<Product[]>(`/catalog/products?branchId=${branchId}&categoryId=${section.categoryId}&mainPage=true&includeOutOfStock=true`),
     enabled: !!section.categoryId,
     placeholderData: keepPreviousData,
   });

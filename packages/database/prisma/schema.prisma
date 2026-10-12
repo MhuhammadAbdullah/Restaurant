@@ -226,6 +226,7 @@ model Restaurant {
   websiteSections WebsiteSection[]
   banners         Banner[]
   marketingPopups MarketingPopup[]
+  mediaAssets     MediaAsset[]
   notifications   Notification[]
   auditLogs           AuditLog[]
   recommendations     Recommendation[]
@@ -236,6 +237,7 @@ model Restaurant {
 }
 
 model StaffUser {
+  sessions         StaffSession[]
   id               String       @id @default(cuid())
   restaurantId     String
   restaurant       Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
@@ -275,6 +277,20 @@ model StaffUser {
 
   @@unique([restaurantId, email])
   @@map("staff_users")
+}
+
+/// One signed-in device/browser of a staff member. A person can be signed in on several devices at once (POS, kitchen
+/// screen, phone) without them signing each other out. tokenHashes holds the last few valid refresh tokens.
+model StaffSession {
+  id          String    @id @default(cuid())
+  staffUserId String
+  staffUser   StaffUser @relation(fields: [staffUserId], references: [id], onDelete: Cascade)
+  tokenHashes String[]
+  createdAt   DateTime  @default(now())
+  lastUsedAt  DateTime  @default(now())
+
+  @@index([staffUserId])
+  @@map("staff_sessions")
 }
 
 model Role {
@@ -341,6 +357,7 @@ model StaffUserBranch {
 // ============================================================
 
 model Branch {
+  choiceOptionOutOfStock ChoiceOptionOutOfStock[]
   id                    String       @id @default(cuid())
   restaurantId          String
   restaurant            Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
@@ -453,6 +470,8 @@ model Category {
   restaurantId  String
   restaurant    Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   name          String
+  /// Heading shown under the banner on the category page (falls back to the name).
+  pageHeading   String?
   description   String?
   image         String?
   banner        String?
@@ -555,6 +574,10 @@ model ChoiceGroup {
   restaurantId  String
   restaurant    Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   name          String
+  /// Admin-only label, e.g. which product this section is for. Never shown to customers.
+  internalName  String?
+  /// When true the options' prices are full item prices (Regular / Full) instead of extras on the product price.
+  priceReplacesBase Boolean    @default(false)
   description   String?
   isRequired    Boolean       @default(true)
   selectionType SelectionType @default(SINGLE)
@@ -581,6 +604,12 @@ model ChoiceOption {
   image                   String?
   priceAdjustment         Int          @default(0) // paisa
   discountPriceAdjustment Int? // paisa, optional discounted additional price
+  /// "No price change": picking this option uses the product's own listing price (nothing added, nothing replaced).
+  useListingPrice         Boolean      @default(false)
+  /// Whether customers see this option's price on the website. The price still applies when hidden.
+  showPrice               Boolean      @default(true)
+  /// Branches where this option is currently not available (out of stock). No row means available.
+  outOfStock              ChoiceOptionOutOfStock[]
   sortOrder               Int          @default(0)
   status                  RecordStatus @default(ACTIVE)
 
@@ -589,6 +618,18 @@ model ChoiceOption {
   defaultForProductChoices ProductChoiceGroup[]      @relation("ProductChoiceGroupDefault")
 
   @@map("choice_options")
+}
+
+/// A choice option that is out of stock at one branch (shown as "Not available" there).
+model ChoiceOptionOutOfStock {
+  choiceOptionId String
+  choiceOption   ChoiceOption @relation(fields: [choiceOptionId], references: [id], onDelete: Cascade)
+  branchId       String
+  branch         Branch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@id([choiceOptionId, branchId])
+  @@map("choice_option_out_of_stock")
 }
 
 model ProductChoiceGroup {
@@ -1380,6 +1421,28 @@ model Banner {
   createdAt    DateTime     @default(now())
 
   @@map("banners")
+}
+
+/// An image in the media library (the file itself lives in Cloudinary).
+model MediaAsset {
+  id           String     @id @default(cuid())
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  url          String
+  publicId     String     @unique
+  filename     String
+  /// Description of the picture for screen readers and search engines.
+  altText      String?
+  folder       String     @default("restaurant")
+  width        Int?
+  height       Int?
+  bytes        Int?
+  format       String?
+  uploadedById String?
+  createdAt    DateTime   @default(now())
+
+  @@index([restaurantId, createdAt])
+  @@map("media_assets")
 }
 
 /// Promotional pop-up shown on the storefront (image + optional link) with rules for where, to whom and how often.

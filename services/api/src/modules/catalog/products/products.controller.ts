@@ -4,6 +4,8 @@ import {
   createProductSchema,
   listProductsQuerySchema,
   setBranchAvailabilitySchema,
+  cartAvailabilitySchema,
+  type CartAvailabilityInput,
   updateProductSchema,
   type CreateProductInput,
   type ListProductsQuery,
@@ -32,6 +34,21 @@ export class ProductsController {
   @Get()
   async list(@Query(new ZodValidationPipe(listProductsQuerySchema)) query: ListProductsQuery) {
     const data = await this.products.list(query);
+    return { success: true, data };
+  }
+
+  @Public()
+  @Post("availability")
+  async cartAvailability(@Body(new ZodValidationPipe(cartAvailabilitySchema)) body: CartAvailabilityInput) {
+    const data = await this.products.cartAvailability(body);
+    return { success: true, data };
+  }
+
+  @UseGuards(StaffJwtAuthGuard, PermissionsGuard)
+  @RequirePermission("products.view")
+  @Get("admin/all")
+  async listAll() {
+    const data = await this.products.listAll();
     return { success: true, data };
   }
 

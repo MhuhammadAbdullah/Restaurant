@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import type { ProductOrderItemInput } from "@restaurant/validation";
-import { effectivePrice, resolveChoiceGroupRules } from "@restaurant/utils";
+import { choiceOptionAdjustment, effectivePrice, resolveChoiceGroupRules } from "@restaurant/utils";
 import { PrismaService } from "../../common/prisma/prisma.service";
 
 export type ProductLineBreakdown = {
@@ -27,7 +27,7 @@ export class ProductPricingService {
     const product = await this.prisma.product.findUnique({
       where: { id: item.productId },
       include: {
-        choiceGroups: { include: { choiceGroup: { include: { options: true } } } },
+        choiceGroups: { include: { choiceGroup: { include: { options: { include: { outOfStock: { where: { branchId } } } } } } } },
         addons: { include: { addon: true } },
         branchAvailability: { where: { branchId } },
       },
@@ -68,11 +68,20 @@ export class ProductPricingService {
       for (const pick of picked) {
         const option = activeOptions.find((o) => o.id === pick.choiceOptionId);
         if (!option) throw new BadRequestException({ code: "INVALID_CHOICE_OPTION", message: `Invalid option for "${group.name}"` });
+        if (option.outOfStock.length > 0) {
+          throw new BadRequestException({ code: "CHOICE_OPTION_UNAVAILABLE", message: `"${option.name}" is not available right now at this branch` });
+        }
+        const { adjustment, regularAdjustment } = choiceOptionAdjustment(
+          group,
+          option,
+          effectivePrice(product.basePrice, product.discountPrice),
+          product.basePrice,
+        );
         choiceBreakdown.push({
           choiceOptionId: option.id,
           name: option.name,
-          priceAdjustment: effectivePrice(option.priceAdjustment, option.discountPriceAdjustment),
-          regularPriceAdjustment: option.priceAdjustment,
+          priceAdjustment: adjustment,
+          regularPriceAdjustment: regularAdjustment,
         });
       }
     }

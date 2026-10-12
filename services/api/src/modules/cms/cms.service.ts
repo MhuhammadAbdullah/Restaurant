@@ -91,13 +91,40 @@ export class CmsService {
     return this.resolvePagesConfig(restaurant.settings)[slug];
   }
 
+  /**
+   * Home page sections. Every active category gets a product grid (and a tab) automatically, in the category's own
+   * order, so creating, reordering or deactivating a category in the admin is reflected on the website. A stored
+   * PRODUCT_GRID section for a category only supplies its heading. The "Deals" category has its own tab and is skipped.
+   */
   async listSections() {
     const restaurantId = await this.restaurantContext.getRestaurantId();
-    return this.prisma.websiteSection.findMany({
-      where: { restaurantId, status: "ACTIVE" },
-      include: { category: true },
-      orderBy: { sortOrder: "asc" },
-    });
+    const [rows, categories] = await Promise.all([
+      this.prisma.websiteSection.findMany({ where: { restaurantId, status: "ACTIVE" }, include: { category: true }, orderBy: { sortOrder: "asc" } }),
+      this.prisma.category.findMany({ where: { restaurantId, status: "ACTIVE" }, orderBy: { sortOrder: "asc" } }),
+    ]);
+    const others = rows.filter((r) => r.type !== "PRODUCT_GRID");
+    const stored = new Map(rows.filter((r) => r.type === "PRODUCT_GRID" && r.categoryId).map((r) => [r.categoryId as string, r]));
+    const now = new Date();
+    const grids = categories
+      .filter((c) => c.name.trim().toLowerCase() !== "deals")
+      .map((c) => {
+        const existing = stored.get(c.id);
+        return {
+          id: existing?.id ?? `category-${c.id}`,
+          restaurantId,
+          type: "PRODUCT_GRID" as const,
+          heading: existing?.heading ?? `Range of ${c.name}`,
+          description: existing?.description ?? null,
+          categoryId: c.id,
+          category: c,
+          sortOrder: c.sortOrder,
+          status: "ACTIVE" as const,
+          config: existing?.config ?? null,
+          createdAt: existing?.createdAt ?? now,
+          updatedAt: existing?.updatedAt ?? now,
+        };
+      });
+    return [...others, ...grids].sort((a, b) => a.sortOrder - b.sortOrder);
   }
 
   /** Public — only what the customer website needs to render the slider. The admin-only title never leaves adminListBanners(). */

@@ -22,6 +22,7 @@ import {
   FaGift,
   FaHeartPulse,
   FaImages,
+  FaPhotoFilm,
   FaBullhorn,
   FaKitchenSet,
   FaLayerGroup,
@@ -89,6 +90,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/settings/header", label: "Header & Branding", permission: "settings.view", icon: FaPalette },
       { href: "/settings/banners", label: "Hero Banners", permission: "cms.view", icon: FaImages },
+      { href: "/media", label: "Media Library", permission: "cms.view", icon: FaPhotoFilm },
       { href: "/settings/popups", label: "Marketing Pop-ups", permission: "cms.view", icon: FaBullhorn },
       { href: "/settings/footer", label: "Footer", permission: "settings.view", icon: FaTableColumns },
       { href: "/settings/app-promo", label: "App Promo & About", permission: "settings.view", icon: FaMobileScreen },

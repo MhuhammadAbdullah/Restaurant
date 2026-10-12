@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import type { DealSlotSelectionInput } from "@restaurant/validation";
-import { effectivePrice, resolveChoiceGroupRules } from "@restaurant/utils";
+import { choiceOptionAdjustment, effectivePrice, resolveChoiceGroupRules } from "@restaurant/utils";
 import { PrismaService } from "../../common/prisma/prisma.service";
 
 export type SlotPriceBreakdown = {
@@ -34,14 +34,14 @@ export type DealPriceResult = {
 export class DealPricingService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async priceSelections(dealId: string, selections: DealSlotSelectionInput[]): Promise<DealPriceResult> {
+  async priceSelections(dealId: string, selections: DealSlotSelectionInput[], branchId?: string): Promise<DealPriceResult> {
     const deal = await this.prisma.deal.findUnique({
       where: { id: dealId },
       include: {
         slots: {
           include: {
             productOptions: true,
-            choiceGroups: { include: { choiceGroup: { include: { options: true } } } },
+            choiceGroups: { include: { choiceGroup: { include: { options: { include: { outOfStock: branchId ? { where: { branchId } } : false } } } } } },
             addons: { include: { addon: true } },
           },
         },
@@ -122,12 +122,17 @@ export class DealPricingService {
             });
           }
           const option = activeOptions.find((o) => o.id === pick.choiceOptionId)!;
+          if (branchId && "outOfStock" in option && Array.isArray(option.outOfStock) && option.outOfStock.length > 0) {
+            throw new BadRequestException({ code: "CHOICE_OPTION_UNAVAILABLE", message: `"${option.name}" is not available right now at this branch` });
+          }
           choiceBreakdown.push({
             choiceGroupId: group.id,
             choiceOptionId: option.id,
             name: option.name,
-            priceAdjustment: effectivePrice(option.priceAdjustment, option.discountPriceAdjustment),
-            regularPriceAdjustment: option.priceAdjustment,
+            ...(() => {
+              const { adjustment, regularAdjustment } = choiceOptionAdjustment(group, option, effectivePrice(product.basePrice, product.discountPrice), product.basePrice);
+              return { priceAdjustment: adjustment, regularPriceAdjustment: regularAdjustment };
+            })(),
           });
         }
       }

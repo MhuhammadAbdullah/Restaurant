@@ -27,8 +27,16 @@ export class DealsController {
 
   @Public()
   @Get()
-  async list(@Query("branchId") branchId?: string) {
-    const data = await this.deals.list(branchId);
+  async list(@Query("branchId") branchId?: string, @Query("includeOutOfStock") includeOutOfStock?: string) {
+    const data = await this.deals.list(branchId, includeOutOfStock === "true");
+    return { success: true, data };
+  }
+
+  @UseGuards(StaffJwtAuthGuard, PermissionsGuard)
+  @RequirePermission("deals.view")
+  @Get("admin/all")
+  async listAll() {
+    const data = await this.deals.listAll();
     return { success: true, data };
   }
 
