@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { clearTokens, serverLogout, setTokens } from "../lib/api";
-import { getQueryClient } from "../lib/queryClient";
+import { clearCachedUserData } from "../lib/queryClient";
 
 type Staff = { id: string; name: string; email: string; role: string };
 
@@ -28,14 +28,14 @@ export const useAuthStore = create<AuthState>()(
       setHasHydrated: (hasHydrated) => set({ hasHydrated }),
       login: (staff, accessToken, refreshToken) => {
         // forget anything cached for whoever used this screen before
-        getQueryClient().clear();
+        clearCachedUserData();
         setTokens(accessToken, refreshToken);
         set({ staff });
       },
       logout: () => {
         serverLogout();
         clearTokens();
-        getQueryClient().clear();
+        clearCachedUserData();
         set({ staff: null });
       },
       setSelectedBranchId: (selectedBranchId) => set({ selectedBranchId }),
