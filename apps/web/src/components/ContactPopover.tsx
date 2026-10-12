@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { FaHeadset, FaMobileScreenButton } from "react-icons/fa6";
 import { api } from "../lib/api";
+import { useLocationStore } from "../store/useLocationStore";
 import { CloseIcon } from "./icons";
 
 type RestaurantInfo = {
@@ -14,6 +15,8 @@ type RestaurantInfo = {
   header?: { contactButtonLabel: string };
 };
 
+type BranchContact = { id: string; phone: string | null; email: string | null };
+
 export function ContactPopover({
   triggerClassName,
   variant = "default",
@@ -22,6 +25,15 @@ export function ContactPopover({
   variant?: "default" | "pill";
 }) {
   const [open, setOpen] = useState(false);
+  const branch = useLocationStore((s) => s.branch);
+  // The branch saved in the browser can be old (its number may have been changed or added since), so the current
+  // details come from the live branch list, the same list the footer uses.
+  const { data: branches } = useQuery({
+    queryKey: ["branches-footer"],
+    queryFn: () => api.public.get<BranchContact[]>("/branches"),
+    staleTime: 60_000,
+  });
+  const liveBranch = branch ? branches?.find((b) => b.id === branch.id) : undefined;
   const { data } = useQuery({
     queryKey: ["cms-restaurant"],
     queryFn: () => api.public.get<RestaurantInfo>("/cms/restaurant"),
@@ -29,9 +41,13 @@ export function ContactPopover({
     refetchOnWindowFocus: true,
   });
 
+  // Same rule as the footer: once a branch is chosen, show that branch's own number and email (where the order comes
+  // from); until then fall back to the restaurant-wide ones.
+  const phone = liveBranch?.phone || branch?.phone || data?.contactPhone;
+  const email = liveBranch?.email || branch?.email || data?.contactEmail;
+
   // Header variant: a plain tap-to-call link (no dropdown).
   if (variant === "pill") {
-    const phone = data?.contactPhone;
     return (
       <a
         href={phone ? `tel:${phone.replace(/[^\d+]/g, "")}` : undefined}
@@ -55,7 +71,7 @@ export function ContactPopover({
         <FaHeadset size={17} className="text-brand-red" />
         <span className="hidden flex-col items-start leading-tight sm:flex">
           <span className="font-semibold">{data?.header?.contactButtonLabel ?? "Contact"}</span>
-          {data?.contactPhone && <span className="text-[12px] font-normal opacity-90">{data.contactPhone}</span>}
+          {phone && <span className="text-[12px] font-normal opacity-90">{phone}</span>}
         </span>
       </button>
 
@@ -69,14 +85,14 @@ export function ContactPopover({
                 <CloseIcon size={16} />
               </button>
             </div>
-            {data?.contactPhone && (
-              <a href={`tel:${data.contactPhone}`} className="mt-2 block text-muted hover:text-brand-red">
-                {data.contactPhone}
+            {phone && (
+              <a href={`tel:${phone}`} className="mt-2 block text-muted hover:text-brand-red">
+                {phone}
               </a>
             )}
-            {data?.contactEmail && (
-              <a href={`mailto:${data.contactEmail}`} className="mt-1 block text-muted hover:text-brand-red">
-                {data.contactEmail}
+            {email && (
+              <a href={`mailto:${email}`} className="mt-1 block text-muted hover:text-brand-red">
+                {email}
               </a>
             )}
             {!data && <p className="mt-2 text-muted">Loading...</p>}
