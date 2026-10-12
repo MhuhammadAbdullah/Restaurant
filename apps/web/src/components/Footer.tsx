@@ -196,7 +196,7 @@ export function Footer() {
       <div className="bg-brand-red py-4 text-center text-sm text-white">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-2 gap-y-1 px-4">
           <span>
-            © {new Date().getFullYear()} {restaurant?.name ?? "Restaurant"} · Powered by {restaurant?.name ?? "Restaurant"} Online Ordering
+            Powered by Muhammad Abdullah
           </span>
         </div>
       </div>
