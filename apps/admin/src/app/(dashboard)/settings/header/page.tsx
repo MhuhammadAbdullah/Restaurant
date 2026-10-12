@@ -233,19 +233,24 @@ export default function HeaderSettingsPage() {
               </div>
             </SectionCard>
 
-            <SectionCard n={3} title="Contact" description="The Contact button calls this number when tapped.">
+            <SectionCard n={3} title="Contact" description="The Contact button shows the phone number of the branch the customer has chosen, and calls it when tapped. The number changes when they switch branch.">
               <Field label="Button text *">
                 <input value={form.contactButtonLabel} onChange={(e) => set("contactButtonLabel", e.target.value)} className="input w-full" required />
               </Field>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <Field label="Contact phone" hint="Include the country code, e.g. +92 300 1234567">
-                  <input type="tel" value={form.contactPhone} onChange={(e) => set("contactPhone", e.target.value)} className="input w-full" placeholder="+92 ..." />
-                </Field>
-                <Field label="Contact email">
-                  <input type="email" value={form.contactEmail} onChange={(e) => set("contactEmail", e.target.value)} className="input w-full" placeholder="hello@restaurant.com" />
-                </Field>
-              </div>
-              {!form.contactPhone.trim() && <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">No phone number set, so the Contact button has nothing to call.</p>}
+              <p className="rounded-lg bg-neutral-50 px-3 py-2 text-xs text-neutral-600">
+                Each branch&apos;s number is set in <strong>Branches</strong>. The same number is shown in the website footer.
+              </p>
+              <details className="rounded-lg border border-neutral-200 px-3 py-2">
+                <summary className="cursor-pointer text-xs font-medium text-neutral-600">Common number (used only when a branch has no number of its own)</summary>
+                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <Field label="Common phone" hint="Include the country code, e.g. +92 300 1234567">
+                    <input type="tel" value={form.contactPhone} onChange={(e) => set("contactPhone", e.target.value)} className="input w-full" placeholder="+92 ..." />
+                  </Field>
+                  <Field label="Common email">
+                    <input type="email" value={form.contactEmail} onChange={(e) => set("contactEmail", e.target.value)} className="input w-full" placeholder="hello@restaurant.com" />
+                  </Field>
+                </div>
+              </details>
             </SectionCard>
 
             <SectionCard n={4} title="Complaint button" description="Opens the complaint form for customers.">

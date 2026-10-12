@@ -277,10 +277,10 @@ export default function CheckoutPage() {
   const guestAddressIncomplete = !customer && !guestAddress.addressLine.trim();
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-8 sm:px-8">
-      <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
-        <div className="rounded-2xl border border-line bg-surface p-5 sm:p-6">
-          <div className="flex items-center justify-between gap-4">
+    <main className="mx-auto max-w-6xl px-3 py-5 sm:px-8 sm:py-8">
+      <div className="grid gap-4 sm:gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
+        <div className="min-w-0 rounded-2xl border border-line bg-surface p-4 sm:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
             <h1 className="text-xl font-semibold text-ink">Checkout</h1>
             <button
               type="button"
@@ -417,7 +417,7 @@ export default function CheckoutPage() {
                         required
                       />
                       {area && (
-                        <span className="flex items-center border-l border-line bg-surface-alt px-5 text-sm font-semibold text-ink">
+                        <span className="flex max-w-[38%] items-center truncate border-l border-line bg-surface-alt px-3 text-xs font-semibold text-ink sm:max-w-none sm:px-5 sm:text-sm">
                           {area}
                         </span>
                       )}
@@ -492,7 +492,7 @@ export default function CheckoutPage() {
 
           <div className="mt-6 border-t border-line pt-6">
             <p className="text-base font-semibold text-ink">Payment Information</p>
-            <div className="mt-4 flex flex-wrap gap-3">
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:flex sm:flex-wrap">
               {(
                 [
                   { key: "COD", label: orderType === "DELIVERY" ? "Cash on Delivery" : "Pay at Pickup", icon: CASH_ICON_URL, disabled: isGift },
@@ -506,7 +506,7 @@ export default function CheckoutPage() {
                     type="button"
                     disabled={opt.disabled}
                     onClick={() => setPaymentMethod(opt.key)}
-                    className={`relative flex w-44 flex-col items-center gap-3 rounded-xl border-2 px-4 py-5 text-sm font-medium text-ink transition disabled:opacity-40 ${
+                    className={`relative flex w-full min-w-0 flex-col items-center gap-3 rounded-xl border-2 px-2 py-4 text-center text-[13px] font-medium text-ink transition disabled:opacity-40 sm:w-44 sm:px-4 sm:py-5 sm:text-sm ${
                       selected ? "border-brand-red bg-brand-red/10 shadow-md" : "border-line bg-surface hover:border-brand-red/40"
                     }`}
                   >
@@ -543,7 +543,7 @@ export default function CheckoutPage() {
 
         </div>
 
-        <div className="h-fit rounded-2xl border border-line bg-surface p-5 lg:sticky lg:top-6">
+        <div className="h-fit min-w-0 rounded-2xl border border-line bg-surface p-4 sm:p-5 lg:sticky lg:top-6">
           <div className="space-y-3">
             {(showAllItems ? items : items.slice(0, 3)).map((i) => (
               <div key={i.cartItemId} className={`flex items-center gap-3 rounded-xl border p-3 transition duration-200 hover:shadow-lg ${reasonFor(i) ? "border-brand-red/40 bg-brand-red/5" : "border-line hover:border-brand-red/30"}`}>
