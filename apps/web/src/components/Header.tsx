@@ -59,7 +59,7 @@ export function Header() {
   });
   const header = restaurant?.header ?? DEFAULT_HEADER;
 
-  if (NO_CHROME_PATHS.includes(pathname)) return null;
+  if (NO_CHROME_PATHS.includes(pathname) || pathname.startsWith("/blog")) return null;
 
   const locationSubtitle = branch ? (orderType === "DELIVERY" ? area : branch.area) ?? "" : "";
 
@@ -228,6 +228,10 @@ export function Header() {
             <UserIcon size={16} /> Login / Register
           </button>
         )}
+
+        <Link href="/blog" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 rounded-lg border border-line px-3 py-2.5 text-sm">
+          <ComplaintIcon size={14} /> Blog
+        </Link>
 
         <Link
           href="/complaints"

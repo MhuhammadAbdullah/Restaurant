@@ -34,9 +34,17 @@ const components: Components = {
   ),
 };
 
-export function MarkdownContent({ content }: { content: string }) {
+/** Blog articles: headings in Montserrat Bold, dark grey, 24px (H2) and 21px (H3). */
+const blogComponents: Components = {
+  ...components,
+  h1: ({ children }) => <h2 id={slugify(textOf(children))} className="mt-9 scroll-mt-24 font-montserrat text-[24px] font-bold text-[#2b2b2b] first:mt-0 dark:text-ink">{children}</h2>,
+  h2: ({ children }) => <h2 id={slugify(textOf(children))} className="mt-9 scroll-mt-24 font-montserrat text-[24px] font-bold text-[#2b2b2b] first:mt-0 dark:text-ink">{children}</h2>,
+  h3: ({ children }) => <h3 id={slugify(textOf(children))} className="mt-6 scroll-mt-24 font-montserrat text-[21px] font-bold text-[#2b2b2b] dark:text-ink">{children}</h3>,
+};
+
+export function MarkdownContent({ content, variant }: { content: string; variant?: "blog" }) {
   return (
-    <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+    <ReactMarkdown remarkPlugins={[remarkGfm]} components={variant === "blog" ? blogComponents : components}>
       {content}
     </ReactMarkdown>
   );

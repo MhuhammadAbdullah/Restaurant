@@ -187,6 +187,9 @@ export function Footer() {
             <Link href="/faqs" className="block transition hover:text-brand-red">
               {restaurant?.pages?.faqs.title ?? "FAQs"}
             </Link>
+            <Link href="/blog" className="block transition hover:text-brand-red">
+              Blog
+            </Link>
           </div>
         </div>
         </>

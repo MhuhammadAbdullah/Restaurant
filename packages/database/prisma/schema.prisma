@@ -226,6 +226,7 @@ model Restaurant {
   websiteSections WebsiteSection[]
   banners         Banner[]
   marketingPopups MarketingPopup[]
+  blogPosts       BlogPost[]
   mediaAssets     MediaAsset[]
   notifications   Notification[]
   auditLogs           AuditLog[]
@@ -1625,4 +1626,32 @@ model EmailLog {
   @@index([status, scheduledFor])
   @@index([orderId, templateKey])
   @@map("email_logs")
+}
+
+/// A blog article shown on the website's /blog pages. The body is Markdown written in the admin's rich text editor.
+model BlogPost {
+  id              String     @id @default(cuid())
+  restaurantId    String
+  restaurant      Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  title           String
+  slug            String
+  excerpt         String     @default("")
+  coverImage      String?
+  content         String     @default("")
+  /// Small label above the title, e.g. the restaurant or a topic.
+  category        String     @default("")
+  authorName      String     @default("")
+  /// Small round picture shown with the author's name. Empty means the site-wide default picture.
+  authorImage     String?
+  /// "DRAFT" or "PUBLISHED". A published post with a future publishedAt goes live at that time.
+  status          String     @default("DRAFT")
+  publishedAt     DateTime?
+  metaTitle       String?
+  metaDescription String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  @@unique([restaurantId, slug])
+  @@index([restaurantId, status, publishedAt])
+  @@map("blog_posts")
 }

@@ -21,6 +21,7 @@ import { PaymentsModule } from "./modules/payments/payments.module";
 import { OrdersModule } from "./modules/orders/orders.module";
 import { CouponsModule } from "./modules/coupons/coupons.module";
 import { CmsModule } from "./modules/cms/cms.module";
+import { BlogModule } from "./modules/blog/blog.module";
 import { TablesModule } from "./modules/tables/tables.module";
 import { KitchenModule } from "./modules/kitchen/kitchen.module";
 import { ComplaintsModule } from "./modules/complaints/complaints.module";
@@ -63,6 +64,7 @@ import { validateEnv } from "./config/env.schema";
     OrdersModule,
     CouponsModule,
     CmsModule,
+    BlogModule,
     TablesModule,
     KitchenModule,
     ComplaintsModule,

@@ -14,3 +14,4 @@ export * from "./cms";
 export * from "./coupons";
 export * from "./loyalty";
 export * from "./notifications";
+export * from "./blog";

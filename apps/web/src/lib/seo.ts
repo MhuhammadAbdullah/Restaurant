@@ -64,6 +64,7 @@ export function applyTitleTemplate(template: string | undefined, title: string, 
 
 const DEFAULT_TITLES: Record<string, { title: string; description: string }> = {
   locations: { title: "Our Locations", description: "Find our branches, opening hours and delivery areas near you." },
+  blog: { title: "Blog", description: "Articles, tips and news from our kitchen." },
   faqs: { title: "FAQs", description: "Answers to common questions about ordering, delivery and payments." },
   "privacy-policy": { title: "Privacy Policy", description: "How we collect, use and protect your personal information." },
   terms: { title: "Terms & Conditions", description: "The terms that apply when you order from us." },

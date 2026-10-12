@@ -212,7 +212,7 @@ export default function MediaLibraryPage() {
       <div className="mt-4 flex items-center justify-between gap-3">
         <div className="relative w-full max-w-sm">
           <SearchIcon size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search images by name" className="input w-full pl-9" />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search images by name" className="input w-full !pl-9" />
         </div>
         <p className="shrink-0 text-xs text-neutral-400">{total} image{total === 1 ? "" : "s"}</p>
       </div>

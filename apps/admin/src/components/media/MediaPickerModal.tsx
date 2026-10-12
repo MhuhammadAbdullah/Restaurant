@@ -126,7 +126,7 @@ export function MediaPickerModal({ uploadFolder, selectedUrl, onSelect, onClose 
             <div className="shrink-0 border-b border-neutral-100 px-5 py-3">
               <div className="relative max-w-sm">
                 <SearchIcon size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
-                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search images by name" className="input w-full pl-9" />
+                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search images by name" className="input w-full !pl-9" />
               </div>
             </div>
             <div className="modal-scroll min-h-0 flex-1 overflow-y-auto p-5">

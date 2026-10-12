@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { FaBars, FaCartShopping, FaLocationDot, FaPhone, FaTriangleExclamation } from "react-icons/fa6";
+import { FaBars, FaLocationDot, FaMobileScreenButton, FaTriangleExclamation } from "react-icons/fa6";
 import { api, ApiError } from "../../../../lib/api";
 import { useMe, hasPermission } from "../../../../lib/useMe";
 import { toast } from "../../../../store/useToastStore";
@@ -76,40 +76,65 @@ function ToggleCard({ checked, onChange, title, hint }: { checked: boolean; onCh
   );
 }
 
-/** Rough mock of the storefront header so changes can be judged before saving. */
+const CART_ICON_URL = "https://res.cloudinary.com/dgkd8jw6a/image/upload/v1786624174/Gemini_Generated_Image_lrzw3wlrzw3wlrzw-removebg-preview_sdff6k.png";
+
+/** Mirrors the storefront header (phone layout): awning, location button, logo, contact, cart and menu icons. */
 function HeaderPreview({ form, mode }: { form: FormState; mode: "delivery" | "pickup" }) {
-  const pill = "flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-[11px] font-medium text-neutral-700 shadow-sm";
+  const label = mode === "delivery" ? form.deliveryButtonLabel || "Delivery from" : form.pickupButtonLabel || "Pick-Up from";
   return (
-    <div className="overflow-hidden rounded-xl border border-neutral-200 bg-[#F2EFE9]">
-      <div className="flex items-center justify-between gap-2 px-3 py-2.5">
-        <div className="flex min-w-0 items-center gap-2">
-          {form.showHamburgerIcon && (
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-neutral-700 shadow-sm"><FaBars size={12} /></span>
-          )}
-          <span className={`${pill} min-w-0`}>
-            <FaLocationDot size={10} className="shrink-0 text-brand-red" />
-            <span className="truncate">{mode === "delivery" ? form.deliveryButtonLabel || "Delivery from" : form.pickupButtonLabel || "Pick-Up from"} <b>Branch</b></span>
+    <div className="overflow-hidden rounded-xl border border-neutral-200 bg-[#FAF8F4]">
+      <div
+        aria-hidden="true"
+        className="h-2.5 w-full"
+        style={{
+          backgroundImage: [
+            "radial-gradient(circle at 25% 0, #ED2320 0 5.5px, transparent 6px)",
+            "radial-gradient(circle at 75% 0, #ffffff 0 5.5px, rgba(0,0,0,0.18) 6px, transparent 8px)",
+          ].join(", "),
+          backgroundSize: "24px 10px",
+          backgroundRepeat: "repeat-x",
+        }}
+      />
+      <div className="relative flex h-16 items-center justify-between gap-2 px-3 pt-2">
+        <button type="button" className="flex min-w-0 items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-2 py-1 text-left">
+          <FaLocationDot size={13} className="shrink-0 text-brand-red" />
+          <span className="flex min-w-0 flex-col leading-tight">
+            <span className="whitespace-nowrap text-[10px] font-semibold text-neutral-900">Change Location</span>
+            <span className="max-w-[90px] truncate text-[9px] text-neutral-500">{label} Branch</span>
           </span>
-        </div>
-        <div className="flex shrink-0 flex-col items-center">
+        </button>
+        <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center pt-1">
           {form.logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={form.logoUrl} alt="" className="h-9 w-9 rounded-full bg-white object-contain" />
+            <img src={form.logoUrl} alt="" className="h-14 w-auto max-w-[110px] object-contain" />
           ) : (
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-xs font-bold text-brand-red">{(form.name || "R").charAt(0).toUpperCase()}</span>
+            <span className="text-xl font-bold text-brand-red">{form.name || "Restaurant"}</span>
           )}
         </div>
-        <div className="flex min-w-0 items-center justify-end gap-2">
-          <span className={pill}><FaPhone size={10} className="text-brand-red" />{form.contactButtonLabel || "Contact"}</span>
+        <div className="relative z-10 flex shrink-0 items-center gap-2">
+          <span className="flex items-center gap-1.5">
+            <span className="flex h-7 w-7 items-center justify-center rounded-md bg-brand-red/10 text-brand-red"><FaMobileScreenButton size={14} /></span>
+          </span>
           {form.showCartIcon && (
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-brand-red shadow-sm"><FaCartShopping size={12} /></span>
+            <span className="relative">
+              <span
+                className="block h-7 w-7 bg-brand-red"
+                style={{ WebkitMask: `url(${CART_ICON_URL}) center / contain no-repeat`, mask: `url(${CART_ICON_URL}) center / contain no-repeat` }}
+              />
+              <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-red px-1 text-[9px] font-semibold text-white ring-2 ring-[#FAF8F4]">0</span>
+            </span>
+          )}
+          {form.showHamburgerIcon && (
+            <span className="flex h-7 w-7 items-center justify-center rounded-md bg-brand-red/10 text-brand-red"><FaBars size={14} /></span>
           )}
         </div>
       </div>
-      <div className="border-t border-neutral-200 bg-white px-3 py-2 text-center text-[11px] text-neutral-500">
-        <span className="font-semibold text-neutral-800">{form.name || "Restaurant name"}</span>
-        <span className="mx-2 text-neutral-300">•</span>
-        <span className="inline-flex items-center gap-1 text-brand-red"><FaTriangleExclamation size={9} />{form.complaintButtonLabel || "Submit a Complaint"}</span>
+      <div className="mt-1 flex items-center justify-between gap-3 border-t border-neutral-200 bg-white px-3 py-2 text-[11px]">
+        <span className="flex min-w-0 items-center gap-1.5 text-neutral-600">
+          <FaMobileScreenButton size={10} className="shrink-0 text-brand-red" />
+          <span className="truncate"><b className="text-neutral-800">{form.contactButtonLabel || "Contact us"}</b> {form.contactPhone}</span>
+        </span>
+        <span className="inline-flex shrink-0 items-center gap-1 font-semibold text-brand-red"><FaTriangleExclamation size={9} />{form.complaintButtonLabel || "Submit a Complaint"}</span>
       </div>
     </div>
   );
@@ -283,7 +308,7 @@ export default function HeaderSettingsPage() {
               <div className="mt-3">
                 <HeaderPreview form={form} mode={previewMode} />
               </div>
-              <p className="mt-2 text-[11px] text-neutral-400">A simplified preview. Spacing and colours on the real site may differ slightly.</p>
+              <p className="mt-2 text-[11px] text-neutral-400">Shown like the website header on a phone. On desktop the same items sit in one wide bar.</p>
             </div>
           </aside>
 

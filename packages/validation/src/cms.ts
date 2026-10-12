@@ -222,6 +222,59 @@ export const DEFAULT_APP_PROMO_CONFIG: Required<AppPromoConfig> = {
   showOnCategoryPages: true,
 };
 
+const paymentMethodSchema = z
+  .object({
+    enabled: z.boolean(),
+    label: z.string().trim().min(1).max(40),
+    iconUrl: z.string().trim().url().max(500).nullable(),
+  })
+  .partial();
+
+/**
+ * Checkout page: show or hide the coupon and tip boxes, the tip amounts offered (whole rupees), and the payment
+ * methods with their names and icons.
+ */
+export const checkoutConfigSchema = z
+  .object({
+    showCoupon: z.boolean(),
+    showTip: z.boolean(),
+    /** The quick-pick tip buttons, e.g. [100, 200, 500]. Up to 4. */
+    tipPresets: z.array(z.number().int().min(1).max(100_000)).max(4),
+    /** Tip already selected when the checkout opens (0 = none). */
+    defaultTip: z.number().int().min(0).max(100_000),
+    payments: z
+      .object({
+        /** Pay with cash: "Cash on Delivery" for delivery orders, "Pay at Pickup" for pickup orders. */
+        cod: paymentMethodSchema.extend({ pickupLabel: z.string().trim().min(1).max(40).optional() }),
+        online: paymentMethodSchema,
+      })
+      .partial(),
+  })
+  .partial();
+export type CheckoutConfig = z.infer<typeof checkoutConfigSchema>;
+
+export type ResolvedCheckoutConfig = {
+  showCoupon: boolean;
+  showTip: boolean;
+  tipPresets: number[];
+  defaultTip: number;
+  payments: {
+    cod: { enabled: boolean; label: string; pickupLabel: string; iconUrl: string | null };
+    online: { enabled: boolean; label: string; iconUrl: string | null };
+  };
+};
+
+export const DEFAULT_CHECKOUT_CONFIG: ResolvedCheckoutConfig = {
+  showCoupon: true,
+  showTip: true,
+  tipPresets: [100, 200, 500],
+  defaultTip: 0,
+  payments: {
+    cod: { enabled: true, label: "Cash on Delivery", pickupLabel: "Pay at Pickup", iconUrl: null },
+    online: { enabled: true, label: "Online Payment", iconUrl: null },
+  },
+};
+
 /** Heading + long-form paragraph shown just above the footer, collapsed to `truncateLength` characters with a Show more/less toggle. */
 export const aboutContentConfigSchema = z
   .object({
@@ -342,6 +395,7 @@ export const updateRestaurantSettingsSchema = z.object({
   locationPopup: locationPopupConfigSchema.optional(),
   loyalty: loyaltyConfigSchema.optional(),
   appPromo: appPromoConfigSchema.optional(),
+  checkout: checkoutConfigSchema.optional(),
   aboutContent: aboutContentConfigSchema.optional(),
   receiptMessages: receiptMessagesSchema.optional(),
   receiptLogoUrl: z.string().trim().url().max(500).optional().nullable(),

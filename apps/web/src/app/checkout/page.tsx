@@ -25,7 +25,19 @@ import { toast } from "../../store/useToastStore";
 
 type Address = { id: string; label: string; city: string; area: string; addressLine: string; isDefault: boolean };
 type CustomerMe = { loyaltyPoints: number };
-type RestaurantInfo = { loyalty?: { enabled: boolean } };
+type RestaurantInfo = {
+  loyalty?: { enabled: boolean };
+  checkout?: {
+    showCoupon?: boolean;
+    showTip?: boolean;
+    tipPresets?: number[];
+    defaultTip?: number;
+    payments?: {
+      cod?: { enabled?: boolean; label?: string; pickupLabel?: string; iconUrl?: string | null };
+      online?: { enabled?: boolean; label?: string; iconUrl?: string | null };
+    };
+  };
+};
 
 const TITLES = ["Mr.", "Mrs.", "Ms.", "Miss", "Dr."];
 
@@ -103,6 +115,36 @@ export default function CheckoutPage() {
     queryFn: () => api.public.get<RestaurantInfo>("/cms/restaurant"),
   });
   const loyaltyEnabled = restaurantInfo?.loyalty?.enabled ?? true;
+  // Coupon / tip boxes and the tip amounts are set in Admin > Website > Checkout. Nothing is shown until the settings arrive.
+  const showCoupon = restaurantInfo ? restaurantInfo.checkout?.showCoupon !== false : false;
+  const showTip = restaurantInfo ? restaurantInfo.checkout?.showTip !== false : false;
+  const tipPresets = restaurantInfo?.checkout?.tipPresets ?? [100, 200, 500];
+  const defaultTip = restaurantInfo?.checkout?.defaultTip ?? 0;
+  // Payment methods (names, icons and on/off) are set in Admin > Website > Checkout.
+  const pay = restaurantInfo?.checkout?.payments;
+  const paymentOptions = [
+    {
+      key: "COD" as const,
+      label: orderType === "DELIVERY" ? pay?.cod?.label || "Cash on Delivery" : pay?.cod?.pickupLabel || "Pay at Pickup",
+      icon: pay?.cod?.iconUrl || CASH_ICON_URL,
+      disabled: isGift,
+      enabled: pay?.cod?.enabled !== false,
+    },
+    { key: "ONLINE" as const, label: pay?.online?.label || "Online Payment", icon: pay?.online?.iconUrl || CARDS_ICON_URL, disabled: false, enabled: pay?.online?.enabled !== false },
+  ].filter((o) => o.enabled);
+  const onlineEnabled = pay?.online?.enabled !== false;
+  useEffect(() => {
+    // the chosen method may have been switched off: move to one that is available
+    const usable = paymentOptions.find((o) => !o.disabled);
+    if (restaurantInfo && usable && !paymentOptions.some((o) => o.key === paymentMethod && !o.disabled)) setPaymentMethod(usable.key);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restaurantInfo, isGift, orderType, pay?.cod?.enabled, pay?.online?.enabled]);
+  const defaultTipApplied = useRef(false);
+  useEffect(() => {
+    if (defaultTipApplied.current || !restaurantInfo) return;
+    defaultTipApplied.current = true;
+    if (showTip && defaultTip > 0) setTip(String(defaultTip));
+  }, [restaurantInfo, showTip, defaultTip]);
 
   useEffect(() => {
     if (addresses && addresses.length > 0 && !addressId) {
@@ -285,6 +327,7 @@ export default function CheckoutPage() {
             <button
               type="button"
               onClick={() => setIsGift((g) => !g)}
+              disabled={!onlineEnabled && !isGift}
               className={`flex shrink-0 items-center gap-2.5 rounded-full border px-5 py-2.5 text-sm font-medium transition ${
                 isGift ? "border-green-600 bg-green-50 text-green-700" : "border-line bg-surface text-ink hover:border-green-600"
               }`}
@@ -323,6 +366,11 @@ export default function CheckoutPage() {
                   <span className="font-semibold text-muted">Phone:</span> <span className="text-ink">{branch.phone}</span>
                 </p>
               )}
+              {branch && branch.estimatedDeliveryMins > 0 && (
+                <p className="mt-3 text-sm text-muted">
+                  Your order will be ready for pickup in approximately <span className="font-semibold text-ink">{branch.estimatedDeliveryMins} minutes</span>.
+                </p>
+              )}
             </div>
           )}
           <div className="mt-3 flex items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3">
@@ -347,6 +395,20 @@ export default function CheckoutPage() {
               </p>
             </div>
           </div>
+
+          {orderType === "DELIVERY" && branch && (
+            <div className="mt-3 rounded-xl border border-line bg-surface px-4 py-3 text-sm">
+              <p className="text-muted">
+                Your order will be delivered from <span className="font-semibold text-ink">{branch.name}</span>
+                {branch.address ? <span>, {branch.address}</span> : null}
+              </p>
+              {branch.estimatedDeliveryMins > 0 && (
+                <p className="mt-1.5 text-muted">
+                  Estimated delivery time: <span className="font-semibold text-ink">about {branch.estimatedDeliveryMins} minutes</span>
+                </p>
+              )}
+            </div>
+          )}
 
           {!customer && (
             <div className="mt-4 rounded-lg border border-line bg-surface-alt p-3 text-xs text-muted">
@@ -408,7 +470,7 @@ export default function CheckoutPage() {
                       No saved addresses. <a href="/account/addresses" className="text-brand-red">Add one</a> before checking out.
                     </p>
                   ) : (
-                    <div className="flex items-stretch overflow-hidden rounded-xl border border-line bg-surface focus-within:border-brand-red">
+                    <div className="flex flex-col items-stretch overflow-hidden rounded-xl border border-line bg-surface focus-within:border-brand-red sm:flex-row">
                       <input
                         value={guestAddress.addressLine}
                         onChange={(e) => setGuestAddress({ ...guestAddress, addressLine: e.target.value })}
@@ -417,7 +479,7 @@ export default function CheckoutPage() {
                         required
                       />
                       {area && (
-                        <span className="flex max-w-[38%] items-center truncate border-l border-line bg-surface-alt px-3 text-xs font-semibold text-ink sm:max-w-none sm:px-5 sm:text-sm">
+                        <span className="flex items-center justify-center border-t border-line bg-surface-alt px-4 py-2.5 text-center text-sm font-semibold text-ink sm:border-l sm:border-t-0 sm:px-5 sm:py-0">
                           {area}
                         </span>
                       )}
@@ -493,12 +555,7 @@ export default function CheckoutPage() {
           <div className="mt-6 border-t border-line pt-6">
             <p className="text-base font-semibold text-ink">Payment Information</p>
             <div className="mt-4 grid grid-cols-2 gap-3 sm:flex sm:flex-wrap">
-              {(
-                [
-                  { key: "COD", label: orderType === "DELIVERY" ? "Cash on Delivery" : "Pay at Pickup", icon: CASH_ICON_URL, disabled: isGift },
-                  { key: "ONLINE", label: "Online Payment", icon: CARDS_ICON_URL, disabled: false },
-                ] as const
-              ).map((opt) => {
+              {paymentOptions.map((opt) => {
                 const selected = paymentMethod === opt.key;
                 return (
                   <button
@@ -586,6 +643,7 @@ export default function CheckoutPage() {
             )}
           </div>
 
+          {showCoupon && (
           <div className="mt-4 border-t border-line pt-4">
             <p className="text-sm font-medium text-ink">Coupon Code</p>
             {appliedCoupon ? (
@@ -619,6 +677,9 @@ export default function CheckoutPage() {
             {couponError && <p className="mt-1.5 text-xs text-red-600">{couponError}</p>}
           </div>
 
+          )}
+
+          {showTip && (
           <div className="mt-4 border-t border-line pt-4">
             <div className="rounded-2xl border border-line bg-surface p-4">
               <div className="flex items-center justify-between">
@@ -627,8 +688,9 @@ export default function CheckoutPage() {
                   <button type="button" onClick={() => { setTip(""); setTipDraft(""); }} className="text-xs font-medium text-muted underline hover:text-brand-red">Remove</button>
                 )}
               </div>
-              <div className="mt-3 grid grid-cols-3 gap-2">
-                {[100, 200, 500].map((amt) => (
+              {tipPresets.length > 0 && (
+              <div className="mt-3 grid gap-2" style={{ gridTemplateColumns: `repeat(${tipPresets.length}, minmax(0, 1fr))` }}>
+                {tipPresets.map((amt) => (
                   <button
                     key={amt}
                     type="button"
@@ -642,6 +704,7 @@ export default function CheckoutPage() {
                   </button>
                 ))}
               </div>
+              )}
               <div className="mt-2 flex gap-2">
                 <input
                   type="number"
@@ -672,11 +735,12 @@ export default function CheckoutPage() {
                   Add
                 </button>
               </div>
-              {tipPaisa > 0 && ![100, 200, 500].includes(tipPaisa / 100) && (
+              {tipPaisa > 0 && !tipPresets.includes(tipPaisa / 100) && (
                 <p className="mt-2 text-xs font-medium text-green-700 dark:text-green-400">Tip of {formatPaisa(tipPaisa)} added</p>
               )}
             </div>
           </div>
+          )}
 
           <div className="mt-5 rounded-xl border border-line bg-surface-alt p-5">
             <div className="space-y-4 text-sm font-medium text-ink">

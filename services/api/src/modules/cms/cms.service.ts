@@ -10,6 +10,9 @@ import {
   resolveLoyaltyConfig,
   type AboutContentConfig,
   type AppPromoConfig,
+  type CheckoutConfig,
+  type ResolvedCheckoutConfig,
+  DEFAULT_CHECKOUT_CONFIG,
   type CreateBannerInput,
   type CreatePopupInput,
   type UpdatePopupInput,
@@ -24,6 +27,11 @@ import {
 } from "@restaurant/validation";
 import { PrismaService } from "../../common/prisma/prisma.service";
 import { RestaurantContextService } from "../../common/restaurant/restaurant-context.service";
+
+/** Drops keys that are undefined so they do not overwrite defaults when spread. */
+function stripUndefined<T extends object>(value: T | undefined): Partial<T> {
+  return Object.fromEntries(Object.entries(value ?? {}).filter(([, v]) => v !== undefined)) as Partial<T>;
+}
 
 @Injectable()
 export class CmsService {
@@ -68,6 +76,22 @@ export class CmsService {
   private resolveAppPromoConfig(settings: unknown): Required<AppPromoConfig> {
     const stored = (settings as { appPromo?: AppPromoConfig } | null | undefined)?.appPromo ?? {};
     return { ...DEFAULT_APP_PROMO_CONFIG, ...stored };
+  }
+
+  /** Same pattern, for settings.checkout (coupon / tip boxes on the checkout page). */
+  private resolveCheckoutConfig(settings: unknown): ResolvedCheckoutConfig {
+    const stored = (settings as { checkout?: CheckoutConfig } | null | undefined)?.checkout ?? {};
+    const d = DEFAULT_CHECKOUT_CONFIG;
+    return {
+      showCoupon: stored.showCoupon ?? d.showCoupon,
+      showTip: stored.showTip ?? d.showTip,
+      tipPresets: stored.tipPresets ?? d.tipPresets,
+      defaultTip: stored.defaultTip ?? d.defaultTip,
+      payments: {
+        cod: { ...d.payments.cod, ...stripUndefined(stored.payments?.cod) },
+        online: { ...d.payments.online, ...stripUndefined(stored.payments?.online) },
+      },
+    };
   }
 
   /** Same pattern, for settings.aboutContent (homepage heading + expandable paragraph, shown just above the footer). */
@@ -173,6 +197,7 @@ export class CmsService {
       locationPopup: this.resolveLocationPopupConfig(settings),
       loyalty: resolveLoyaltyConfig(settings),
       appPromo: this.resolveAppPromoConfig(settings),
+      checkout: this.resolveCheckoutConfig(settings),
       aboutContent: this.resolveAboutContentConfig(settings),
       receiptMessages: this.resolveReceiptMessages(settings),
       seo: ((settings as { seo?: Record<string, unknown> } | null | undefined)?.seo ?? {}) as Record<string, unknown>,
@@ -191,6 +216,7 @@ export class CmsService {
       input.locationPopup !== undefined ||
       input.loyalty !== undefined ||
       input.appPromo !== undefined ||
+      input.checkout !== undefined ||
       input.aboutContent !== undefined ||
       input.receiptMessages !== undefined ||
       input.seo !== undefined ||
@@ -230,6 +256,21 @@ export class CmsService {
       if (input.loyalty !== undefined) {
         const currentLoyalty = (currentSettings.loyalty as LoyaltyConfig | undefined) ?? {};
         settingsPatch.loyalty = { ...currentLoyalty, ...input.loyalty };
+      }
+      if (input.checkout !== undefined) {
+        const currentCheckout = (currentSettings.checkout as CheckoutConfig | undefined) ?? {};
+        settingsPatch.checkout = {
+          ...currentCheckout,
+          ...input.checkout,
+          ...(input.checkout.payments
+            ? {
+                payments: {
+                  cod: { ...currentCheckout.payments?.cod, ...input.checkout.payments.cod },
+                  online: { ...currentCheckout.payments?.online, ...input.checkout.payments.online },
+                },
+              }
+            : {}),
+        };
       }
       if (input.appPromo !== undefined) {
         const currentAppPromo = (currentSettings.appPromo as AppPromoConfig | undefined) ?? {};
@@ -305,6 +346,7 @@ export class CmsService {
       locationPopup: this.resolveLocationPopupConfig(settings),
       loyalty: resolveLoyaltyConfig(settings),
       appPromo: this.resolveAppPromoConfig(settings),
+      checkout: this.resolveCheckoutConfig(settings),
       aboutContent: this.resolveAboutContentConfig(settings),
       receiptMessages: this.resolveReceiptMessages(settings),
     };

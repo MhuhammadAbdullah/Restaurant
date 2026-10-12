@@ -195,7 +195,7 @@ export function LocationModal() {
   // Wait for the persisted location to load before deciding whether to show the gate —
   // otherwise it flashes open on every refresh even when a location was already resolved.
   // Once resolved, the modal only reappears when the header's "change location" button opens it.
-  if (NO_CHROME_PATHS.includes(pathname)) return null;
+  if (NO_CHROME_PATHS.includes(pathname) || pathname.startsWith("/blog")) return null;
   if (!hasHydrated || (isResolved && !isChangeModalOpen)) return null;
 
   const copy = restaurant?.locationPopup;

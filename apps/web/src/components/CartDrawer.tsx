@@ -120,7 +120,9 @@ export function CartDrawer() {
 
               {branch && (
                 <p className="mt-3 text-center text-xs text-muted">
-                  Your order will be delivered in approximately {branch.estimatedDeliveryMins} minutes from {branch.name}.
+                  {orderType === "DELIVERY"
+                    ? `Your order will be delivered in approximately ${branch.estimatedDeliveryMins} minutes from ${branch.name}.`
+                    : `Your order will be ready for pickup in approximately ${branch.estimatedDeliveryMins} minutes at ${branch.name}.`}
                 </p>
               )}
 
