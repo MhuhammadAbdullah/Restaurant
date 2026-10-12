@@ -176,16 +176,23 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto sm:contents">
-        <div className="relative aspect-square w-full shrink-0 overflow-hidden bg-surface-alt sm:aspect-square sm:h-auto sm:w-[45%] sm:self-start">
-          {/* blurred copy of the photo fills the panel so the sharp, uncropped image below never leaves bare bars */}
+        <div className="relative w-full shrink-0 overflow-hidden bg-surface-alt sm:w-[45%] sm:self-stretch">
+          {/* soft blurred copy of the photo only shows below the square picture when the popup is taller than it, so there is never an empty strip */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={image} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full scale-110 object-cover opacity-60 blur-2xl" />
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={image} alt={product.name} className="absolute inset-0 h-full w-full object-cover sm:inset-x-0 sm:top-0 sm:h-[calc(100%-3.5rem)] sm:object-contain sm:p-2" />
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/80 to-transparent" />
-          <h2 className="absolute inset-x-0 bottom-0 p-5 font-poppins text-2xl font-bold uppercase leading-tight text-white sm:p-6 sm:text-3xl">
-            {product.name}
-          </h2>
+          <img src={image} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full scale-110 object-cover opacity-70 blur-2xl" />
+          {/* the picture itself is always a square that fills the panel width, with the same gentle zoom the menu cards have */}
+          <div className="group relative aspect-square w-full overflow-hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={image}
+              alt={product.name}
+              className="absolute inset-0 h-full w-full scale-[1.04] object-cover transition-transform duration-500 ease-out group-hover:scale-110"
+            />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/80 to-transparent" />
+            <h2 className="absolute inset-x-0 bottom-0 p-5 font-poppins text-2xl font-bold uppercase leading-tight text-white sm:p-6 sm:text-3xl">
+              {product.name}
+            </h2>
+          </div>
         </div>
 
         <div className="flex flex-col sm:flex-1 sm:overflow-y-auto">
