@@ -10,6 +10,9 @@ import { buttonHtml, escapeHtml, fillSubject, fillTemplate, htmlToText, sanitize
 const DEFAULT_REVIEW_DELAY_MINUTES = 30;
 const QUEUE_INTERVAL_MS = 60_000;
 const MAX_PER_PASS = 25;
+/** A failed email is tried again by the queue (once a minute) until it has been attempted this many times or is a day old. */
+const MAX_ATTEMPTS = 5;
+const RETRY_MIN_AGE_MS = 2 * 60_000;
 
 export type EmailSettings = { reviewDelayMinutes: number };
 
@@ -55,6 +58,7 @@ export class EmailsService implements OnModuleInit, OnModuleDestroy {
     if (this.running) return;
     this.running = true;
     try {
+      await this.retryFailed();
       const restaurants = await this.prisma.restaurant.findMany({ select: { id: true, settings: true } });
       for (const r of restaurants) {
         const settings = await this.getSettings(r.id);
@@ -94,6 +98,27 @@ export class EmailsService implements OnModuleInit, OnModuleDestroy {
       this.logger.error(`Review email queue error: ${e instanceof Error ? e.message : e}`);
     } finally {
       this.running = false;
+    }
+  }
+
+  /**
+   * Sends again emails that failed (usually a brief SMTP timeout), so a customer or staff member is not left without
+   * their email. Login codes are never retried: they expire in minutes and the user simply asks for a new one.
+   */
+  private async retryFailed(): Promise<void> {
+    const failed = await this.prisma.emailLog.findMany({
+      where: {
+        status: "FAILED",
+        attempts: { lt: MAX_ATTEMPTS },
+        templateKey: { not: "OTP" },
+        html: { not: null },
+        createdAt: { gte: new Date(Date.now() - 86_400_000), lte: new Date(Date.now() - RETRY_MIN_AGE_MS) },
+      },
+      orderBy: { createdAt: "asc" },
+      take: 10,
+    });
+    for (const log of failed) {
+      await this.deliver({ restaurantId: log.restaurantId, key: log.templateKey, to: log.toEmail, subject: log.subject, html: log.html!, logId: log.id }).catch(() => undefined);
     }
   }
 
@@ -281,7 +306,15 @@ export class EmailsService implements OnModuleInit, OnModuleDestroy {
           },
         });
     try {
-      await this.email.sendRaw({ to: p.to, subject: p.subject, html: p.html, text: p.text ?? htmlToText(p.html) });
+      // One quick second try inside the request: most failures are a momentary connection timeout.
+      const message = { to: p.to, subject: p.subject, html: p.html, text: p.text ?? htmlToText(p.html) };
+      try {
+        await this.email.sendRaw(message);
+      } catch (first) {
+        this.logger.warn(`${p.key} email to ${p.to} failed, trying once more: ${first instanceof Error ? first.message : first}`);
+        await new Promise((r) => setTimeout(r, 1500));
+        await this.email.sendRaw(message);
+      }
       await this.prisma.emailLog.update({ where: { id: log.id }, data: { status: "SENT", sentAt: new Date(), error: null } });
       this.logger.log(`${p.key} email sent to ${p.to}`);
       return { ok: true as const, logId: log.id };

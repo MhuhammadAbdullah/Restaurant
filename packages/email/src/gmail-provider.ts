@@ -29,7 +29,13 @@ export class GmailProvider implements EmailProvider {
     }
     if (!this.transporter) {
       this.transporter = nodemailer.createTransport({
-        service: "gmail",
+        // Explicit host and timeouts instead of the "gmail" shortcut, which can end in "Connection timeout" on a slow network.
+        host: "smtp.gmail.com",
+        port: 465,
+        secure: true,
+        connectionTimeout: 15_000,
+        greetingTimeout: 15_000,
+        socketTimeout: 30_000,
         auth: { user: this.config.user, pass: this.config.appPassword },
       });
     }

@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { formatPaisa } from "@restaurant/utils";
 import { api, ApiError } from "../../../../lib/api";
 import { useMe, hasPermission } from "../../../../lib/useMe";
 import { toast } from "../../../../store/useToastStore";
 import { ImageUploadField } from "../../../../components/ImageUploadField";
+import { CustomerReceiptBody, type ReceiptData } from "../../../../components/receipt/CustomerReceiptBody";
 
 type MsgKey = "dineIn" | "takeaway" | "walkIn" | "delivery" | "preBill";
 const MESSAGE_TYPES: { key: MsgKey; label: string; hint: string; placeholder: string }[] = [
@@ -60,58 +60,73 @@ const PREVIEW_ITEMS = [
   { name: "Chicken Tikka Pizza", qty: 1, price: 129000, note: "Cheese Burst Crust" },
   { name: "Coke 1.5L", qty: 2, price: 25000 },
 ];
-const PREVIEW_SUBTOTAL = PREVIEW_ITEMS.reduce((s, i) => s + i.price * i.qty, 0);
-const PREVIEW_TAX = Math.round(PREVIEW_SUBTOTAL * 0.05);
-const PREVIEW_TOTAL = PREVIEW_SUBTOTAL + PREVIEW_TAX;
-
-function ReceiptPreview({ logoUrl, name, taxNumber, phone, thankYouMessage, footerText }: { logoUrl: string; name: string; taxNumber: string; phone: string; thankYouMessage: string; footerText: string }) {
-  return (
-    <div className="font-mono text-sm">
-      <div className="text-center">
-        {logoUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={logoUrl} alt="" className="mx-auto mb-2 h-12 w-12 object-contain" />
-        )}
-        <p className="text-base font-bold">{name || "Your Restaurant"}</p>
-        <p className="text-xs text-neutral-600">DHA Branch, Karachi</p>
-        {phone && <p className="text-xs text-neutral-600">{phone}</p>}
-        {taxNumber && <p className="text-xs font-bold text-neutral-700">{taxNumber}</p>}
-      </div>
-      <div className="my-3 border-t border-dashed border-neutral-300" />
-      <div className="space-y-0.5 text-xs">
-        <p>Order #: POS-000123</p>
-        <p>Date: {new Date().toLocaleString()}</p>
-        <p>Customer: Sample Customer</p>
-      </div>
-      <div className="my-3 border-t border-dashed border-neutral-300" />
-      <div className="space-y-2">
-        {PREVIEW_ITEMS.map((item) => (
-          <div key={item.name}>
-            <div className="flex justify-between gap-2 text-xs">
-              <span>{item.qty}x {item.name}</span>
-              <span className="shrink-0">{formatPaisa(item.price * item.qty)}</span>
-            </div>
-            {item.note && <p className="pl-3 text-[11px] text-neutral-500">+ {item.note}</p>}
-          </div>
-        ))}
-      </div>
-      <div className="my-3 border-t border-dashed border-neutral-300" />
-      <div className="space-y-0.5 text-xs">
-        <div className="flex justify-between"><span>Subtotal</span><span>{formatPaisa(PREVIEW_SUBTOTAL)}</span></div>
-        <div className="flex justify-between"><span>Tax</span><span>{formatPaisa(PREVIEW_TAX)}</span></div>
-        <div className="flex justify-between border-t border-neutral-300 pt-1 text-sm font-bold"><span>Grand Total</span><span>{formatPaisa(PREVIEW_TOTAL)}</span></div>
-      </div>
-      {(thankYouMessage || footerText) && (
-        <>
-          <div className="my-3 border-t border-dashed border-neutral-300" />
-          <div className="text-center text-xs text-neutral-600">
-            {thankYouMessage && <p className="font-medium">{thankYouMessage}</p>}
-            {footerText && <p className="mt-1 whitespace-pre-line">{footerText}</p>}
-          </div>
-        </>
-      )}
-    </div>
-  );
+/** Sample order for the customer receipt preview. It is drawn by the same component as the real printed receipt. */
+function sampleReceipt(
+  type: MsgKey,
+  r: { name: string; logoUrl: string; taxNumber: string; phone: string; thankYouMessage: string; footerText: string; messages: Record<MsgKey, string> },
+): ReceiptData {
+  const delivery = type === "delivery";
+  const dineIn = type === "dineIn" || type === "preBill";
+  const items = [
+    { id: "1", nameSnapshot: "Chicken Tikka Pizza", quantity: 1, unitPrice: 129000, lineTotal: 129000, specialInstructions: null, orderRevisionId: null, choices: [{ nameSnapshot: "Large", priceAdjustmentSnapshot: 0 }], addons: [{ nameSnapshot: "Cheese Burst Crust", priceSnapshot: 0, quantity: 1 }], dealSlots: [] },
+    { id: "2", nameSnapshot: "Coke 1.5L", quantity: 2, unitPrice: 25000, lineTotal: 50000, specialInstructions: null, orderRevisionId: null, choices: [], addons: [], dealSlots: [] },
+  ];
+  const subtotal = 179000;
+  const taxAmount = Math.round(subtotal * 0.15);
+  const deliveryFee = delivery ? 15000 : 0;
+  const grandTotal = subtotal + taxAmount + deliveryFee;
+  return {
+    operator: delivery ? null : "Ali",
+    coupon: null,
+    restaurant: {
+      name: r.name || "Your Restaurant",
+      logoUrl: r.logoUrl || null,
+      taxNumber: r.taxNumber || null,
+      currency: "PKR",
+      contactPhone: r.phone || null,
+      contactEmail: null,
+      socialLinks: null,
+      footerText: r.footerText || null,
+      thankYouMessage: r.thankYouMessage || null,
+      messages: r.messages,
+    },
+    order: {
+      id: "sample",
+      orderNumber: "ORD-20260101-0123",
+      orderCode: "A1B2C3",
+      dailyNo: 12,
+      type: dineIn ? "DINE_IN" : type === "takeaway" ? "TAKEAWAY" : type === "walkIn" ? "WALK_IN" : "ONLINE_DELIVERY",
+      source: "POS",
+      status: "COMPLETED",
+      createdAt: new Date().toISOString(),
+      contactName: "Sample Customer",
+      contactPhone: "0300 1234567",
+      contactEmail: null,
+      deliveryAddressSnapshot: delivery ? "House 12, Street 5" : null,
+      deliveryArea: delivery ? "DHA Phase 6" : null,
+      deliveryCity: delivery ? "Karachi" : null,
+      deliveryLandmark: delivery ? "Near the main park" : null,
+      contactAlternatePhone: null,
+      specialInstructions: null,
+      subtotal,
+      taxAmount,
+      deliveryFee,
+      discountAmount: 0,
+      couponCode: null,
+      couponDiscountAmount: 0,
+      loyaltyDiscountAmount: 0,
+      loyaltyPointsRedeemed: 0,
+      grandTotal,
+      tipAmount: 0,
+      paymentMethod: delivery ? "COD" : "CASH",
+      paymentStatus: type === "preBill" || delivery ? "PENDING" : "PAID",
+      branch: { name: "DHA Branch", address: "Plot 12, Phase 6, DHA, Karachi", phone: r.phone || "021 1234567" },
+      table: dineIn ? { number: "4", name: null } : null,
+      customer: null,
+      payments: type === "preBill" || delivery ? [] : [{ id: "p1", method: "CASH", status: "PAID", amount: grandTotal, amountTendered: Math.ceil(grandTotal / 100000) * 100000 }],
+      items,
+    },
+  };
 }
 
 function KitchenTicketPreview({ headerText, restaurantName, footerText }: { headerText: string; restaurantName: string; footerText: string }) {
@@ -374,9 +389,14 @@ export default function ReceiptSettingsPage() {
                 </div>
               )}
               <div className="mt-3 rounded-lg bg-neutral-100 px-3 py-5">
-                <div className={`mx-auto bg-white p-4 shadow-md ${paper === "58" ? "max-w-[230px]" : "max-w-[320px]"}`} style={{ borderRadius: 2 }}>
+                <div className={`mx-auto bg-white p-4 shadow-md ${paper === "58" ? "max-w-[250px]" : "max-w-[340px]"}`} style={{ borderRadius: 2 }}>
                   {tab === "customer" ? (
-                    <ReceiptPreview logoUrl={previewLogo} name={restaurant?.name ?? ""} taxNumber={taxNumber} phone={restaurant?.contactPhone ?? ""} thankYouMessage={messages[previewType].trim() || thankYouMessage} footerText={footerText} />
+                    <div className="receipt-preview -m-4">
+                      <CustomerReceiptBody
+                        isPre={previewType === "preBill"}
+                        data={sampleReceipt(previewType, { name: restaurant?.name ?? "", logoUrl: previewLogo, taxNumber, phone: restaurant?.contactPhone ?? "", thankYouMessage, footerText, messages })}
+                      />
+                    </div>
                   ) : (
                     <KitchenTicketPreview headerText={kitchenHeader} restaurantName={restaurant?.name ?? ""} footerText={kitchenFooter} />
                   )}

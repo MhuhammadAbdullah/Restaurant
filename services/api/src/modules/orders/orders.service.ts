@@ -137,8 +137,30 @@ export class OrdersService {
    * is recomputed here from the database — a client-submitted total is only used to assert
    * equality (Rule 8/9/16), never trusted directly.
    */
+  /** The coupon / tip switches from Admin > Website > Checkout. */
+  private async checkoutSwitches(restaurantId: string): Promise<{ showCoupon: boolean; showTip: boolean; codEnabled: boolean; onlineEnabled: boolean }> {
+    const row = await this.prisma.restaurant.findUnique({ where: { id: restaurantId }, select: { settings: true } });
+    const cfg =
+      ((row?.settings as { checkout?: { showCoupon?: boolean; showTip?: boolean; payments?: { cod?: { enabled?: boolean }; online?: { enabled?: boolean } } } } | null)?.checkout) ?? {};
+    return {
+      showCoupon: cfg.showCoupon !== false,
+      showTip: cfg.showTip !== false,
+      codEnabled: cfg.payments?.cod?.enabled !== false,
+      onlineEnabled: cfg.payments?.online?.enabled !== false,
+    };
+  }
+
   async createOnlineOrder(customerId: string | null, input: CreateOrderInput) {
     const restaurantId = await this.restaurantContext.getRestaurantId();
+    const switches = await this.checkoutSwitches(restaurantId);
+    if (!switches.showCoupon && input.couponCode) {
+      throw new BadRequestException({ code: "COUPONS_DISABLED", message: "Coupon codes are not accepted right now" });
+    }
+    if ((input.paymentMethod === "COD" && !switches.codEnabled) || (input.paymentMethod === "ONLINE" && !switches.onlineEnabled)) {
+      throw new BadRequestException({ code: "PAYMENT_METHOD_DISABLED", message: "This payment method is not available right now. Please choose another one." });
+    }
+    // Tips are switched off: any tip sent is ignored rather than charged.
+    if (!switches.showTip && input.tipAmount) input = { ...input, tipAmount: undefined };
 
     if (input.idempotencyKey) {
       const existing = await this.prisma.order.findUnique({ where: { idempotencyKey: input.idempotencyKey } });
@@ -803,6 +825,9 @@ export class OrdersService {
    */
   async previewCoupon(branchId: string, code: string, items: OrderItemInput[]) {
     const restaurantId = await this.restaurantContext.getRestaurantId();
+    if (!(await this.checkoutSwitches(restaurantId)).showCoupon) {
+      throw new BadRequestException({ code: "COUPONS_DISABLED", message: "Coupon codes are not accepted right now" });
+    }
     const pricedLines = await this.priceLineItems(branchId, items);
     const result = await this.coupons.validateAndPrice({
       restaurantId,

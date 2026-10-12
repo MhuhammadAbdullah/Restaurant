@@ -23,6 +23,9 @@ export function clearTokens() {
   localStorage.removeItem(REFRESH_TOKEN_KEY);
 }
 
+/** Fired when a signed-in request is refused and the saved login cannot be renewed, so the app can sign the customer out and ask them to log in again. */
+export const CUSTOMER_SESSION_EXPIRED_EVENT = "customer-session-expired";
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -54,12 +57,18 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
     body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
   });
 
-  if (res.status === 401 && !opts.skipRefreshRetry && getRefreshToken()) {
-    const refreshed = await tryRefresh();
-    if (refreshed) {
-      return request<T>(path, { ...opts, skipRefreshRetry: true });
-    }
+  if (res.status === 401 && opts.auth !== false && !opts.skipRefreshRetry && getRefreshToken()) {
+    const outcome = await refreshSession();
+    if (outcome === "ok") return request<T>(path, { ...opts, skipRefreshRetry: true });
+    // The server could not be reached: not a reason to sign the customer out.
+    if (outcome === "unreachable") throw new ApiError("Could not reach the server. Please try again in a moment.", "NETWORK_ERROR", 0);
     clearTokens();
+  }
+  // A signed-in request that is still refused: the login is over. Say so clearly instead of "Authentication required".
+  if (res.status === 401 && opts.auth !== false) {
+    clearTokens();
+    if (typeof window !== "undefined") window.dispatchEvent(new Event(CUSTOMER_SESSION_EXPIRED_EVENT));
+    throw new ApiError("Your session has expired. Please log in again.", "SESSION_EXPIRED", 401);
   }
 
   const json = await res.json().catch(() => null);
@@ -70,21 +79,37 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   return json.data as T;
 }
 
-async function tryRefresh(): Promise<boolean> {
-  const refreshToken = getRefreshToken();
-  if (!refreshToken) return false;
+type RefreshOutcome = "ok" | "expired" | "unreachable";
+let refreshing: Promise<RefreshOutcome> | null = null;
+
+/** One refresh at a time: requests that fail together share one attempt instead of each using up the refresh token. */
+function refreshSession(): Promise<RefreshOutcome> {
+  refreshing ??= doRefresh().finally(() => {
+    refreshing = null;
+  });
+  return refreshing;
+}
+
+async function doRefresh(): Promise<RefreshOutcome> {
+  const sent = getRefreshToken();
+  if (!sent) return "expired";
   try {
     const res = await fetch(`${API_URL}/auth/customer/refresh`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refreshToken }),
+      body: JSON.stringify({ refreshToken: sent }),
     });
-    const json = await res.json();
-    if (!res.ok || !json.success) return false;
+    if (res.status === 401 || res.status === 403) {
+      // another tab may already have renewed the login a moment ago
+      const now = getRefreshToken();
+      return now && now !== sent ? "ok" : "expired";
+    }
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json?.success) return "unreachable";
     setTokens(json.data.accessToken, json.data.refreshToken);
-    return true;
+    return "ok";
   } catch {
-    return false;
+    return "unreachable";
   }
 }
 

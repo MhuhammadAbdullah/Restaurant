@@ -18,7 +18,7 @@ export function CartBar() {
   const count = orderable.reduce((s, i) => s + i.quantity, 0);
   const total = orderable.reduce((s, i) => s + cartItemLineTotal(i), 0);
 
-  if (count === 0 || pathname === "/checkout" || pathname.startsWith("/account") || pathname.startsWith("/complaints") || pathname.startsWith("/our-locations") || ["/terms", "/privacy-policy", "/faqs"].includes(pathname)) return null;
+  if (count === 0 || pathname === "/checkout" || pathname.startsWith("/account") || pathname.startsWith("/complaints") || pathname.startsWith("/blog") || pathname.startsWith("/our-locations") || ["/terms", "/privacy-policy", "/faqs"].includes(pathname)) return null;
 
   // On the home page (where the floating search button sits to its left) the bar starts to the right of that button on phones.
   return (

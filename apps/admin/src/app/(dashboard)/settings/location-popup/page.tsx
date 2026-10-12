@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { FaBuilding, FaLocationCrosshairs, FaMagnifyingGlass } from "react-icons/fa6";
+import { FaBuilding, FaLocationCrosshairs, FaLocationDot, FaMagnifyingGlass } from "react-icons/fa6";
 import { DEFAULT_LOCATION_POPUP_CONFIG } from "@restaurant/validation";
 import { api, ApiError } from "../../../../lib/api";
 import { useMe, hasPermission } from "../../../../lib/useMe";
@@ -101,14 +101,13 @@ function SectionCard({ n, title, description, right, children }: { n: number; ti
 
 const cityKey = (city: string) => city.trim().toLowerCase();
 
-/** Simplified mock of the storefront's location popup. */
+/** Mirrors the storefront's location popup: one screen with the order type, city tiles, then the area or branch field. */
 function PopupPreview({
   text,
   logo,
   locationIcon,
   cities,
   cityIcons,
-  step,
   mode,
 }: {
   text: Record<TextKey, string>;
@@ -116,88 +115,86 @@ function PopupPreview({
   locationIcon: string;
   cities: string[];
   cityIcons: Record<string, string>;
-  step: Step;
   mode: "delivery" | "pickup";
 }) {
   const t = (k: TextKey) => text[k]?.trim() || DEFAULTS[k];
-  const shownCities = cities.length > 0 ? cities.slice(0, 4) : ["Karachi", "Hyderabad"];
+  const shownCities = cities.length > 0 ? cities.slice(0, 5) : ["Karachi", "Hyderabad"];
   return (
-    <div className="rounded-2xl bg-white p-4 shadow-md ring-1 ring-neutral-200">
-      <div className="text-center">
+    <div className="rounded-2xl bg-white p-5 shadow-md ring-1 ring-neutral-200">
+      <div className="mx-auto flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl">
         {logo ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={logo} alt="" className="mx-auto h-12 w-12 object-contain" />
+          <img src={logo} alt="" className="h-full w-full object-contain" />
         ) : (
-          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-neutral-100 text-[10px] text-neutral-400">Logo</span>
+          <span className="flex h-full w-full items-center justify-center rounded-full bg-neutral-100 text-[10px] text-neutral-400">Logo</span>
         )}
-        <p className="mt-2 text-sm font-bold text-neutral-900">{t("heading")}</p>
-        <p className="text-[11px] text-neutral-500">{t("subheading")}</p>
+      </div>
+      <p className="mt-3 text-center text-base font-semibold text-neutral-900">{t("heading")}</p>
+
+      <div className="mx-auto mt-3 flex w-fit rounded-xl bg-[#F2EFE9] p-1 text-xs font-medium">
+        <span className={`rounded-lg px-6 py-1.5 ${mode === "delivery" ? "bg-brand-red text-white" : "text-neutral-800"}`}>{t("deliveryLabel")}</span>
+        <span className={`rounded-lg px-6 py-1.5 ${mode === "pickup" ? "bg-brand-red text-white" : "text-neutral-800"}`}>{t("pickupLabel")}</span>
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-1.5 rounded-full bg-[#F2EFE9] p-1 text-[11px] font-semibold">
-        <span className={`rounded-full py-1.5 text-center ${mode === "delivery" ? "bg-brand-red text-white" : "text-neutral-800"}`}>{t("deliveryLabel")}</span>
-        <span className={`rounded-full py-1.5 text-center ${mode === "pickup" ? "bg-brand-red text-white" : "text-neutral-800"}`}>{t("pickupLabel")}</span>
+      <p className="mt-4 text-center text-xs font-semibold text-neutral-500">{t("subheading")}</p>
+      <span className="mx-auto mt-2.5 flex w-fit items-center gap-2 rounded-xl border border-neutral-200 bg-[#F2EFE9] px-3.5 py-1.5 text-xs font-medium text-neutral-800">
+        {locationIcon ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={locationIcon} alt="" className="h-4 w-4 object-contain" />
+        ) : (
+          <FaLocationCrosshairs size={13} />
+        )}
+        {t("useCurrentLocationLabel")}
+      </span>
+
+      <p className="mt-4 text-center text-xs font-semibold text-neutral-500">{t("cityStepLabel")}</p>
+      <div className="mt-2 grid grid-cols-4 justify-items-center gap-x-2 gap-y-3">
+        {shownCities.map((c, i) => {
+          const icon = cityIcons[cityKey(c)];
+          const selected = i === 0;
+          return (
+            <span key={c} className="flex flex-col items-center gap-1 text-center">
+              <span className={`flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl border-2 ${selected ? "border-solid border-brand-red bg-red-50" : "border-dashed border-neutral-200 bg-white"}`}>
+                {icon ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={icon} alt="" className="h-8 w-8 object-contain" />
+                ) : (
+                  <FaBuilding size={22} className={selected ? "text-brand-red" : "text-neutral-400"} />
+                )}
+              </span>
+              <span className={`text-[11px] font-medium leading-tight ${selected ? "text-brand-red" : "text-neutral-800"}`}>{c}</span>
+            </span>
+          );
+        })}
       </div>
 
-      {step === "city" && (
-        <div className="mt-3 space-y-2.5">
-          <button type="button" className="flex w-full items-center justify-center gap-2 rounded-full border border-neutral-300 py-2 text-[11px] font-medium text-neutral-700">
-            {locationIcon ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={locationIcon} alt="" className="h-4 w-4 object-contain" />
-            ) : (
-              <FaLocationCrosshairs size={12} className="text-brand-red" />
-            )}
-            {t("useCurrentLocationLabel")}
-          </button>
-          <p className="text-center text-[11px] font-semibold text-neutral-700">{t("cityStepLabel")}</p>
-          <div className="grid grid-cols-2 gap-2">
-            {shownCities.map((c) => {
-              const icon = cityIcons[cityKey(c)];
-              return (
-                <span key={c} className="flex flex-col items-center gap-1 rounded-xl border border-neutral-200 py-2.5 text-[11px] font-medium text-neutral-700">
-                  {icon ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={icon} alt="" className="h-7 w-7 object-contain" />
-                  ) : (
-                    <FaBuilding size={20} className="text-neutral-400" />
-                  )}
-                  {c}
-                </span>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {step === "area" && (
-        <div className="mt-3 space-y-2.5">
-          <p className="text-center text-[11px] font-semibold text-neutral-700">{t("areaStepLabel")}</p>
-          <div className="flex items-center gap-2 rounded-full border border-neutral-300 px-3 py-2 text-[11px] text-neutral-400">
+      {mode === "delivery" ? (
+        <div className="mt-4">
+          <p className="mb-1 text-xs font-semibold text-neutral-900">{t("areaStepLabel")}</p>
+          <div className="flex items-center gap-2 rounded-xl border border-neutral-200 px-3 py-2 text-xs text-neutral-400">
             <FaMagnifyingGlass size={11} />
             {t("areaSearchPlaceholder")}
           </div>
-          {["DHA Phase 6", "Clifton Block 4", "Gulshan-e-Iqbal"].map((a) => (
-            <p key={a} className="rounded-lg bg-neutral-50 px-3 py-2 text-[11px] text-neutral-600">{a}</p>
-          ))}
         </div>
-      )}
-
-      {step === "branch" && (
-        <div className="mt-3 space-y-2.5">
-          <p className="text-center text-[11px] font-semibold text-neutral-700">{t("branchStepLabel")}</p>
-          <div className="flex items-center gap-2 rounded-full border border-neutral-300 px-3 py-2 text-[11px] text-neutral-400">
+      ) : (
+        <div className="mt-4">
+          <p className="mb-1 text-xs font-semibold text-neutral-900">{t("branchStepLabel")}</p>
+          <div className="flex items-center gap-2 rounded-xl border border-neutral-200 px-3 py-2 text-xs text-neutral-400">
             <FaMagnifyingGlass size={11} />
             {t("branchSearchPlaceholder")}
           </div>
-          <div className="rounded-xl border border-neutral-200 p-3">
-            <p className="text-[11px] font-semibold text-neutral-900">{t("branchLocationLabel")}</p>
-            <p className="text-[11px] text-neutral-500">Shop 12, Main Boulevard, DHA</p>
-            <p className="mt-1 text-[11px] font-medium text-brand-red">{t("getDirectionsLabel")}</p>
+          <div className="mt-2.5 flex gap-2.5 rounded-xl border border-red-100 bg-red-50 p-3">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-brand-red"><FaLocationDot size={14} /></span>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-neutral-900">{t("branchLocationLabel")}</p>
+              <p className="mt-0.5 text-xs text-neutral-500">Shop 12, Main Boulevard, DHA, Karachi</p>
+              <p className="mt-1 text-xs font-medium text-brand-red">{t("getDirectionsLabel")}</p>
+            </div>
           </div>
-          <span className="block rounded-full bg-brand-red py-2 text-center text-[11px] font-semibold text-white">{t("submitLabel")}</span>
         </div>
       )}
+
+      <span className="mt-4 block rounded-xl bg-brand-red py-2.5 text-center text-xs font-semibold text-white">{t("submitLabel")}</span>
     </div>
   );
 }
@@ -423,33 +420,20 @@ export default function LocationPopupSettingsPage() {
 
           <aside className="xl:sticky xl:top-4 xl:self-start">
             <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <p className="text-sm font-semibold text-neutral-900">Live preview</p>
                 <div className="flex overflow-hidden rounded-lg border border-neutral-300 text-[11px] font-medium">
                   {(["delivery", "pickup"] as const).map((m) => (
-                    <button key={m} type="button" onClick={() => setMode(m)} className={`px-2.5 py-1 ${mode === m ? "bg-brand-red text-white" : "bg-white text-neutral-600"}`}>
+                    <button key={m} type="button" onClick={() => { setStep("city"); setMode(m); }} className={`px-2.5 py-1 ${mode === m ? "bg-brand-red text-white" : "bg-white text-neutral-600"}`}>
                       {m === "delivery" ? "Delivery" : "Pick-up"}
                     </button>
                   ))}
                 </div>
               </div>
-              <div className="mt-2 grid grid-cols-3 gap-1 text-[11px] font-medium">
-                {(
-                  [
-                    ["city", "1. City"],
-                    ["area", "2. Area"],
-                    ["branch", "3. Branch"],
-                  ] as [Step, string][]
-                ).map(([s, label]) => (
-                  <button key={s} type="button" onClick={() => setStep(s)} className={`rounded-lg border py-1.5 ${step === s ? "border-brand-red bg-red-50 text-brand-red" : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"}`}>
-                    {label}
-                  </button>
-                ))}
-              </div>
               <div className="mt-3 rounded-xl bg-neutral-900/5 p-3">
-                <PopupPreview text={text} logo={effectiveLogo} locationIcon={useCurrentLocationIconUrl} cities={cities} cityIcons={cityIcons} step={step} mode={mode} />
+                <PopupPreview text={text} logo={effectiveLogo} locationIcon={useCurrentLocationIconUrl} cities={cities} cityIcons={cityIcons} mode={step === "area" ? "delivery" : step === "branch" ? "pickup" : mode} />
               </div>
-              <p className="mt-2 text-[11px] text-neutral-400">The step switches automatically as you edit a section. Pick-up customers skip the area step.</p>
+              <p className="mt-2 text-[11px] text-neutral-400">Shown like the website popup. It switches between Delivery and Pick-up as you edit the matching section.</p>
             </div>
           </aside>
 

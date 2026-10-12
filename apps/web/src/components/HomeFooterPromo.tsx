@@ -22,9 +22,10 @@ type RestaurantInfo = {
 
 function AppPromoBanner({ bannerImage }: { bannerImage: string }) {
   return (
-    <section className="mx-auto mt-16 max-w-7xl px-4 sm:px-8">
+    // Full width on phones and tablets; on wide screens it stops at a comfortable width and stays centred.
+    <section className="mx-auto mt-16 w-full max-w-6xl">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={optimizeImage(bannerImage, 1600)} alt="Get our mobile app" loading="lazy" className="w-full rounded-3xl object-cover" />
+      <img src={optimizeImage(bannerImage, 2400)} alt="Get our mobile app" loading="lazy" className="block w-full rounded-3xl object-cover" />
     </section>
   );
 }

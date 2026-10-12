@@ -26,6 +26,7 @@ const config: Config = {
       fontFamily: {
         display: ["var(--font-display)", "cursive"],
         sans: ["var(--font-sans)", "sans-serif"],
+        montserrat: ["var(--font-montserrat)", "Montserrat Fallback", "sans-serif"],
         poppins: ["var(--font-poppins)", "Poppins Fallback", "sans-serif"],
       },
       keyframes: {
