@@ -21,8 +21,9 @@ export type ResolveBranchInput = z.infer<typeof resolveBranchSchema>;
 const branchFieldsSchema = z.object({
   name: z.string().trim().min(1).max(120),
   code: z.string().trim().min(1).max(20),
-  phone: z.string().trim().max(30).optional(),
-  email: z.string().email().optional(),
+  // null clears the value (an empty box in the admin form), undefined leaves it as it is.
+  phone: z.string().trim().max(30).nullable().optional(),
+  email: z.string().email().nullable().optional(),
   address: z.string().trim().max(300).optional(),
   city: z.string().trim().min(1).max(80),
   area: z.string().trim().min(1).max(120),

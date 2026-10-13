@@ -2,8 +2,8 @@
 
 import { create } from "zustand";
 
-type ToastKind = "success" | "error" | "info" | "cart";
-type ToastEntry = { id: number; kind: ToastKind; message: string };
+export type ToastKind = "success" | "error" | "info" | "cart";
+export type ToastEntry = { id: number; kind: ToastKind; message: string; duration: number };
 
 type ToastState = {
   toasts: ToastEntry[];
@@ -12,15 +12,19 @@ type ToastState = {
 };
 
 let nextId = 0;
-const AUTO_DISMISS_MS = 5000;
+const MAX_VISIBLE = 3;
+/** Errors stay a little longer so they can be read. */
+const DURATION_MS: Record<ToastKind, number> = { success: 3500, info: 4000, cart: 3000, error: 6000 };
 
 export const useToastStore = create<ToastState>((set) => ({
   toasts: [],
-  push: (kind, message) => {
-    const id = ++nextId;
-    set((s) => ({ toasts: [...s.toasts, { id, kind, message }] }));
-    setTimeout(() => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })), AUTO_DISMISS_MS);
-  },
+  push: (kind, message) =>
+    set((s) => {
+      // The same message twice in a row (e.g. a double tap) is shown once.
+      if (s.toasts.some((t) => t.kind === kind && t.message === message)) return s;
+      const entry: ToastEntry = { id: ++nextId, kind, message, duration: DURATION_MS[kind] };
+      return { toasts: [...s.toasts, entry].slice(-MAX_VISIBLE) };
+    }),
   dismiss: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
 }));
 

@@ -138,13 +138,14 @@ export class OrdersService {
    * equality (Rule 8/9/16), never trusted directly.
    */
   /** The coupon / tip switches from Admin > Website > Checkout. */
-  private async checkoutSwitches(restaurantId: string): Promise<{ showCoupon: boolean; showTip: boolean; codEnabled: boolean; onlineEnabled: boolean }> {
+  private async checkoutSwitches(restaurantId: string): Promise<{ showCoupon: boolean; showTip: boolean; showGift: boolean; codEnabled: boolean; onlineEnabled: boolean }> {
     const row = await this.prisma.restaurant.findUnique({ where: { id: restaurantId }, select: { settings: true } });
     const cfg =
-      ((row?.settings as { checkout?: { showCoupon?: boolean; showTip?: boolean; payments?: { cod?: { enabled?: boolean }; online?: { enabled?: boolean } } } } | null)?.checkout) ?? {};
+      ((row?.settings as { checkout?: { showCoupon?: boolean; showTip?: boolean; showGift?: boolean; payments?: { cod?: { enabled?: boolean }; online?: { enabled?: boolean } } } } | null)?.checkout) ?? {};
     return {
       showCoupon: cfg.showCoupon !== false,
       showTip: cfg.showTip !== false,
+      showGift: cfg.showGift !== false,
       codEnabled: cfg.payments?.cod?.enabled !== false,
       onlineEnabled: cfg.payments?.online?.enabled !== false,
     };
@@ -153,6 +154,9 @@ export class OrdersService {
   async createOnlineOrder(customerId: string | null, input: CreateOrderInput) {
     const restaurantId = await this.restaurantContext.getRestaurantId();
     const switches = await this.checkoutSwitches(restaurantId);
+    if (!switches.showGift && input.isGift) {
+      throw new BadRequestException({ code: "GIFTS_DISABLED", message: "Gift orders are not available right now" });
+    }
     if (!switches.showCoupon && input.couponCode) {
       throw new BadRequestException({ code: "COUPONS_DISABLED", message: "Coupon codes are not accepted right now" });
     }

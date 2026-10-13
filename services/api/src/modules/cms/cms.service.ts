@@ -85,6 +85,7 @@ export class CmsService {
     return {
       showCoupon: stored.showCoupon ?? d.showCoupon,
       showTip: stored.showTip ?? d.showTip,
+      showGift: stored.showGift ?? d.showGift,
       tipPresets: stored.tipPresets ?? d.tipPresets,
       defaultTip: stored.defaultTip ?? d.defaultTip,
       payments: {

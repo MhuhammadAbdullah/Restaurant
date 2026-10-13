@@ -25,11 +25,17 @@ export const DEFAULT_HEADER_CONFIG: Required<HeaderConfig> = {
   showHamburgerIcon: true,
 };
 
+/** Every part of the footer that can be shown or hidden from Admin > Footer. Anything not switched on is not shown. */
+export const FOOTER_SHOW_KEYS = ["phone", "email", "address", "timings", "social", "locations", "complaints", "terms", "privacy", "faqs", "blog", "bankDiscounts"] as const;
+export type FooterShowKey = (typeof FOOTER_SHOW_KEYS)[number];
+export const footerShowSchema = z.object(Object.fromEntries(FOOTER_SHOW_KEYS.map((k) => [k, z.boolean()])) as Record<FooterShowKey, z.ZodBoolean>).partial();
+
 export const footerConfigSchema = z
   .object({
     tagline: z.string().trim().max(200),
     /** Free-text operating hours line, e.g. "Monday - Sunday: 11:00 AM - 04:55 AM". */
     timingText: z.string().trim().max(300),
+    show: footerShowSchema,
   })
   .partial();
 export type FooterConfig = z.infer<typeof footerConfigSchema>;
@@ -37,6 +43,7 @@ export type FooterConfig = z.infer<typeof footerConfigSchema>;
 export const DEFAULT_FOOTER_CONFIG: Required<FooterConfig> = {
   tagline: "Exquisite range of flavours, delivered fresh.",
   timingText: "Monday - Sunday: 11:00 AM - 04:55 AM",
+  show: {},
 };
 
 /**
@@ -238,6 +245,8 @@ export const checkoutConfigSchema = z
   .object({
     showCoupon: z.boolean(),
     showTip: z.boolean(),
+    /** The "Send as a Gift" button. Hidden means customers cannot place gift orders. */
+    showGift: z.boolean(),
     /** The quick-pick tip buttons, e.g. [100, 200, 500]. Up to 4. */
     tipPresets: z.array(z.number().int().min(1).max(100_000)).max(4),
     /** Tip already selected when the checkout opens (0 = none). */
@@ -256,6 +265,7 @@ export type CheckoutConfig = z.infer<typeof checkoutConfigSchema>;
 export type ResolvedCheckoutConfig = {
   showCoupon: boolean;
   showTip: boolean;
+  showGift: boolean;
   tipPresets: number[];
   defaultTip: number;
   payments: {
@@ -267,6 +277,7 @@ export type ResolvedCheckoutConfig = {
 export const DEFAULT_CHECKOUT_CONFIG: ResolvedCheckoutConfig = {
   showCoupon: true,
   showTip: true,
+  showGift: true,
   tipPresets: [100, 200, 500],
   defaultTip: 0,
   payments: {

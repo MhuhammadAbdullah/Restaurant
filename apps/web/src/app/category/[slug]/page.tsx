@@ -32,7 +32,7 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
 
   const { data: products, isLoading: productsLoading } = useQuery({
     queryKey: ["category-products", category?.id, branch?.id],
-    queryFn: () => api.public.get<Product[]>(`/catalog/products?branchId=${branch?.id}&categoryId=${category?.id}&includeOutOfStock=true`),
+    queryFn: () => api.public.get<Product[]>(`/catalog/products?branchId=${branch?.id}&categoryId=${category?.id}&includeOutOfStock=true&full=true`),
     enabled: !!branch && !!category && !isDealsCategory,
     placeholderData: keepPreviousData,
   });
@@ -47,11 +47,22 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
   const itemsLoading = isDealsCategory ? dealsLoading : productsLoading;
 
   async function openProduct(productId: string) {
+    // The category is already loaded with each product's choices and add-ons, so the popup opens on the click.
+    const cached = products?.find((p) => p.id === productId);
+    if (cached?.choiceGroups) {
+      setActiveProduct(cached);
+      return;
+    }
     const detail = await api.public.get<Product>(`/catalog/products/${productId}`);
     setActiveProduct(detail);
   }
 
   async function openDeal(dealId: string) {
+    const cached = deals?.find((d) => d.id === dealId);
+    if (cached?.slots) {
+      setActiveDeal(cached);
+      return;
+    }
     const detail = await api.public.get<Deal>(`/deals/${dealId}`);
     setActiveDeal(detail);
   }

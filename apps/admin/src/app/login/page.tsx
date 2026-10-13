@@ -1,5 +1,6 @@
 "use client";
 
+import { SecretInput } from "../../components/SecretInput";
 import { LoadingDots } from "../../components/LoadingDots";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -110,12 +111,12 @@ export default function LoginPage() {
               <div>
                 <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-neutral-800">Password</label>
                 <div className="relative">
-                  <input
+                  <SecretInput
                     id="password"
                     type={show ? "text" : "password"}
                     autoComplete="current-password"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={setPassword}
                     required
                     style={{ paddingRight: "2.75rem" }}
                     className="input w-full"

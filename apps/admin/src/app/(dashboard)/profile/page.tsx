@@ -1,5 +1,6 @@
 "use client";
 
+import { SecretInput } from "../../../components/SecretInput";
 import { LoadingDots } from "../../../components/LoadingDots";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -41,10 +42,10 @@ function PasswordField({ label, value, onChange, show, onToggle, autoComplete, e
     <div>
       <label className="mb-1 block text-xs font-medium text-neutral-700">{label}</label>
       <div className="relative">
-        <input
+        <SecretInput
           type={show ? "text" : "password"}
           value={value}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={onChange}
           autoComplete={autoComplete}
           style={{ paddingRight: "2.75rem" }}
           className={`input w-full ${error ? "!border-red-400" : ""}`}

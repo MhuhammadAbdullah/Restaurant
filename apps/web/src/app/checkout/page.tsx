@@ -31,6 +31,7 @@ type RestaurantInfo = {
   checkout?: {
     showCoupon?: boolean;
     showTip?: boolean;
+    showGift?: boolean;
     tipPresets?: number[];
     defaultTip?: number;
     payments?: {
@@ -83,6 +84,7 @@ export default function CheckoutPage() {
   const [contactEmail, setContactEmail] = useState("");
   const [specialInstructions, setSpecialInstructions] = useState("");
   const [isGift, setIsGift] = useState(false);
+  const giftRef = useRef<HTMLDivElement>(null);
   const [gift, setGift] = useState({ recipientName: "", recipientPhone: "", recipientAddress: "", recipientCity: "", recipientArea: "", message: "" });
   const [paymentMethod, setPaymentMethod] = useState<"COD" | "ONLINE">("COD");
   const [showAllItems, setShowAllItems] = useState(false);
@@ -119,6 +121,8 @@ export default function CheckoutPage() {
   // Coupon / tip boxes and the tip amounts are set in Admin > Website > Checkout. Nothing is shown until the settings arrive.
   const showCoupon = restaurantInfo ? restaurantInfo.checkout?.showCoupon !== false : false;
   const showTip = restaurantInfo ? restaurantInfo.checkout?.showTip !== false : false;
+  // The gift button is set in Admin > Website > Checkout. Nothing is shown until the settings arrive.
+  const showGift = restaurantInfo ? restaurantInfo.checkout?.showGift !== false : false;
   const tipPresets = restaurantInfo?.checkout?.tipPresets ?? [100, 200, 500];
   const defaultTip = restaurantInfo?.checkout?.defaultTip ?? 0;
   // Payment methods (names, icons and on/off) are set in Admin > Website > Checkout.
@@ -134,6 +138,15 @@ export default function CheckoutPage() {
     { key: "ONLINE" as const, label: pay?.online?.label || "Online Payment", icon: pay?.online?.iconUrl || CARDS_ICON_URL, disabled: false, enabled: pay?.online?.enabled !== false },
   ].filter((o) => o.enabled);
   const onlineEnabled = pay?.online?.enabled !== false;
+  // Gifts are paid online. If that is switched off, say so instead of doing nothing; otherwise open the gift form right here.
+  function toggleGift() {
+    if (!isGift && !onlineEnabled) {
+      toast.error("Gifts need Online Payment, which is switched off right now.");
+      return;
+    }
+    setIsGift((g) => !g);
+    if (!isGift) setTimeout(() => giftRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 50);
+  }
   useEffect(() => {
     // the chosen method may have been switched off: move to one that is available
     const usable = paymentOptions.find((o) => !o.disabled);
@@ -274,7 +287,7 @@ export default function CheckoutPage() {
         contactAlternatePhone: contactAlternatePhone ? normalizePhone(contactAlternatePhone) : undefined,
         contactEmail: contactEmail || undefined,
         specialInstructions: specialInstructions || undefined,
-        isGift,
+        isGift: showGift && isGift,
         loyaltyPointsToRedeem: customer && useLoyalty && loyaltyEnabled ? me?.loyaltyPoints ?? 0 : 0,
         couponCode: appliedCoupon?.code,
         tipAmount: tipPaisa > 0 ? tipPaisa : undefined,
@@ -292,7 +305,7 @@ export default function CheckoutPage() {
           };
         }
       }
-      if (isGift) body.gift = { ...gift, recipientPhone: normalizePhone(gift.recipientPhone) };
+      if (showGift && isGift) body.gift = { ...gift, recipientPhone: normalizePhone(gift.recipientPhone) };
       if (paymentMethod === "COD" && changeRequest) body.changeRequestAmount = Math.round(Number(changeRequest) * 100);
 
       const result = customer
@@ -325,18 +338,33 @@ export default function CheckoutPage() {
         <div className="min-w-0 rounded-2xl border border-line bg-surface p-4 sm:p-6">
           <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
             <h1 className="text-xl font-semibold text-ink">Checkout</h1>
-            <button
+            {showGift && <button
               type="button"
-              onClick={() => setIsGift((g) => !g)}
-              disabled={!onlineEnabled && !isGift}
+              onClick={toggleGift}
+              aria-pressed={isGift}
+              aria-disabled={!onlineEnabled && !isGift}
               className={`flex shrink-0 items-center gap-2.5 rounded-full border px-5 py-2.5 text-sm font-medium transition ${
                 isGift ? "border-green-600 bg-green-50 text-green-700" : "border-line bg-surface text-ink hover:border-green-600"
-              }`}
+              } ${!onlineEnabled && !isGift ? "opacity-60" : ""}`}
             >
               <GiftIcon size={18} className="shrink-0 animate-gift-bounce text-green-600" />
               Send as a Gift
-            </button>
+            </button>}
           </div>
+          {showGift && !onlineEnabled && <p className="mt-2 text-xs text-muted">Gifts are paid online, and Online Payment is switched off right now.</p>}
+          {showGift && isGift && (
+            <div ref={giftRef} className="mt-4 scroll-mt-24 space-y-3 rounded-lg border border-green-600/30 bg-green-50/40 p-3">
+              <input placeholder="Recipient Name" value={gift.recipientName} onChange={(e) => setGift({ ...gift, recipientName: e.target.value })} className="input" />
+              <input placeholder="Recipient Mobile" value={gift.recipientPhone} onChange={(e) => setGift({ ...gift, recipientPhone: e.target.value })} className="input" />
+              <input placeholder="Recipient Address" value={gift.recipientAddress} onChange={(e) => setGift({ ...gift, recipientAddress: e.target.value })} className="input" />
+              <div className="flex gap-2">
+                <input placeholder="City" value={gift.recipientCity} onChange={(e) => setGift({ ...gift, recipientCity: e.target.value })} className="input" />
+                <input placeholder="Area" value={gift.recipientArea} onChange={(e) => setGift({ ...gift, recipientArea: e.target.value })} className="input" />
+              </div>
+              <textarea placeholder="Gift Message" value={gift.message} onChange={(e) => setGift({ ...gift, message: e.target.value })} className="input" />
+              <p className="text-xs text-muted">Gift orders require Online Payment.</p>
+            </div>
+          )}
 
           {orderType !== "DELIVERY" && (
             <div className="mt-3 rounded-2xl border border-line bg-surface p-4 shadow-sm sm:p-5">
@@ -532,19 +560,6 @@ export default function CheckoutPage() {
             </>
           )}
 
-          {isGift && (
-            <div className="mt-4 space-y-3 rounded-lg border border-brand-red/30 p-3">
-              <input placeholder="Recipient Name" value={gift.recipientName} onChange={(e) => setGift({ ...gift, recipientName: e.target.value })} className="input" />
-              <input placeholder="Recipient Mobile" value={gift.recipientPhone} onChange={(e) => setGift({ ...gift, recipientPhone: e.target.value })} className="input" />
-              <input placeholder="Recipient Address" value={gift.recipientAddress} onChange={(e) => setGift({ ...gift, recipientAddress: e.target.value })} className="input" />
-              <div className="flex gap-2">
-                <input placeholder="City" value={gift.recipientCity} onChange={(e) => setGift({ ...gift, recipientCity: e.target.value })} className="input" />
-                <input placeholder="Area" value={gift.recipientArea} onChange={(e) => setGift({ ...gift, recipientArea: e.target.value })} className="input" />
-              </div>
-              <textarea placeholder="Gift Message" value={gift.message} onChange={(e) => setGift({ ...gift, message: e.target.value })} className="input" />
-              <p className="text-xs text-muted">Gift orders require Online Payment.</p>
-            </div>
-          )}
 
           {loyaltyEnabled && me && me.loyaltyPoints > 0 && (
             <div className="mt-4 flex items-center justify-between rounded-lg border border-line p-3">

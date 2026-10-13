@@ -552,8 +552,8 @@ function BranchFormModal({ branch, cities, existingCodes, otherBranches, onClose
       const payload = {
         name: form.name.trim(),
         code: form.code.trim().toUpperCase(),
-        phone: form.phone.trim() || undefined,
-        email: form.email.trim() || undefined,
+        phone: form.phone.trim() || null,
+        email: form.email.trim() || null,
         address: form.address.trim() || undefined,
         city: form.city.trim(),
         area: form.area.trim(),

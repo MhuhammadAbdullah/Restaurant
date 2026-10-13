@@ -93,14 +93,15 @@ export default function HomePage() {
 
   const { data: popularProducts, isLoading: popularLoading } = useQuery({
     queryKey: ["popular-products", branch?.id],
-    queryFn: () => api.public.get<Product[]>(`/catalog/products?branchId=${branch?.id}&popular=true&includeOutOfStock=true`),
+    queryFn: () => api.public.get<Product[]>(`/catalog/products?branchId=${branch?.id}&popular=true&includeOutOfStock=true&full=true`),
     enabled: !!branch,
     placeholderData: keepPreviousData,
   });
 
   const { data: allProducts, isLoading: allProductsLoading } = useQuery({
     queryKey: ["all-products", branch?.id],
-    queryFn: () => api.public.get<Product[]>(`/catalog/products?branchId=${branch?.id}&includeOutOfStock=true`),
+    // full=true: each product comes with its choices and add-ons, so opening one needs no second request.
+    queryFn: () => api.public.get<Product[]>(`/catalog/products?branchId=${branch?.id}&includeOutOfStock=true&full=true`),
     enabled: !!branch,
     placeholderData: keepPreviousData,
   });
@@ -205,11 +206,22 @@ export default function HomePage() {
   }
 
   async function openProduct(id: string) {
+    // The menu is already loaded with everything the popup needs, so it opens on the click. The request is only a fallback.
+    const cached = allProducts?.find((p) => p.id === id);
+    if (cached?.choiceGroups) {
+      setActiveProduct(cached);
+      return;
+    }
     const detail = await api.public.get<Product>(`/catalog/products/${id}`);
     setActiveProduct(detail);
   }
 
   async function openDeal(id: string) {
+    const cached = deals?.find((d) => d.id === id);
+    if (cached?.slots) {
+      setActiveDeal(cached);
+      return;
+    }
     const detail = await api.public.get<Deal>(`/deals/${id}`);
     setActiveDeal(detail);
   }
@@ -353,7 +365,7 @@ function CategoryProductSection({
   const router = useRouter();
   const { data: products, isLoading } = useQuery({
     queryKey: ["products", "mainPage", section.categoryId, branchId],
-    queryFn: () => api.public.get<Product[]>(`/catalog/products?branchId=${branchId}&categoryId=${section.categoryId}&mainPage=true&includeOutOfStock=true`),
+    queryFn: () => api.public.get<Product[]>(`/catalog/products?branchId=${branchId}&categoryId=${section.categoryId}&mainPage=true&includeOutOfStock=true&full=true`),
     enabled: !!section.categoryId,
     placeholderData: keepPreviousData,
   });
