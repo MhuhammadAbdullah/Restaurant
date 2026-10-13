@@ -38,7 +38,8 @@ export function ProductCard({ product, onClick }: { product: Product; onClick: (
     if (checking) return;
     setChecking(true);
     try {
-      const detail = await api.public.get<Product>(`/catalog/products/${product.id}`);
+      // Lists load each product with its choices and add-ons, so the extra request is only a fallback.
+      const detail = product.choiceGroups ? product : await api.public.get<Product>(`/catalog/products/${product.id}`);
       const needsConfig = (detail.choiceGroups?.length ?? 0) > 0 || (detail.addons?.length ?? 0) > 0;
       if (needsConfig) {
         onClick();

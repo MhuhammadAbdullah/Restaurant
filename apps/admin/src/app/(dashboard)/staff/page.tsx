@@ -1,5 +1,6 @@
 "use client";
 
+import { SecretInput } from "../../../components/SecretInput";
 import { LoadingDots } from "../../../components/LoadingDots";
 import { useMemo, useState } from "react";
 import Link from "next/link";
@@ -141,11 +142,11 @@ function StaffFormModal({
     <div>
       <div className="flex gap-2">
         <div className="relative min-w-0 flex-1">
-          <input
+          <SecretInput
             type={showPassword ? "text" : "password"}
             placeholder={mode === "create" ? "At least 8 characters" : "Leave empty to keep the current password"}
             value={form.password}
-            onChange={(e) => set("password", e.target.value)}
+            onChange={(v) => set("password", v)}
             className={`input w-full pr-14 ${pwBad ? "!border-red-400" : ""}`}
             autoComplete="new-password"
             required={mode === "create"}

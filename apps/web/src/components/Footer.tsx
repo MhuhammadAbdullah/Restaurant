@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { FaClock, FaEnvelope, FaLocationDot, FaPhoneVolume } from "react-icons/fa6";
+import type { FooterShowKey } from "@restaurant/validation";
 import { api } from "../lib/api";
 import { useLocationStore } from "../store/useLocationStore";
 import { FacebookIcon, InstagramIcon, TwitterIcon, YoutubeIcon, TiktokIcon, LinkedinIcon, WhatsappIcon } from "./icons";
@@ -17,7 +18,7 @@ type RestaurantInfo = {
   contactPhone: string | null;
   contactEmail: string | null;
   socialLinks: Record<string, string> | null;
-  footer: { tagline: string; timingText: string };
+  footer: { tagline: string; timingText: string; show?: Partial<Record<FooterShowKey, boolean>> };
   pages: {
     terms: { title: string };
     privacy: { title: string };
@@ -65,17 +66,39 @@ export function Footer() {
   // Once the customer has picked a delivery/pick-up branch, the footer should reflect THAT
   // branch's own contact details/address (where the order actually ships from) rather than a
   // generic restaurant-wide number. Before a branch is chosen, fall back to the first listed one.
-  const displayBranch = selectedBranch ?? branches?.[0];
-  const displayPhone = selectedBranch?.phone ?? restaurant?.contactPhone;
-  const displayEmail = selectedBranch?.email ?? restaurant?.contactEmail;
-  const socialEntries = Object.entries(restaurant?.socialLinks ?? {}).filter(([, url]) => !!url);
+  // The branch is read from the fresh list (the saved choice can hold an old copy), so a phone or email removed in Admin disappears here too.
+  const liveBranch = branches?.find((b) => b.id === selectedBranch?.id) ?? selectedBranch;
+  const displayBranch = liveBranch ?? branches?.[0];
+  const displayPhone = liveBranch ? liveBranch.phone : restaurant?.contactPhone;
+  const displayEmail = liveBranch ? liveBranch.email : restaurant?.contactEmail;
+  // Admin > Footer decides what is shown. A part that has not been switched on there is not shown.
+  const show = restaurant?.footer?.show ?? {};
+  const socialEntries = show.social ? Object.entries(restaurant?.socialLinks ?? {}).filter(([, url]) => !!url) : [];
+  const timingLines = show.timings ? (restaurant?.footer?.timingText ?? "").split("\n").filter((l) => l.trim()) : [];
+  const showPhone = !!show.phone && !!displayPhone;
+  const showEmail = !!show.email && !!displayEmail;
+  const showAddress = !!show.address && !!displayBranch;
+  const helpLinks = [
+    show.locations && { href: "/our-locations", label: "Our Locations" },
+    show.complaints && { href: "/complaints", label: "Submit Your Complaint" },
+    show.terms && { href: "/terms", label: restaurant?.pages?.terms.title ?? "Terms & Conditions" },
+    show.privacy && { href: "/privacy-policy", label: restaurant?.pages?.privacy.title ?? "Privacy Policy" },
+    show.faqs && { href: "/faqs", label: restaurant?.pages?.faqs.title ?? "FAQs" },
+    show.blog && { href: "/blog", label: "Blog" },
+    show.bankDiscounts && bankPage?.enabled && { href: "/bank-discounts", label: bankPage.heading || "Bank Discounts" },
+  ].filter((l): l is { href: string; label: string } => !!l);
+  const hasContact = showPhone || showEmail || showAddress || timingLines.length > 0;
+  const hasFollow = socialEntries.length > 0;
+  const hasHelp = helpLinks.length > 0;
+  const columnCount = 1 + Number(hasContact) + Number(hasFollow) + Number(hasHelp);
+  const lgColumns = ["", "lg:grid-cols-1", "lg:grid-cols-[1.1fr_1.4fr]", "lg:grid-cols-[1.1fr_1.4fr_1fr]", "lg:grid-cols-[1.1fr_1.4fr_1fr_1fr]"][isLoading ? 4 : columnCount];
 
   const headingClass = "text-[17px] font-semibold text-ink";
   const columnClass = "lg:border-l lg:border-line lg:pl-8";
 
   return (
     <footer data-no-print className="mt-8 bg-surface text-sm text-ink">
-      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-10 sm:grid-cols-2 sm:px-8 lg:grid-cols-[1.1fr_1.4fr_1fr_1fr]">
+      <div className={`mx-auto grid max-w-7xl gap-10 px-4 py-10 sm:grid-cols-2 sm:px-8 ${lgColumns}`}>
         {isLoading ? (
           <>
             <div>
@@ -119,22 +142,23 @@ export function Footer() {
           <p className="mt-3 text-sm text-muted">{restaurant?.footer?.tagline ?? "Exquisite range of flavours, delivered fresh."}</p>
         </div>
 
+        {hasContact && (
         <div className={columnClass}>
           <h3 className={headingClass}>Contact us</h3>
           <div className="mt-4 space-y-3 text-muted">
-            {displayPhone && (
+            {showPhone && (
               <p className="flex items-start gap-3">
                 <FaPhoneVolume size={16} className="mt-0.5 shrink-0 text-brand-red" />
                 <a href={`tel:${displayPhone}`}>{displayPhone}</a>
               </p>
             )}
-            {displayEmail && (
+            {showEmail && (
               <p className="flex items-start gap-3">
                 <FaEnvelope size={16} className="mt-0.5 shrink-0 text-brand-red" />
                 <a href={`mailto:${displayEmail}`}>{displayEmail}</a>
               </p>
             )}
-            {displayBranch && (
+            {showAddress && displayBranch && (
               <p className="flex items-start gap-3">
                 <FaLocationDot size={16} className="mt-0.5 shrink-0 text-brand-red" />
                 <span>
@@ -142,7 +166,7 @@ export function Footer() {
                 </span>
               </p>
             )}
-            {(restaurant?.footer?.timingText ?? "Monday - Sunday: 11:00 AM - 04:55 AM").split("\n").map((line, i) => (
+            {timingLines.map((line, i) => (
               <p key={i} className="flex items-start gap-3">
                 <FaClock size={16} className={`mt-0.5 shrink-0 ${i === 0 ? "text-brand-red" : "invisible"}`} />
                 <span>{line}</span>
@@ -150,7 +174,9 @@ export function Footer() {
             ))}
           </div>
         </div>
+        )}
 
+        {hasFollow && (
         <div className={columnClass}>
           <h3 className={headingClass}>Follow us</h3>
           <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -174,35 +200,20 @@ export function Footer() {
             })}
           </div>
         </div>
+        )}
 
+        {hasHelp && (
         <div className={columnClass}>
           <h3 className={headingClass}>Help</h3>
           <div className="mt-4 space-y-3 text-muted">
-            <Link href="/our-locations" className="block transition hover:text-brand-red">
-              Our Locations
-            </Link>
-            <Link href="/complaints" className="block transition hover:text-brand-red">
-              Submit Your Complaint
-            </Link>
-            <Link href="/terms" className="block transition hover:text-brand-red">
-              {restaurant?.pages?.terms.title ?? "Terms & Conditions"}
-            </Link>
-            <Link href="/privacy-policy" className="block transition hover:text-brand-red">
-              {restaurant?.pages?.privacy.title ?? "Privacy Policy"}
-            </Link>
-            <Link href="/faqs" className="block transition hover:text-brand-red">
-              {restaurant?.pages?.faqs.title ?? "FAQs"}
-            </Link>
-            <Link href="/blog" className="block transition hover:text-brand-red">
-              Blog
-            </Link>
-            {bankPage?.enabled && (
-              <Link href="/bank-discounts" className="block transition hover:text-brand-red">
-                {bankPage.heading || "Bank Discounts"}
+            {helpLinks.map((l) => (
+              <Link key={l.href} href={l.href} className="block transition hover:text-brand-red">
+                {l.label}
               </Link>
-            )}
+            ))}
           </div>
         </div>
+        )}
         </>
         )}
       </div>

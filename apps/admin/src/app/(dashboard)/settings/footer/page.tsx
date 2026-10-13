@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FaFacebook, FaInstagram, FaLinkedin, FaTiktok, FaWhatsapp, FaXTwitter, FaYoutube } from "react-icons/fa6";
-import { SOCIAL_PLATFORM_KEYS, type SocialPlatformKey } from "@restaurant/validation";
+import { SOCIAL_PLATFORM_KEYS, type FooterShowKey, type SocialPlatformKey } from "@restaurant/validation";
 import { api, ApiError } from "../../../../lib/api";
 import { useMe, hasPermission } from "../../../../lib/useMe";
 import { toast } from "../../../../store/useToastStore";
@@ -17,7 +17,7 @@ type RestaurantInfo = {
   name: string;
   footerLogoUrl: string | null;
   socialLinks: Partial<Record<SocialPlatformKey, string>> | null;
-  footer: { tagline: string; timingText: string };
+  footer: { tagline: string; timingText: string; show?: Partial<Record<FooterShowKey, boolean>> };
   productImageFallbackSource: "HEADER" | "FOOTER" | null;
 };
 
@@ -75,6 +75,34 @@ function serializeHours(rows: HourRow[]): string {
 
 type SocialRow = { platform: SocialPlatformKey; url: string };
 
+/** What the footer can show. Nothing is shown until it is switched on here. */
+const SHOW_GROUPS: { title: string; hint: string; items: { key: FooterShowKey; label: string; hint?: string }[] }[] = [
+  {
+    title: "Contact us",
+    hint: "Phone, email and address come from the customer's chosen branch (edit them in Branches). A part with nothing filled in is never shown.",
+    items: [
+      { key: "phone", label: "Phone number" },
+      { key: "email", label: "Email address" },
+      { key: "address", label: "Branch address" },
+      { key: "timings", label: "Opening hours", hint: "The rows from step 3" },
+    ],
+  },
+  { title: "Follow us", hint: "The social links from step 4.", items: [{ key: "social", label: "Social media icons" }] },
+  {
+    title: "Help links",
+    hint: "The links in the Help column.",
+    items: [
+      { key: "locations", label: "Our Locations" },
+      { key: "complaints", label: "Submit Your Complaint" },
+      { key: "terms", label: "Terms & Conditions" },
+      { key: "privacy", label: "Privacy Policy" },
+      { key: "faqs", label: "FAQs" },
+      { key: "blog", label: "Blog" },
+      { key: "bankDiscounts", label: "Bank Discounts", hint: "Also needs the Bank Discounts page to be switched on" },
+    ],
+  },
+];
+
 function SectionCard({ n, title, description, children }: { n: number; title: string; description: string; children: React.ReactNode }) {
   return (
     <section className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
@@ -122,10 +150,11 @@ export default function FooterSettingsPage() {
   const [footerLogoUrl, setFooterLogoUrl] = useState("");
   const [useAsProductFallback, setUseAsProductFallback] = useState(false);
   const [socialRows, setSocialRows] = useState<SocialRow[]>([]);
+  const [show, setShow] = useState<Partial<Record<FooterShowKey, boolean>>>({});
   const [saved, setSaved] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const snapshot = useMemo(() => JSON.stringify({ tagline, timingText, footerLogoUrl, useAsProductFallback, socialRows }), [tagline, timingText, footerLogoUrl, useAsProductFallback, socialRows]);
+  const snapshot = useMemo(() => JSON.stringify({ tagline, timingText, footerLogoUrl, useAsProductFallback, socialRows, show }), [tagline, timingText, footerLogoUrl, useAsProductFallback, socialRows, show]);
   const dirty = saved !== "" && snapshot !== saved;
 
   useEffect(() => {
@@ -137,23 +166,26 @@ export default function FooterSettingsPage() {
       footerLogoUrl: restaurant.footerLogoUrl ?? "",
       useAsProductFallback: restaurant.productImageFallbackSource === "FOOTER",
       socialRows: entries.map(([platform, url]) => ({ platform, url })),
+      show: restaurant.footer?.show ?? {},
     };
     setTagline(next.tagline);
     setTimingText(next.timingText);
     setFooterLogoUrl(next.footerLogoUrl);
     setUseAsProductFallback(next.useAsProductFallback);
     setSocialRows(next.socialRows);
+    setShow(next.show);
     setSaved(JSON.stringify(next));
   }, [restaurant]);
 
   function reset() {
     if (!saved) return;
-    const s = JSON.parse(saved) as { tagline: string; timingText: string; footerLogoUrl: string; useAsProductFallback: boolean; socialRows: SocialRow[] };
+    const s = JSON.parse(saved) as { tagline: string; timingText: string; footerLogoUrl: string; useAsProductFallback: boolean; socialRows: SocialRow[]; show: Partial<Record<FooterShowKey, boolean>> };
     setTagline(s.tagline);
     setTimingText(s.timingText);
     setFooterLogoUrl(s.footerLogoUrl);
     setUseAsProductFallback(s.useAsProductFallback);
     setSocialRows(s.socialRows);
+    setShow(s.show);
   }
 
   function addSocialRow() {
@@ -202,7 +234,7 @@ export default function FooterSettingsPage() {
 
       await api.patch("/cms/restaurant", {
         socialLinks,
-        footer: { tagline: tagline.trim(), timingText: timingText.trim() },
+        footer: { tagline: tagline.trim(), timingText: timingText.trim(), show },
         footerLogoUrl: footerLogoUrl || null,
         productImageFallbackSource: useAsProductFallback ? "FOOTER" : restaurant?.productImageFallbackSource === "FOOTER" ? null : undefined,
       });
@@ -357,6 +389,30 @@ export default function FooterSettingsPage() {
                   + Add social link
                 </button>
               )}
+            </SectionCard>
+
+            <SectionCard n={5} title="What to show" description="Choose which parts of the footer your customers see. Anything not switched on is hidden.">
+              {SHOW_GROUPS.map((g) => (
+                <div key={g.title}>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">{g.title}</p>
+                  <p className="mb-2 text-xs text-neutral-500">{g.hint}</p>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {g.items.map((it) => (
+                      <label key={it.key} className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition ${show[it.key] ? "border-brand-red bg-red-50" : "border-neutral-200 hover:bg-neutral-50"}`}>
+                        <input type="checkbox" checked={!!show[it.key]} onChange={(e) => setShow((v) => ({ ...v, [it.key]: e.target.checked }))} className="mt-0.5 h-4 w-4 accent-[#ED2320]" />
+                        <span>
+                          <span className="block text-sm font-medium text-neutral-900">{it.label}</span>
+                          {it.hint && <span className="block text-xs text-neutral-500">{it.hint}</span>}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setShow(Object.fromEntries(SHOW_GROUPS.flatMap((g) => g.items.map((i) => [i.key, true]))))} className="rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50">Show all</button>
+                <button type="button" onClick={() => setShow({})} className="rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50">Hide all</button>
+              </div>
             </SectionCard>
           </div>
 
