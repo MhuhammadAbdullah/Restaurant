@@ -135,7 +135,7 @@ export default function StaffAccessPage() {
   // What this person will actually be able to open, and obvious gaps (e.g. "Refund orders" but not "View orders").
   const allowedKeys = new Set(perms.filter(valueOf).map((p) => p.key));
   const isOwnerRole = staff?.role.name === "Owner";
-  const openablePages = NAV_GROUPS.flatMap((g) => g.items).filter((i) => !i.permission || allowedKeys.has(i.permission));
+  const openablePages = NAV_GROUPS.flatMap((g) => g.items).filter((i) => !i.permission || i.permission.split(",").some((k) => allowedKeys.has(k)));
   const allKeys = new Set(perms.map((p) => p.key));
   const missingView = Array.from(
     new Set(

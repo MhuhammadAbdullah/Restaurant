@@ -23,6 +23,8 @@ import { CouponsModule } from "./modules/coupons/coupons.module";
 import { CmsModule } from "./modules/cms/cms.module";
 import { BlogModule } from "./modules/blog/blog.module";
 import { BankDiscountsModule } from "./modules/bank-discounts/bank-discounts.module";
+import { InventoryModule } from "./modules/inventory/inventory.module";
+import { RecipesModule } from "./modules/recipes/recipes.module";
 import { TablesModule } from "./modules/tables/tables.module";
 import { KitchenModule } from "./modules/kitchen/kitchen.module";
 import { ComplaintsModule } from "./modules/complaints/complaints.module";
@@ -67,6 +69,8 @@ import { validateEnv } from "./config/env.schema";
     CmsModule,
     BlogModule,
     BankDiscountsModule,
+    InventoryModule,
+    RecipesModule,
     TablesModule,
     KitchenModule,
     ComplaintsModule,

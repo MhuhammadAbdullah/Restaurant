@@ -228,6 +228,8 @@ model Restaurant {
   marketingPopups MarketingPopup[]
   blogPosts       BlogPost[]
   bankDiscounts   BankDiscount[]
+  inventoryItems  InventoryItem[]
+  suppliers       Supplier[]
   mediaAssets     MediaAsset[]
   notifications   Notification[]
   auditLogs           AuditLog[]
@@ -545,6 +547,9 @@ model Product {
   recommendationsTo   Recommendation[]            @relation("RecommendationTarget")
   couponRestrictions  CouponProduct[]
 
+  recipeLines RecipeLine[]
+  recipeGuide RecipeGuide?
+
   @@map("products")
 }
 
@@ -566,6 +571,8 @@ model ProductBranchAvailability {
   branchId    String
   branch      Branch  @relation(fields: [branchId], references: [id], onDelete: Cascade)
   isAvailable Boolean @default(true)
+  /// True when inventory (not a person) switched this off because an ingredient ran out. Restocking switches it back on.
+  autoByInventory Boolean @default(false)
 
   @@id([productId, branchId])
   @@map("product_branch_availability")
@@ -618,6 +625,8 @@ model ChoiceOption {
   orderItemChoices         OrderItemChoice[]
   orderItemDealSlotChoices OrderItemDealSlotChoice[]
   defaultForProductChoices ProductChoiceGroup[]      @relation("ProductChoiceGroupDefault")
+
+  recipeLines RecipeLine[]
 
   @@map("choice_options")
 }
@@ -691,6 +700,8 @@ model Addon {
   dealSlotAssignments     DealSlotAddon[]
 
   @@unique([addonGroupId, productId])
+  recipeLines RecipeLine[]
+
   @@map("addons")
 }
 
@@ -1674,4 +1685,211 @@ model BankDiscount {
 
   @@index([restaurantId, status, sortOrder])
   @@map("bank_discounts")
+}
+
+/// A raw material or packaging item (chicken, flour, oil, boxes...). Quantities are stored in a base unit (g / ml / pcs).
+model InventoryItem {
+  id           String       @id @default(cuid())
+  restaurantId String
+  restaurant   Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  name         String
+  sku          String       @default("")
+  category     String       @default("")
+  /// How the item is counted and shown: KG, G, LITER, ML, PIECE or DOZEN.
+  unit         String       @default("KG")
+  /// Alert level in base units (g / ml / pcs). Can be overridden per branch.
+  minLevel     Decimal      @default(0) @db.Decimal(16, 3)
+  /// Paisa per one of "unit" (e.g. 65000 = Rs. 650 per kg).
+  costPerUnit  Int          @default(0)
+  notes        String       @default("")
+  status       RecordStatus @default(ACTIVE)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  stocks      BranchStock[]
+  movements   StockMovement[]
+  recipeLines RecipeLine[]
+  poLines     PurchaseOrderLine[]
+  transfers   StockTransferLine[]
+
+  @@index([restaurantId, status])
+  @@map("inventory_items")
+}
+
+/// Current stock of one item at one branch, in base units.
+model BranchStock {
+  id       String        @id @default(cuid())
+  itemId   String
+  item     InventoryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  branchId String
+  quantity Decimal       @default(0) @db.Decimal(16, 3)
+  /// Overrides the item's alert level for this branch. Null = use the item's.
+  minLevel Decimal?      @db.Decimal(16, 3)
+  updatedAt DateTime     @updatedAt
+
+  @@unique([itemId, branchId])
+  @@index([branchId])
+  @@map("branch_stock")
+}
+
+/// Every change to stock, with who did it and why. The balance after the change is kept so history reads like a ledger.
+model StockMovement {
+  id            String        @id @default(cuid())
+  restaurantId  String
+  branchId      String
+  itemId        String
+  item          InventoryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  /// OPENING, PURCHASE, SALE, RETURN, ADJUSTMENT, WASTE, STOCK_IN, STOCK_OUT, TRANSFER_IN, TRANSFER_OUT
+  type          String
+  /// Signed, in base units: positive adds stock, negative removes it.
+  quantity      Decimal       @db.Decimal(16, 3)
+  balanceAfter  Decimal       @db.Decimal(16, 3)
+  /// Paisa per item unit when known (purchases).
+  unitCost      Int?
+  note          String        @default("")
+  /// What caused it: ORDER, PURCHASE_ORDER, TRANSFER or empty for manual.
+  referenceType String        @default("")
+  referenceId   String        @default("")
+  /// Which line of the reference this belongs to (the order item, the purchase order line). Empty for manual changes.
+  lineRef       String        @default("")
+  /// A key made from what happened (order + line + ingredient + step). A second attempt to record the same thing is refused by the database, so stock can never be taken or returned twice.
+  idempotencyKey String?      @unique
+  staffId       String?
+  createdAt     DateTime      @default(now())
+
+  @@index([restaurantId, branchId, createdAt])
+  @@index([itemId, createdAt])
+  @@index([referenceType, referenceId])
+  @@map("stock_movements")
+}
+
+/// How much of an ingredient one product / one choice option / one add-on uses. Exactly one of the three targets is set.
+model RecipeLine {
+  id             String        @id @default(cuid())
+  restaurantId   String
+  itemId         String
+  item           InventoryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  /// Base units (g / ml / pcs) used per one unit sold.
+  quantity       Decimal       @db.Decimal(16, 3)
+  productId      String?
+  product        Product?      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  choiceOptionId String?
+  choiceOption   ChoiceOption? @relation(fields: [choiceOptionId], references: [id], onDelete: Cascade)
+  addonId        String?
+  addon          Addon?        @relation(fields: [addonId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([choiceOptionId])
+  @@index([addonId])
+  @@index([itemId])
+  @@map("recipe_lines")
+}
+
+model Supplier {
+  id           String       @id @default(cuid())
+  restaurantId String
+  restaurant   Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  name         String
+  contactName  String       @default("")
+  phone        String       @default("")
+  email        String       @default("")
+  address      String       @default("")
+  notes        String       @default("")
+  status       RecordStatus @default(ACTIVE)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  purchaseOrders PurchaseOrder[]
+
+  @@index([restaurantId, status])
+  @@map("suppliers")
+}
+
+model PurchaseOrder {
+  id               String              @id @default(cuid())
+  restaurantId     String
+  branchId         String
+  supplierId       String
+  supplier         Supplier            @relation(fields: [supplierId], references: [id])
+  number           String
+  /// DRAFT, ORDERED, RECEIVED, CANCELLED
+  status           String              @default("ORDERED")
+  expectedDate     DateTime?
+  notes            String              @default("")
+  receivedAt       DateTime?
+  createdByStaffId String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  lines            PurchaseOrderLine[]
+
+  @@unique([restaurantId, number])
+  @@index([restaurantId, branchId, status])
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderLine {
+  id              String        @id @default(cuid())
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  itemId          String
+  item            InventoryItem @relation(fields: [itemId], references: [id])
+  /// Ordered quantity, base units.
+  quantity        Decimal       @db.Decimal(16, 3)
+  /// Quantity that actually arrived, base units.
+  receivedQty     Decimal       @default(0) @db.Decimal(16, 3)
+  /// Paisa per one of the item's unit.
+  unitCost        Int           @default(0)
+
+  @@map("purchase_order_lines")
+}
+
+/// Stock moved from one branch to another. It happens at once: out of the sender, into the receiver.
+model StockTransfer {
+  id               String              @id @default(cuid())
+  restaurantId     String
+  fromBranchId     String
+  toBranchId       String
+  number           String
+  note             String              @default("")
+  createdByStaffId String?
+  createdAt        DateTime            @default(now())
+  lines            StockTransferLine[]
+
+  @@unique([restaurantId, number])
+  @@index([restaurantId, createdAt])
+  @@map("stock_transfers")
+}
+
+model StockTransferLine {
+  id         String        @id @default(cuid())
+  transferId String
+  transfer   StockTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  itemId     String
+  item       InventoryItem @relation(fields: [itemId], references: [id])
+  quantity   Decimal       @db.Decimal(16, 3)
+
+  @@map("stock_transfer_lines")
+}
+
+/// The kitchen's "how to make it" notes for one product. Plain instructions only: it has NO link to inventory or stock.
+model RecipeGuide {
+  id               String   @id @default(cuid())
+  restaurantId     String
+  productId        String   @unique
+  product          Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  /// Minutes it takes to prepare one portion (optional).
+  prepMinutes      Int?
+  /// Free text such as "1 burger" or "serves 2" (optional).
+  servings         String   @default("")
+  /// One ingredient per line, written the way the kitchen reads it ("Chicken 150 g").
+  ingredients      String   @default("")
+  /// One step per line, in order.
+  steps            String   @default("")
+  notes            String   @default("")
+  updatedByStaffId String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([restaurantId])
+  @@map("recipe_guides")
 }

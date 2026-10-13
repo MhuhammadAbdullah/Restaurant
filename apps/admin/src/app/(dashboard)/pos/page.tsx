@@ -21,7 +21,6 @@ import {
   FaMagnifyingGlass,
   FaMotorcycle,
   FaPenToSquare,
-  FaPersonWalking,
   FaTag,
   FaTicket,
   FaTrashCan,
@@ -62,9 +61,8 @@ type Quote = {
 
 type CartLine = (ProductCartLine | DealCartLine) & { key: string };
 
-const ORDER_TYPES = ["WALK_IN", "TAKEAWAY", "DINE_IN", "DELIVERY"] as const;
+const ORDER_TYPES = ["TAKEAWAY", "DINE_IN", "DELIVERY"] as const;
 const ORDER_TYPE_META: Record<(typeof ORDER_TYPES)[number], { label: string; icon: (p: { size?: number }) => React.ReactElement }> = {
-  WALK_IN: { label: "Walk-in", icon: (p) => <FaPersonWalking {...p} /> },
   TAKEAWAY: { label: "Takeaway", icon: (p) => <FaBoxOpen {...p} /> },
   DINE_IN: { label: "Dine-in", icon: (p) => <FaUtensils {...p} /> },
   DELIVERY: { label: "Delivery", icon: (p) => <FaMotorcycle {...p} /> },
@@ -127,7 +125,7 @@ export default function PosPage() {
   const { branchId, branches } = useSelectedBranch();
 
   // ---- Order setup ----
-  const [orderType, setOrderType] = useState<(typeof ORDER_TYPES)[number]>("WALK_IN");
+  const [orderType, setOrderType] = useState<(typeof ORDER_TYPES)[number]>("TAKEAWAY");
   const [tableId, setTableId] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState({ city: "", area: "", addressLine: "", landmark: "" });
   const [customerPhone, setCustomerPhone] = useState("");

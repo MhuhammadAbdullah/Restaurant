@@ -4,11 +4,14 @@ import { SearchInput } from "../../../components/SearchFilterBar";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { FaBoxOpen, FaClockRotateLeft, FaKitchenSet, FaMagnifyingGlass, FaMotorcycle, FaPrint, FaUtensils } from "react-icons/fa6";
+import { FaBookOpen, FaBoxOpen, FaClockRotateLeft, FaKitchenSet, FaMagnifyingGlass, FaMotorcycle, FaPrint, FaUtensils } from "react-icons/fa6";
 import { api, ApiError } from "../../../lib/api";
 import { toast } from "../../../store/useToastStore";
 import { useSelectedBranch } from "../../../lib/useSelectedBranch";
 import { DateRangePopover } from "../../../components/ui/date-range-popover";
+import { RecipeBook } from "../../../components/recipes/RecipeBook";
+import { Modal } from "../../../components/inventory/shared";
+import { useMe, hasPermission } from "../../../lib/useMe";
 
 type KitchenOrder = {
   id: string;
@@ -103,6 +106,9 @@ export default function KitchenPage() {
 
   const [activeTab, setActiveTab] = useState<TabKey>("CONFIRMED");
   const [search, setSearch] = useState("");
+  const [recipesOpen, setRecipesOpen] = useState(false);
+  const { data: me } = useMe();
+  const canEditRecipes = hasPermission(me, "inventoryRecipes.edit") || hasPermission(me, "inventoryRecipes.create") || hasPermission(me, "products.edit");
   const [typeFilter, setTypeFilter] = useState<(typeof TYPE_FILTERS)[number]["key"]>("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
@@ -294,6 +300,13 @@ export default function KitchenPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setRecipesOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 transition hover:border-brand-red hover:text-brand-red"
+          >
+            <FaBookOpen size={12} /> Recipes
+          </button>
           {(
             [
               ["Live", !history, goLive],
@@ -512,6 +525,11 @@ export default function KitchenPage() {
           </tbody>
         </table>
       </div>
+      {recipesOpen && (
+        <Modal title="Recipe book" onClose={() => setRecipesOpen(false)} wide>
+          <RecipeBook canEdit={canEditRecipes} />
+        </Modal>
+      )}
     </div>
   );
 }

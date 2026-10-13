@@ -280,7 +280,8 @@ export class ProductsService {
     return this.prisma.productBranchAvailability.upsert({
       where: { productId_branchId: { productId: id, branchId: input.branchId } },
       create: { productId: id, branchId: input.branchId, isAvailable: input.isAvailable },
-      update: { isAvailable: input.isAvailable },
+      // A person decided this: stock-based automation no longer owns the switch.
+      update: { isAvailable: input.isAvailable, autoByInventory: false },
     });
   }
 

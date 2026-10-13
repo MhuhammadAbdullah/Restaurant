@@ -102,13 +102,14 @@ export class EmailsService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Sends again emails that failed (usually a brief SMTP timeout), so a customer or staff member is not left without
+   * Sends again emails that failed (usually a brief SMTP timeout) or got stuck half-way, so a customer or staff member is not left without
    * their email. Login codes are never retried: they expire in minutes and the user simply asks for a new one.
    */
   private async retryFailed(): Promise<void> {
     const failed = await this.prisma.emailLog.findMany({
       where: {
-        status: "FAILED",
+        // PENDING this long means the server stopped (or restarted) in the middle of sending, so it never finished.
+        status: { in: ["FAILED", "PENDING"] },
         attempts: { lt: MAX_ATTEMPTS },
         templateKey: { not: "OTP" },
         html: { not: null },
