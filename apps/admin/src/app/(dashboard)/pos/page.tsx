@@ -4,7 +4,7 @@ import { SearchInput } from "../../../components/SearchFilterBar";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { formatPaisa } from "@restaurant/utils";
+import { effectivePrice, formatPaisa } from "@restaurant/utils";
 import { api, ApiError } from "../../../lib/api";
 import { toast } from "../../../store/useToastStore";
 import { useSelectedBranch } from "../../../lib/useSelectedBranch";
@@ -30,8 +30,9 @@ import {
 } from "react-icons/fa6";
 
 type Category = { id: string; name: string; image: string | null; status: "ACTIVE" | "INACTIVE"; sortOrder: number };
-type ProductListItem = {
+type ProductListItem = Pick<ProductDetail, "choiceGroups" | "addons"> & {
   id: string;
+  categoryId: string;
   name: string;
   basePrice: number;
   discountPrice: number | null;
@@ -111,6 +112,15 @@ function upsertLine(cart: CartLine[], line: ProductCartLine | DealCartLine, edit
   if (existing) return cart.map((l) => (l.key === existing.key ? { ...l, quantity: l.quantity + line.quantity } : l));
   return [...cart, { ...line, key: `${keyPrefix}-${Date.now()}-${Math.random()}` } as CartLine];
 }
+/** Shown while the menu is still loading, so the screen is never just blank or "No products match". */
+function PosLoading() {
+  return (
+    <div className="col-span-full flex flex-col items-center gap-3 py-12" role="status" aria-live="polite">
+      <span className="h-9 w-9 animate-spin rounded-full border-4 border-brand-red/20 border-t-brand-red" aria-hidden="true" />
+      <span className="text-sm text-neutral-500">Loading menu...</span>
+    </div>
+  );
+}
 function newIdempotencyKey(): string {
   return typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
 }
@@ -142,13 +152,8 @@ export default function PosPage() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
   const [showDeals, setShowDeals] = useState(false);
   const [searchInput, setSearchInput] = useState("");
-  const [search, setSearch] = useState("");
   const [discountedOnly, setDiscountedOnly] = useState(false);
 
-  useEffect(() => {
-    const t = setTimeout(() => setSearch(searchInput.trim()), 300);
-    return () => clearTimeout(t);
-  }, [searchInput]);
 
   // ---- Cart ----
   const [cart, setCart] = useState<CartLine[]>([]);
@@ -203,24 +208,121 @@ export default function PosPage() {
     [categories],
   );
 
-  const { data: products } = useQuery({
-    queryKey: ["pos-products", branchId, selectedCategoryId, search],
-    queryFn: () =>
-      api.get<ProductListItem[]>(
-        `/catalog/products?branchId=${branchId}${selectedCategoryId ? `&categoryId=${selectedCategoryId}` : ""}${search ? `&search=${encodeURIComponent(search)}` : ""}`,
-      ),
-    enabled: !!branchId && !showDeals,
+  // The whole menu is loaded once; switching category or searching only filters that list, so it is instant.
+  const { data: products, isLoading: productsLoading } = useQuery({
+    queryKey: ["pos-products", branchId],
+    queryFn: () => api.get<ProductListItem[]>(`/catalog/products?branchId=${branchId}&full=true`),
+    enabled: !!branchId,
+    staleTime: 60_000,
   });
-  const visibleProducts = useMemo(() => (discountedOnly ? (products ?? []).filter((p) => p.discountPrice != null) : products ?? []), [products, discountedOnly]);
+  const searchTerm = searchInput.trim().toLowerCase();
+  const visibleProducts = useMemo(
+    () =>
+      (products ?? []).filter(
+        (p) => (!selectedCategoryId || p.categoryId === selectedCategoryId) && (!discountedOnly || p.discountPrice != null) && (!searchTerm || p.name.toLowerCase().includes(searchTerm)),
+      ),
+    [products, selectedCategoryId, discountedOnly, searchTerm],
+  );
 
   // "All" (no category, not the dedicated Deals tab) should surface deals too, not just regular
   // products — a deal is still something the cashier can ring up from that view.
   const isAllTab = !showDeals && !selectedCategoryId;
-  const { data: deals } = useQuery({
+  const { data: deals, isLoading: dealsLoading } = useQuery({
     queryKey: ["pos-deals", branchId],
     queryFn: () => api.get<Deal[]>(`/deals?branchId=${branchId}`),
-    enabled: !!branchId && (showDeals || isAllTab),
+    enabled: !!branchId,
+    staleTime: 60_000,
   });
+
+  const dealCard = (d: Deal) => (
+                <button
+                  key={d.id}
+                  onClick={() => openDeal(d)}
+                  className="group flex flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white text-left transition hover:border-brand-red hover:shadow-md"
+                >
+                  <div className="relative aspect-[4/3] w-full bg-neutral-100">
+                    {d.image && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={d.image} alt="" className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
+                    )}
+                    <span className="absolute left-2 top-2 rounded-md bg-brand-red px-2 py-0.5 text-[10px] font-bold uppercase text-white">Deal</span>
+                  </div>
+                  <div className="flex flex-1 flex-col p-2.5">
+                    <p className="line-clamp-2 text-sm font-medium leading-snug text-neutral-900">{d.name}</p>
+                    <div className="mt-auto flex items-center justify-between pt-2">
+                      <span className="text-sm font-semibold text-brand-red">{formatPaisa(d.dealPrice)}</span>
+                      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-red text-white"><PlusIcon size={11} /></span>
+                    </div>
+                  </div>
+                </button>
+  );
+  const productCard = (p: ProductListItem) => {
+                const available = p.branchAvailability.find((a) => a.branchId === branchId)?.isAvailable ?? false;
+                const image = p.images.find((i) => i.isPrimary)?.url ?? p.images[0]?.url;
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => available && openProduct(p)}
+                    disabled={!available}
+                    className="group flex flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white text-left transition hover:border-brand-red hover:shadow-md disabled:cursor-not-allowed disabled:hover:border-neutral-200 disabled:hover:shadow-none"
+                  >
+                    <div className="relative aspect-[4/3] w-full bg-neutral-100">
+                      {image && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={image} alt="" className={`h-full w-full object-cover transition duration-300 group-hover:scale-105 ${available ? "" : "opacity-40 grayscale"}`} />
+                      )}
+                      {p.discountPrice != null && available && (
+                        <span className="absolute left-2 top-2 rounded-md bg-brand-red px-2 py-0.5 text-[10px] font-bold uppercase text-white">Sale</span>
+                      )}
+                      {!available && (
+                        <span className="absolute inset-x-0 bottom-0 bg-neutral-900/70 py-1 text-center text-[11px] font-medium text-white">Unavailable at this branch</span>
+                      )}
+                    </div>
+                    <div className="flex flex-1 flex-col p-2.5">
+                      <p className="line-clamp-2 text-sm font-medium leading-snug text-neutral-900">{p.name}</p>
+                      <div className="mt-auto flex items-center justify-between pt-2">
+                        {p.discountPrice != null ? (
+                          <span className="text-sm">
+                            <span className="font-semibold text-brand-red">{formatPaisa(p.discountPrice)}</span>{" "}
+                            <span className="text-xs text-neutral-400 line-through">{formatPaisa(p.basePrice)}</span>
+                          </span>
+                        ) : (
+                          <span className="text-sm font-semibold text-brand-red">{formatPaisa(p.basePrice)}</span>
+                        )}
+                        {available && <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-red text-white"><PlusIcon size={11} /></span>}
+                      </div>
+                    </div>
+                  </button>
+                );
+  };
+
+  // Searching looks across the whole menu and groups the matches by category, like the storefront.
+  const dealsCategory = activeCategories.find((c) => c.name.toLowerCase() === "deals");
+  const searchGroups = useMemo(() => {
+    if (!searchTerm) return [];
+    const words = searchTerm.split(/s+/).filter(Boolean);
+    const matches = (name: string, category: string) => {
+      const hay = `${name} ${category}`.toLowerCase();
+      return words.every((w) => hay.includes(w));
+    };
+    const out: { key: string; name: string; products: ProductListItem[]; deals: Deal[] }[] = [];
+    for (const c of activeCategories) {
+      if (c.id === dealsCategory?.id) continue;
+      const ps = (products ?? []).filter((p) => p.categoryId === c.id && (!discountedOnly || p.discountPrice != null) && matches(p.name, c.name));
+      if (ps.length > 0) out.push({ key: c.id, name: c.name, products: ps, deals: [] });
+    }
+    const ds = (deals ?? []).filter((d) => matches(d.name, dealsCategory?.name ?? "Deals"));
+    if (ds.length > 0 && !discountedOnly) out.push({ key: "deals", name: dealsCategory?.name ?? "Deals", products: [], deals: ds });
+    return out;
+  }, [searchTerm, products, deals, activeCategories, dealsCategory, discountedOnly]);
+  function openCategory(key: string) {
+    setSearchInput("");
+    if (key === "deals") setShowDeals(true);
+    else {
+      setShowDeals(false);
+      setSelectedCategoryId(key);
+    }
+  }
 
   // Floor view: every table plus the running bill of its open dine-in order.
   const { data: tables } = useQuery({
@@ -230,13 +332,43 @@ export default function PosPage() {
     refetchInterval: 15000,
   });
 
-  async function openProduct(p: ProductListItem) {
-    const detail = await api.get<ProductDetail>(`/catalog/products/${p.id}`);
+  function openProduct(p: ProductListItem) {
+    // The menu was loaded with every product's choices and add-ons, so this needs no request and happens on the click.
+    const detail: ProductDetail = p;
     setEditingKey(null);
+    // Nothing to choose (no choice sections with options, no add-ons): one click puts it straight into the Current Order.
+    // Anything with choices or add-ons opens the popup to pick them.
+    const needsPicking = detail.choiceGroups.some((g) => g.choiceGroup.options.some((o) => o.status === "ACTIVE")) || detail.addons.some((a) => a.addon.status === "ACTIVE");
+    if (!needsPicking) {
+      setCart((c) =>
+        upsertLine(c, { kind: "product", productId: detail.id, name: detail.name, quantity: 1, unitPrice: effectivePrice(detail.basePrice, detail.discountPrice), choices: [], addons: [] }, null, "p"),
+      );
+      return;
+    }
     setConfiguringProduct(detail);
   }
-  async function openDeal(d: Deal) {
+  function openDeal(d: Deal) {
     setEditingKey(null);
+    // A deal with nothing to pick (every slot has one product, no choices, no add-ons) goes straight into the Current Order.
+    const nothingToPick = d.slots.every((sl) => sl.productOptions.length === 1 && sl.choiceGroups.every((g) => g.choiceGroup.options.length === 0) && sl.addons.length === 0);
+    if (nothingToPick) {
+      setCart((c) =>
+        upsertLine(
+          c,
+          {
+            kind: "deal",
+            dealId: d.id,
+            name: d.name,
+            quantity: 1,
+            dealPrice: d.dealPrice,
+            slots: d.slots.map((sl) => ({ dealSlotId: sl.id, slotLabel: sl.label, productId: sl.productOptions[0]!.product.id, productName: sl.productOptions[0]!.product.name, choices: [], addons: [] })),
+          },
+          null,
+          "d",
+        ),
+      );
+      return;
+    }
     setConfiguringDeal(d);
   }
 
@@ -254,8 +386,8 @@ export default function PosPage() {
   async function editLine(line: CartLine) {
     setEditingKey(line.key);
     if (line.kind === "product") {
-      const detail = await api.get<ProductDetail>(`/catalog/products/${line.productId}`);
-      setConfiguringProduct(detail);
+      const cached = products?.find((x) => x.id === line.productId);
+      setConfiguringProduct(cached ?? (await api.get<ProductDetail>(`/catalog/products/${line.productId}`)));
     } else {
       const detail = await api.get<Deal>(`/deals/${line.dealId}`);
       setConfiguringDeal(detail);
@@ -817,33 +949,35 @@ export default function PosPage() {
           })}
         </div>
 
+        {searchTerm ? (
+          <div className="mt-5">
+            {productsLoading || dealsLoading ? (
+              <div className="grid"><PosLoading /></div>
+            ) : searchGroups.length === 0 ? (
+              <p className="py-8 text-center text-sm text-neutral-400">Nothing matches &quot;{searchInput.trim()}&quot;.</p>
+            ) : (
+              searchGroups.map((g) => (
+                <div key={g.key} className="mb-8">
+                  <button type="button" onClick={() => openCategory(g.key)} title={`Open ${g.name}`} className="mb-3 text-xl font-bold text-neutral-900 transition hover:text-brand-red hover:underline">
+                    {g.name}
+                  </button>
+                  <div className="grid grid-cols-2 gap-3 md:grid-cols-3 2xl:grid-cols-4">
+                    {g.products.map((p) => productCard(p))}
+                    {g.deals.map((d) => dealCard(d))}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        ) : (
+          <>
         {(showDeals || isAllTab) && (
           <div className="mt-5">
             {isAllTab && <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">Deals</p>}
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3 2xl:grid-cols-4">
-              {deals?.map((d) => (
-                <button
-                  key={d.id}
-                  onClick={() => openDeal(d)}
-                  className="group flex flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white text-left transition hover:border-brand-red hover:shadow-md"
-                >
-                  <div className="relative aspect-[4/3] w-full bg-neutral-100">
-                    {d.image && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={d.image} alt="" className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
-                    )}
-                    <span className="absolute left-2 top-2 rounded-md bg-brand-red px-2 py-0.5 text-[10px] font-bold uppercase text-white">Deal</span>
-                  </div>
-                  <div className="flex flex-1 flex-col p-2.5">
-                    <p className="line-clamp-2 text-sm font-medium leading-snug text-neutral-900">{d.name}</p>
-                    <div className="mt-auto flex items-center justify-between pt-2">
-                      <span className="text-sm font-semibold text-brand-red">{formatPaisa(d.dealPrice)}</span>
-                      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-red text-white"><PlusIcon size={11} /></span>
-                    </div>
-                  </div>
-                </button>
-              ))}
-              {showDeals && deals?.length === 0 && <p className="col-span-full py-8 text-center text-sm text-neutral-400">No deals available at this branch.</p>}
+              {deals?.map((d) => dealCard(d))}
+              {showDeals && dealsLoading && <PosLoading />}
+              {showDeals && !dealsLoading && deals?.length === 0 && <p className="col-span-full py-8 text-center text-sm text-neutral-400">No deals available at this branch.</p>}
             </div>
           </div>
         )}
@@ -852,48 +986,13 @@ export default function PosPage() {
           <div className="mt-5">
             {isAllTab && <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">Products</p>}
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3 2xl:grid-cols-4">
-              {visibleProducts.map((p) => {
-                const available = p.branchAvailability.find((a) => a.branchId === branchId)?.isAvailable ?? false;
-                const image = p.images.find((i) => i.isPrimary)?.url ?? p.images[0]?.url;
-                return (
-                  <button
-                    key={p.id}
-                    onClick={() => available && openProduct(p)}
-                    disabled={!available}
-                    className="group flex flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white text-left transition hover:border-brand-red hover:shadow-md disabled:cursor-not-allowed disabled:hover:border-neutral-200 disabled:hover:shadow-none"
-                  >
-                    <div className="relative aspect-[4/3] w-full bg-neutral-100">
-                      {image && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={image} alt="" className={`h-full w-full object-cover transition duration-300 group-hover:scale-105 ${available ? "" : "opacity-40 grayscale"}`} />
-                      )}
-                      {p.discountPrice != null && available && (
-                        <span className="absolute left-2 top-2 rounded-md bg-brand-red px-2 py-0.5 text-[10px] font-bold uppercase text-white">Sale</span>
-                      )}
-                      {!available && (
-                        <span className="absolute inset-x-0 bottom-0 bg-neutral-900/70 py-1 text-center text-[11px] font-medium text-white">Unavailable at this branch</span>
-                      )}
-                    </div>
-                    <div className="flex flex-1 flex-col p-2.5">
-                      <p className="line-clamp-2 text-sm font-medium leading-snug text-neutral-900">{p.name}</p>
-                      <div className="mt-auto flex items-center justify-between pt-2">
-                        {p.discountPrice != null ? (
-                          <span className="text-sm">
-                            <span className="font-semibold text-brand-red">{formatPaisa(p.discountPrice)}</span>{" "}
-                            <span className="text-xs text-neutral-400 line-through">{formatPaisa(p.basePrice)}</span>
-                          </span>
-                        ) : (
-                          <span className="text-sm font-semibold text-brand-red">{formatPaisa(p.basePrice)}</span>
-                        )}
-                        {available && <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-red text-white"><PlusIcon size={11} /></span>}
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-              {visibleProducts.length === 0 && <p className="col-span-full py-8 text-center text-sm text-neutral-400">No products match.</p>}
+              {visibleProducts.map((p) => productCard(p))}
+              {productsLoading && <PosLoading />}
+              {!productsLoading && visibleProducts.length === 0 && <p className="col-span-full py-8 text-center text-sm text-neutral-400">No products match.</p>}
             </div>
           </div>
+        )}
+          </>
         )}
       </div>
 

@@ -225,6 +225,8 @@ export const listProductsQuerySchema = z.object({
   search: z.string().trim().max(150).optional(),
   /** Storefront: also return items switched off for this branch (shown as "sold out") instead of hiding them. */
   includeOutOfStock: z.enum(["true", "false"]).optional(),
+  /** POS: return each product with its choice sections and add-ons, so a click needs no second request. */
+  full: z.enum(["true", "false"]).optional(),
 });
 export type ListProductsQuery = z.infer<typeof listProductsQuerySchema>;
 
