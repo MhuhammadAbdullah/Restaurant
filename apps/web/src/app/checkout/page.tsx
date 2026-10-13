@@ -31,6 +31,7 @@ type RestaurantInfo = {
   checkout?: {
     showCoupon?: boolean;
     showTip?: boolean;
+    showGift?: boolean;
     tipPresets?: number[];
     defaultTip?: number;
     payments?: {
@@ -120,6 +121,8 @@ export default function CheckoutPage() {
   // Coupon / tip boxes and the tip amounts are set in Admin > Website > Checkout. Nothing is shown until the settings arrive.
   const showCoupon = restaurantInfo ? restaurantInfo.checkout?.showCoupon !== false : false;
   const showTip = restaurantInfo ? restaurantInfo.checkout?.showTip !== false : false;
+  // The gift button is set in Admin > Website > Checkout. Nothing is shown until the settings arrive.
+  const showGift = restaurantInfo ? restaurantInfo.checkout?.showGift !== false : false;
   const tipPresets = restaurantInfo?.checkout?.tipPresets ?? [100, 200, 500];
   const defaultTip = restaurantInfo?.checkout?.defaultTip ?? 0;
   // Payment methods (names, icons and on/off) are set in Admin > Website > Checkout.
@@ -284,7 +287,7 @@ export default function CheckoutPage() {
         contactAlternatePhone: contactAlternatePhone ? normalizePhone(contactAlternatePhone) : undefined,
         contactEmail: contactEmail || undefined,
         specialInstructions: specialInstructions || undefined,
-        isGift,
+        isGift: showGift && isGift,
         loyaltyPointsToRedeem: customer && useLoyalty && loyaltyEnabled ? me?.loyaltyPoints ?? 0 : 0,
         couponCode: appliedCoupon?.code,
         tipAmount: tipPaisa > 0 ? tipPaisa : undefined,
@@ -302,7 +305,7 @@ export default function CheckoutPage() {
           };
         }
       }
-      if (isGift) body.gift = { ...gift, recipientPhone: normalizePhone(gift.recipientPhone) };
+      if (showGift && isGift) body.gift = { ...gift, recipientPhone: normalizePhone(gift.recipientPhone) };
       if (paymentMethod === "COD" && changeRequest) body.changeRequestAmount = Math.round(Number(changeRequest) * 100);
 
       const result = customer
@@ -335,7 +338,7 @@ export default function CheckoutPage() {
         <div className="min-w-0 rounded-2xl border border-line bg-surface p-4 sm:p-6">
           <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
             <h1 className="text-xl font-semibold text-ink">Checkout</h1>
-            <button
+            {showGift && <button
               type="button"
               onClick={toggleGift}
               aria-pressed={isGift}
@@ -346,10 +349,10 @@ export default function CheckoutPage() {
             >
               <GiftIcon size={18} className="shrink-0 animate-gift-bounce text-green-600" />
               Send as a Gift
-            </button>
+            </button>}
           </div>
-          {!onlineEnabled && <p className="mt-2 text-xs text-muted">Gifts are paid online, and Online Payment is switched off right now.</p>}
-          {isGift && (
+          {showGift && !onlineEnabled && <p className="mt-2 text-xs text-muted">Gifts are paid online, and Online Payment is switched off right now.</p>}
+          {showGift && isGift && (
             <div ref={giftRef} className="mt-4 scroll-mt-24 space-y-3 rounded-lg border border-green-600/30 bg-green-50/40 p-3">
               <input placeholder="Recipient Name" value={gift.recipientName} onChange={(e) => setGift({ ...gift, recipientName: e.target.value })} className="input" />
               <input placeholder="Recipient Mobile" value={gift.recipientPhone} onChange={(e) => setGift({ ...gift, recipientPhone: e.target.value })} className="input" />

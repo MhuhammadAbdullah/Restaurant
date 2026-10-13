@@ -245,6 +245,8 @@ export const checkoutConfigSchema = z
   .object({
     showCoupon: z.boolean(),
     showTip: z.boolean(),
+    /** The "Send as a Gift" button. Hidden means customers cannot place gift orders. */
+    showGift: z.boolean(),
     /** The quick-pick tip buttons, e.g. [100, 200, 500]. Up to 4. */
     tipPresets: z.array(z.number().int().min(1).max(100_000)).max(4),
     /** Tip already selected when the checkout opens (0 = none). */
@@ -263,6 +265,7 @@ export type CheckoutConfig = z.infer<typeof checkoutConfigSchema>;
 export type ResolvedCheckoutConfig = {
   showCoupon: boolean;
   showTip: boolean;
+  showGift: boolean;
   tipPresets: number[];
   defaultTip: number;
   payments: {
@@ -274,6 +277,7 @@ export type ResolvedCheckoutConfig = {
 export const DEFAULT_CHECKOUT_CONFIG: ResolvedCheckoutConfig = {
   showCoupon: true,
   showTip: true,
+  showGift: true,
   tipPresets: [100, 200, 500],
   defaultTip: 0,
   payments: {

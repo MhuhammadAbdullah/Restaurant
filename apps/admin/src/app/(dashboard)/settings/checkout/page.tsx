@@ -51,22 +51,24 @@ export default function CheckoutSettingsPage() {
 
   const [showCoupon, setShowCoupon] = useState(true);
   const [showTip, setShowTip] = useState(true);
+  const [showGift, setShowGift] = useState(true);
   const [presets, setPresets] = useState<string[]>(["100", "200", "500"]);
   const [defaultTip, setDefaultTip] = useState("0");
   const [payments, setPayments] = useState<Payments>(DEFAULT_PAYMENTS);
   const [saved, setSaved] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const snapshot = useMemo(() => JSON.stringify({ showCoupon, showTip, presets, defaultTip, payments }), [showCoupon, showTip, presets, defaultTip, payments]);
+  const snapshot = useMemo(() => JSON.stringify({ showCoupon, showTip, showGift, presets, defaultTip, payments }), [showCoupon, showTip, showGift, presets, defaultTip, payments]);
   const dirty = saved !== "" && snapshot !== saved;
 
   useEffect(() => {
     if (!restaurant) return;
     const c = restaurant.checkout;
-    const next = { showCoupon: c.showCoupon, showTip: c.showTip, presets: c.tipPresets.map(String), defaultTip: String(c.defaultTip), payments: c.payments };
+    const next = { showCoupon: c.showCoupon, showTip: c.showTip, showGift: c.showGift, presets: c.tipPresets.map(String), defaultTip: String(c.defaultTip), payments: c.payments };
     setPayments(next.payments);
     setShowCoupon(next.showCoupon);
     setShowTip(next.showTip);
+    setShowGift(next.showGift);
     setPresets(next.presets);
     setDefaultTip(next.defaultTip);
     setSaved(JSON.stringify(next));
@@ -74,10 +76,11 @@ export default function CheckoutSettingsPage() {
 
   function reset() {
     if (!saved) return;
-    const s = JSON.parse(saved) as { showCoupon: boolean; showTip: boolean; presets: string[]; defaultTip: string; payments: Payments };
+    const s = JSON.parse(saved) as { showCoupon: boolean; showTip: boolean; showGift: boolean; presets: string[]; defaultTip: string; payments: Payments };
     setPayments(s.payments);
     setShowCoupon(s.showCoupon);
     setShowTip(s.showTip);
+    setShowGift(s.showGift);
     setPresets(s.presets);
     setDefaultTip(s.defaultTip);
   }
@@ -97,7 +100,7 @@ export default function CheckoutSettingsPage() {
     if (!payments.cod.label.trim() || !payments.cod.pickupLabel.trim() || !payments.online.label.trim()) return toast.error("Payment method names cannot be empty");
     setSaving(true);
     try {
-      await api.patch("/cms/restaurant", { checkout: { showCoupon, showTip, tipPresets: amounts, defaultTip: defaultNum, payments } });
+      await api.patch("/cms/restaurant", { checkout: { showCoupon, showTip, showGift, tipPresets: amounts, defaultTip: defaultNum, payments } });
       await queryClient.invalidateQueries({ queryKey: ["cms-restaurant"] });
       toast.success("Saved.");
     } catch (err) {
@@ -243,6 +246,16 @@ export default function CheckoutSettingsPage() {
                 );
               })}
               </div>
+            </Card>
+
+            <Card
+              n={4}
+              title="Send as a Gift"
+              description="The button that lets a customer send the order to someone else as a gift. Gifts are paid online, so they also need Online Payment to be on. Hidden means customers cannot place gift orders."
+              right={<Switch checked={showGift} onCheckedChange={setShowGift} aria-label="Show the Send as a Gift button at checkout" />}
+            >
+              <StatusPill on={showGift} onText="Shown at checkout" offText="Hidden, no gift orders" />
+              {showGift && !payments.online.enabled && <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">Online Payment is switched off, so customers will see the gift button but cannot use it. Switch Online Payment on in step 3, or hide the button here.</p>}
             </Card>
           </div>
 
