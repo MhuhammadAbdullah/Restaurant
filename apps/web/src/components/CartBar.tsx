@@ -22,10 +22,10 @@ export function CartBar() {
 
   // On the home page (where the floating search button sits to its left) the bar starts to the right of that button on phones.
   return (
-    <div className={`fixed inset-x-0 bottom-0 z-40 flex justify-center pb-4 pr-4 sm:px-4 ${pathname === "/" ? "pl-[4.75rem]" : "pl-4"}`}>
+    <div className={`pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center pb-4 pr-4 sm:px-4 ${pathname === "/" ? "pl-[4.75rem]" : "pl-4"}`}>
       <button
         onClick={openCart}
-        className="relative grid h-12 w-full grid-cols-[auto_1fr_auto] items-center gap-2 overflow-hidden rounded-xl bg-brand-red px-3 text-base font-bold text-white shadow-xl sm:max-w-xs sm:px-4"
+        className="pointer-events-auto relative grid h-12 w-full grid-cols-[auto_1fr_auto] items-center gap-2 overflow-hidden rounded-xl bg-brand-red px-3 text-base font-bold text-white shadow-xl sm:max-w-xs sm:px-4"
       >
         <span className="pointer-events-none absolute inset-y-0 left-0 w-1/3 -translate-x-full animate-cart-shine bg-gradient-to-r from-transparent via-white/40 to-transparent" />
         <span className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white text-xs">
