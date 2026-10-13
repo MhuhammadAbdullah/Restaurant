@@ -13,6 +13,7 @@ import { Toaster } from "../components/Toaster";
 import { GlobalLoadingScreen } from "../components/GlobalLoadingScreen";
 import { SeoScripts } from "../components/SeoScripts";
 import { PwaRegister } from "../components/PwaRegister";
+import { NativeAppBridge } from "../components/NativeAppBridge";
 import { applyTitleTemplate, getSite, siteUrlOf } from "../lib/seo";
 
 const poppins = Poppins({
@@ -40,7 +41,13 @@ export async function generateMetadata(): Promise<Metadata> {
     description,
     applicationName: site.name,
     appleWebApp: { capable: true, title: site.name, statusBarStyle: "default" },
-    icons: site.logoUrl ? { icon: site.logoUrl, apple: site.logoUrl } : undefined,
+    // Browser-tab icon: the one chosen in Admin > Header & Branding, else the logo. A small PNG is requested from Cloudinary.
+    icons: (() => {
+      const pick = seo.faviconUrl || site.logoUrl;
+      if (!pick) return undefined;
+      const small = pick.includes("res.cloudinary.com") && pick.includes("/image/upload/") ? pick.replace("/image/upload/", "/image/upload/c_fit,w_96,h_96,f_png/") : pick;
+      return { icon: [{ url: small, sizes: "any" }], apple: site.logoUrl || pick };
+    })(),
     alternates: { canonical: home.canonical || "./" },
     robots: seo.noindexSite || home.noindex
       ? { index: false, follow: false }
@@ -74,6 +81,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body suppressHydrationWarning>
         <SeoScripts site={site} />
         <PwaRegister />
+        <NativeAppBridge />
         <Providers>
           <Header />
           <LocationModal />

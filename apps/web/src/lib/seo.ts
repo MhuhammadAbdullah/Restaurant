@@ -11,6 +11,7 @@ export type SeoConfig = {
   defaultTitle?: string;
   defaultDescription?: string;
   defaultImage?: string;
+  faviconUrl?: string;
   noindexSite?: boolean;
   business?: { type?: string; priceRange?: string; cuisine?: string; streetAddress?: string; city?: string; region?: string; postalCode?: string; country?: string };
   tracking?: {

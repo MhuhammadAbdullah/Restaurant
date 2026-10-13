@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Gevini Foods</string>
+    <string name="title_activity_main">Gevini Foods</string>
+    <string name="package_name">com.gevinifoods.app</string>
+    <string name="custom_url_scheme">com.gevinifoods.app</string>
+</resources>
