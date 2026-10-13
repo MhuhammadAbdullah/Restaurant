@@ -15,3 +15,4 @@ export * from "./coupons";
 export * from "./loyalty";
 export * from "./notifications";
 export * from "./blog";
+export * from "./bank-discounts";

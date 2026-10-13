@@ -46,7 +46,7 @@ function AboutTextSection({ about }: { about: RestaurantInfo["aboutContent"] }) 
   const collapsedRem = Math.max(2, Math.ceil(about.truncateLength / 95)) * 1.75;
 
   return (
-    <section className="mx-auto mt-14 max-w-7xl px-4 sm:px-8">
+    <section className="mx-auto mt-10 max-w-7xl px-4 sm:px-8">
       <div className="text-left">
         {about.heading && <h2 className="text-xl font-bold text-ink sm:text-2xl">{about.heading}</h2>}
 

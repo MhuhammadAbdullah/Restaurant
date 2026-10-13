@@ -76,7 +76,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
       <header className="relative isolate flex min-h-[300px] items-end overflow-hidden bg-neutral-900 sm:min-h-[400px] lg:min-h-[560px]">
         {post.coverImage && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={blogImage(post.coverImage, 2000)} alt="" className="absolute inset-0 -z-10 h-full w-full object-cover" />
+          <img src={blogImage(post.coverImage, 2000)} alt="" fetchPriority="high" className="absolute inset-0 -z-10 h-full w-full object-cover" />
         )}
         <span className="absolute inset-0 -z-10 bg-gradient-to-t from-black/75 via-black/30 to-black/10" aria-hidden="true" />
         <div className="w-full px-4 pb-8 pt-20 text-white sm:px-8 sm:pb-12 lg:pb-16">

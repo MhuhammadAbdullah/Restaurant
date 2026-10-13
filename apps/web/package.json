@@ -16,6 +16,7 @@
     "@restaurant/validation": "workspace:*",
     "@tanstack/react-query": "^5.59.0",
     "canvas-confetti": "^1.9.4",
+    "gsap": "^3.15.0",
     "leaflet": "^1.9.4",
     "next": "^16.3.0",
     "react": "^19.2.8",

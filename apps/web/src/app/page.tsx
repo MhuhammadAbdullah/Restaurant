@@ -218,7 +218,7 @@ export default function HomePage() {
   }
 
   return (
-    <main className="min-h-screen bg-page pb-24">
+    <main className="min-h-screen bg-page pb-6">
       <HeroBanner />
 
       {!isResolved ? (
