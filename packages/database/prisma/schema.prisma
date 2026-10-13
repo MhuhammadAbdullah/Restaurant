@@ -227,6 +227,7 @@ model Restaurant {
   banners         Banner[]
   marketingPopups MarketingPopup[]
   blogPosts       BlogPost[]
+  bankDiscounts   BankDiscount[]
   mediaAssets     MediaAsset[]
   notifications   Notification[]
   auditLogs           AuditLog[]
@@ -1654,4 +1655,23 @@ model BlogPost {
   @@unique([restaurantId, slug])
   @@index([restaurantId, status, publishedAt])
   @@map("blog_posts")
+}
+
+/// One offer picture on the website's Bank Discounts page. The page's own switch and texts live in Restaurant.settings.bankDiscounts.
+model BankDiscount {
+  id           String       @id @default(cuid())
+  restaurantId String
+  restaurant   Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  /// Admin label, also the picture's description for screen readers.
+  name         String
+  image        String
+  /// Optional: where a click on the picture goes.
+  linkUrl      String?
+  status       RecordStatus @default(ACTIVE)
+  sortOrder    Int          @default(0)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([restaurantId, status, sortOrder])
+  @@map("bank_discounts")
 }

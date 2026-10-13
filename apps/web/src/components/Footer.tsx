@@ -54,6 +54,12 @@ export function Footer() {
     queryFn: () => api.public.get<BranchLite[]>("/branches"),
   });
 
+  const { data: bankPage } = useQuery({
+    queryKey: ["bank-discounts-info"],
+    queryFn: () => api.public.get<{ enabled: boolean; heading: string }>("/bank-discounts"),
+    staleTime: 30_000,
+  });
+
   if (NO_CHROME_PATHS.includes(pathname)) return null;
 
   // Once the customer has picked a delivery/pick-up branch, the footer should reflect THAT
@@ -68,7 +74,7 @@ export function Footer() {
   const columnClass = "lg:border-l lg:border-line lg:pl-8";
 
   return (
-    <footer data-no-print className="mt-16 bg-surface text-sm text-ink">
+    <footer data-no-print className="mt-8 bg-surface text-sm text-ink">
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-10 sm:grid-cols-2 sm:px-8 lg:grid-cols-[1.1fr_1.4fr_1fr_1fr]">
         {isLoading ? (
           <>
@@ -190,6 +196,11 @@ export function Footer() {
             <Link href="/blog" className="block transition hover:text-brand-red">
               Blog
             </Link>
+            {bankPage?.enabled && (
+              <Link href="/bank-discounts" className="block transition hover:text-brand-red">
+                {bankPage.heading || "Bank Discounts"}
+              </Link>
+            )}
           </div>
         </div>
         </>

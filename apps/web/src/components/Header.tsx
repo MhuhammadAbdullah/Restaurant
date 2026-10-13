@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { FaBars } from "react-icons/fa6";
+import { FaArrowUpRightFromSquare, FaBars, FaBuildingColumns, FaNewspaper } from "react-icons/fa6";
 import { api } from "../lib/api";
 import { useCartStore } from "../store/useCartStore";
 import { useCartDrawerStore } from "../store/useCartDrawerStore";
@@ -12,6 +12,8 @@ import { useAuthStore } from "../store/useAuthStore";
 import { useAuthModalStore } from "../store/useAuthModalStore";
 import { useLocationStore } from "../store/useLocationStore";
 import { ContactPopover } from "./ContactPopover";
+import { HoverLink } from "./HoverLink";
+import { hoverIn, hoverOut, staggerIn } from "../lib/hoverAnimation";
 import { CustomerNotificationBell } from "./CustomerNotificationBell";
 import { ThemeToggle } from "./ThemeToggle";
 import { ChevronDownIcon, ComplaintIcon, CloseIcon, PinSolidIcon, UserIcon } from "./icons";
@@ -38,6 +40,8 @@ const DEFAULT_HEADER: HeaderConfig = {
   showHamburgerIcon: true,
 };
 
+const MENU_LINK = "flex items-center gap-2 overflow-hidden rounded-lg border border-line px-3 py-2.5 text-sm transition-colors duration-200 hover:border-brand-red hover:text-brand-red";
+
 /** These pages render their own minimal chrome (see LegalPageLayout) — no site header/footer around them. */
 const NO_CHROME_PATHS = ["/terms", "/privacy-policy", "/faqs"];
 
@@ -50,6 +54,12 @@ export function Header() {
   const { branch, orderType, area, openChangeModal } = useLocationStore();
   const count = items.reduce((s, i) => s + i.quantity, 0);
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLElement>(null);
+
+  // The menu buttons slide in one after another each time the menu opens.
+  useEffect(() => {
+    if (menuOpen && menuRef.current) staggerIn(Array.from(menuRef.current.querySelectorAll<HTMLElement>("[data-menu-item]")));
+  }, [menuOpen]);
 
   const { data: restaurant, isLoading: restaurantLoading } = useQuery({
     queryKey: ["cms-restaurant"],
@@ -58,8 +68,13 @@ export function Header() {
     refetchOnWindowFocus: true,
   });
   const header = restaurant?.header ?? DEFAULT_HEADER;
+  const { data: bankPage } = useQuery({
+    queryKey: ["bank-discounts-info"],
+    queryFn: () => api.public.get<{ enabled: boolean; heading: string }>("/bank-discounts"),
+    staleTime: 30_000,
+  });
 
-  if (NO_CHROME_PATHS.includes(pathname) || pathname.startsWith("/blog")) return null;
+  if (NO_CHROME_PATHS.includes(pathname) || pathname.startsWith("/blog") || pathname.startsWith("/bank-discounts")) return null;
 
   const locationSubtitle = branch ? (orderType === "DELIVERY" ? area : branch.area) ?? "" : "";
 
@@ -127,6 +142,7 @@ export function Header() {
                 <img
                   src={restaurant.logoUrl}
                   alt={restaurant.name}
+                  fetchPriority="high"
                   className="h-[4.5rem] w-auto max-w-[40vw] object-contain sm:h-[7.5rem] sm:max-w-[40vw]"
                 />
               ) : (
@@ -195,6 +211,7 @@ export function Header() {
         aria-hidden="true"
       />
       <aside
+        ref={menuRef}
         className={`fixed right-0 top-0 z-50 flex h-full w-72 flex-col gap-3 bg-surface p-5 text-ink shadow-2xl transition-transform duration-300 ease-in-out ${
           menuOpen ? "translate-x-0" : "translate-x-full"
         }`}
@@ -210,38 +227,58 @@ export function Header() {
         </div>
 
         {customer ? (
-          <Link
-            href="/account"
-            onClick={() => setMenuOpen(false)}
-            className="flex items-center gap-2 rounded-lg bg-brand-red px-3 py-2.5 text-sm font-medium text-white"
-          >
-            <UserIcon size={16} /> My Account ({customer.name.split(" ")[0]})
-          </Link>
+          <div data-menu-item>
+            <HoverLink
+              href="/account"
+              onClick={() => setMenuOpen(false)}
+              lineClassName="bg-white/80"
+              className="flex items-center gap-2 overflow-hidden rounded-lg bg-brand-red px-3 py-2.5 text-sm font-medium text-white transition-shadow duration-200 hover:shadow-md"
+            >
+              <UserIcon size={16} /> My Account ({customer.name.split(" ")[0]})
+            </HoverLink>
+          </div>
         ) : (
           <button
+            data-menu-item
             onClick={() => {
               setMenuOpen(false);
               openAuthModal("login");
             }}
-            className="flex items-center gap-2 rounded-lg bg-brand-red px-3 py-2.5 text-sm font-medium text-white"
+            onMouseEnter={(e) => hoverIn(e.currentTarget)}
+            onMouseLeave={(e) => hoverOut(e.currentTarget)}
+            className="relative flex items-center gap-2 overflow-hidden rounded-lg bg-brand-red px-3 py-2.5 text-sm font-medium text-white transition-shadow duration-200 hover:shadow-md"
           >
             <UserIcon size={16} /> Login / Register
+            <span data-hover-line aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-0.5 origin-left bg-white/80" style={{ transform: "scaleX(0)" }} />
           </button>
         )}
 
-        <Link href="/blog" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 rounded-lg border border-line px-3 py-2.5 text-sm">
-          <ComplaintIcon size={14} /> Blog
-        </Link>
+        {/* These open in a new tab; the arrow on the right says so. */}
+        <div data-menu-item>
+          <HoverLink href="/blog" target="_blank" rel="noopener noreferrer" onClick={() => setMenuOpen(false)} className={MENU_LINK}>
+            <FaNewspaper size={14} /> <span className="flex-1">Blog</span> <span data-hover-icon className="inline-flex"><FaArrowUpRightFromSquare size={12} className="text-muted" aria-hidden="true" /></span>
+          </HoverLink>
+        </div>
 
-        <Link
-          href="/complaints"
-          onClick={() => setMenuOpen(false)}
-          className="flex items-center gap-2 rounded-lg border border-line px-3 py-2.5 text-sm"
-        >
-          <ComplaintIcon size={14} /> Complaint
-        </Link>
+        {bankPage?.enabled && (
+          <div data-menu-item>
+            <HoverLink href="/bank-discounts" target="_blank" rel="noopener noreferrer" onClick={() => setMenuOpen(false)} className={MENU_LINK}>
+              <FaBuildingColumns size={14} /> <span className="flex-1">{bankPage.heading || "Bank Discounts"}</span> <span data-hover-icon className="inline-flex"><FaArrowUpRightFromSquare size={12} className="text-muted" aria-hidden="true" /></span>
+            </HoverLink>
+          </div>
+        )}
 
-        <ThemeToggle className="justify-start" />
+        <div data-menu-item>
+          <HoverLink href="/complaints" target="_blank" rel="noopener noreferrer" onClick={() => setMenuOpen(false)} className={MENU_LINK}>
+            <ComplaintIcon size={14} /> <span className="flex-1">Complaint</span> <span data-hover-icon className="inline-flex"><FaArrowUpRightFromSquare size={12} className="text-muted" aria-hidden="true" /></span>
+          </HoverLink>
+        </div>
+
+        <div data-menu-item>
+          <ThemeToggle className="justify-start" />
+        </div>
+
+        <p className="mt-auto pt-4 text-center text-xs text-muted">Powered by Muhammad Abdullah</p>
       </aside>
     </>
   );

@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { getBlogSlugs } from "../lib/blog";
+import { getBankDiscounts } from "../lib/bank-discounts";
 import { categorySlug, getCategories, getSite, siteUrlOf } from "../lib/seo";
 
 export const revalidate = 300;
@@ -34,6 +35,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const path = `/category/${slug}`;
     if (!slug || seo.pages?.[`category:${slug}`]?.noindex || excluded.has(path)) continue;
     entries.push({ url: `${base}${path}`, lastModified: now, changeFrequency: "daily", priority: 0.8 });
+  }
+
+  const bank = await getBankDiscounts();
+  if (bank?.enabled && !seo.pages?.["bank-discounts"]?.noindex && !excluded.has("/bank-discounts")) {
+    entries.push({ url: `${base}/bank-discounts`, lastModified: now, changeFrequency: "monthly", priority: 0.5 });
   }
 
   for (const post of (await getBlogSlugs()) ?? []) {

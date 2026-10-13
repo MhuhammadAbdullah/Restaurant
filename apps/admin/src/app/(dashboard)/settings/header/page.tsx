@@ -25,6 +25,7 @@ type RestaurantInfo = {
   contactEmail: string | null;
   header: HeaderConfig;
   productImageFallbackSource: "HEADER" | "FOOTER" | null;
+  seo?: { faviconUrl?: string };
 };
 
 const DEFAULT_HEADER: HeaderConfig = {
@@ -36,7 +37,7 @@ const DEFAULT_HEADER: HeaderConfig = {
   showHamburgerIcon: true,
 };
 
-const EMPTY_FORM = { name: "", logoUrl: "", contactPhone: "", contactEmail: "", useAsProductFallback: false, ...DEFAULT_HEADER };
+const EMPTY_FORM = { name: "", logoUrl: "", faviconUrl: "", contactPhone: "", contactEmail: "", useAsProductFallback: false, ...DEFAULT_HEADER };
 type FormState = typeof EMPTY_FORM;
 
 function SectionCard({ n, title, description, children }: { n: number; title: string; description: string; children: React.ReactNode }) {
@@ -157,6 +158,7 @@ export default function HeaderSettingsPage() {
     const next: FormState = {
       name: restaurant.name ?? "",
       logoUrl: restaurant.logoUrl ?? "",
+      faviconUrl: restaurant.seo?.faviconUrl ?? "",
       contactPhone: restaurant.contactPhone ?? "",
       contactEmail: restaurant.contactEmail ?? "",
       useAsProductFallback: restaurant.productImageFallbackSource === "HEADER",
@@ -181,6 +183,7 @@ export default function HeaderSettingsPage() {
       await api.patch("/cms/restaurant", {
         name: form.name.trim() || undefined,
         logoUrl: form.logoUrl || null,
+        seo: { faviconUrl: form.faviconUrl },
         contactPhone: form.contactPhone.trim() || null,
         contactEmail: form.contactEmail.trim() || null,
         productImageFallbackSource: form.useAsProductFallback ? "HEADER" : restaurant?.productImageFallbackSource === "HEADER" ? null : undefined,
@@ -222,6 +225,16 @@ export default function HeaderSettingsPage() {
                   <ImageUploadField label="Logo" folder="restaurant" value={form.logoUrl} onChange={(url) => set("logoUrl", url)} shape="square" hint="Square, transparent PNG works best" />
                 </div>
                 <div className="space-y-3">
+                  <Field label="Favicon (browser tab icon)" hint="Optional. A small square picture, at least 96 x 96. Without one, the logo is used.">
+                    <div className="flex items-center gap-3">
+                      <div className="w-24">
+                        <ImageUploadField label="Favicon" hideLabel compact folder="restaurant" value={form.faviconUrl} onChange={(url) => set("faviconUrl", url)} />
+                      </div>
+                      {form.faviconUrl && (
+                        <button type="button" onClick={() => set("faviconUrl", "")} className="text-xs text-brand-red hover:underline">Use the logo instead</button>
+                      )}
+                    </div>
+                  </Field>
                   <Field label="Restaurant name *">
                     <input value={form.name} onChange={(e) => set("name", e.target.value)} className="input w-full" placeholder="e.g. Baloch Restaurant" required />
                   </Field>

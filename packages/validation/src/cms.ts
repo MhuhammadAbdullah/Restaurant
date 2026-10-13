@@ -325,6 +325,8 @@ export const seoConfigSchema = z
     defaultTitle: z.string().trim().max(120),
     defaultDescription: z.string().trim().max(320),
     defaultImage: optionalUrl,
+    /** The small icon in the browser tab. Empty means the logo is used. */
+    faviconUrl: optionalUrl,
     noindexSite: z.boolean(),
     business: z
       .object({
