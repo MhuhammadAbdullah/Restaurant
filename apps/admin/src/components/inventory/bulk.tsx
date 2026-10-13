@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "../LoadingDots";
 import { useState } from "react";
 import { api, ApiError } from "../../lib/api";
 import { toast } from "../../store/useToastStore";
@@ -47,7 +48,7 @@ export function BulkBar({ count, onDelete, onClear, busy, noun }: { count: numbe
       <p className="text-sm font-medium text-red-900">{count} {noun}{count === 1 ? "" : "s"} selected</p>
       <button type="button" onClick={onClear} disabled={busy} className="rounded-lg px-2.5 py-1 text-sm text-neutral-600 hover:bg-white">Clear</button>
       <button type="button" onClick={onDelete} disabled={busy} className="ml-auto flex items-center gap-2 rounded-lg bg-brand-red px-3.5 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60">
-        <TrashIcon size={13} /> {busy ? "Deleting..." : `Delete selected (${count})`}
+        <TrashIcon size={13} /> {busy ? <LoadingDots>Deleting</LoadingDots> : `Delete selected (${count})`}
       </button>
     </div>
   );

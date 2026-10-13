@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "../../../components/LoadingDots";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -206,7 +207,7 @@ function TableFormModal({
 
           <div className="sticky bottom-[-1.25rem] z-10 -mx-5 -mb-5 flex items-center gap-3 border-t border-neutral-200 bg-white px-5 py-3">
             <button disabled={saving} className="rounded-lg bg-brand-red px-4 py-2 text-sm font-medium text-white disabled:opacity-60">
-              {saving ? "Saving..." : initial ? "Save Changes" : multi ? `Create ${rangeCount > 0 && rangeCount <= 50 ? rangeCount : ""} Tables` : "Create Table"}
+              {saving ? <LoadingDots>Saving</LoadingDots> : initial ? "Save Changes" : multi ? `Create ${rangeCount > 0 && rangeCount <= 50 ? rangeCount : ""} Tables` : "Create Table"}
             </button>
             <button type="button" onClick={onClose} className="rounded-lg border border-brand-red bg-red-50 px-4 py-2 text-sm font-medium text-brand-red hover:bg-red-100">
               Cancel
@@ -516,7 +517,7 @@ export default function TablesPage() {
               </p>
               <div className="mt-5 flex items-center gap-3">
                 <button type="button" onClick={confirmDelete} disabled={deleting || !!deleteTarget.openOrder} className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60">
-                  {deleting ? "Deleting..." : "Delete"}
+                  {deleting ? <LoadingDots>Deleting</LoadingDots> : "Delete"}
                 </button>
                 <button type="button" onClick={() => setDeleteTarget(null)} className="rounded-lg border border-brand-red bg-red-50 px-4 py-2 text-sm font-medium text-brand-red hover:bg-red-100">
                   Cancel

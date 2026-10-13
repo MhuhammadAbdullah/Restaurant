@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "./LoadingDots";
 import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -396,7 +397,7 @@ export function LocationModal() {
           disabled={loading || (orderType === "DELIVERY" ? !area : !branchId)}
           className="mt-5 w-full rounded-xl bg-brand-red py-3 text-sm font-semibold text-white disabled:opacity-60"
         >
-          {loading ? "Checking..." : copy?.submitLabel ?? "Select"}
+          {loading ? <LoadingDots>Checking</LoadingDots> : copy?.submitLabel ?? "Select"}
         </button>
       </div>
     </div>

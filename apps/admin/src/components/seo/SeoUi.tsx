@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "../LoadingDots";
 import { useMe, hasPermission } from "../../lib/useMe";
 
 export function SeoHeader({ title, description, children }: { title: string; description: string; children?: React.ReactNode }) {
@@ -73,7 +74,7 @@ export function SaveBar({ dirty, saving, onSave, onReset, canManage }: { dirty: 
           Discard
         </button>
         <button type="button" onClick={onSave} disabled={saving} className="rounded-lg bg-brand-red px-5 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50">
-          {saving ? "Saving..." : "Save changes"}
+          {saving ? <LoadingDots>Saving</LoadingDots> : "Save changes"}
         </button>
       </div>
     </div>

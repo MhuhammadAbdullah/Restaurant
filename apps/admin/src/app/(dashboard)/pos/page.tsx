@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "../../../components/LoadingDots";
 import { SearchInput } from "../../../components/SearchFilterBar";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -117,7 +118,7 @@ function PosLoading() {
   return (
     <div className="col-span-full flex flex-col items-center gap-3 py-12" role="status" aria-live="polite">
       <span className="h-9 w-9 animate-spin rounded-full border-4 border-brand-red/20 border-t-brand-red" aria-hidden="true" />
-      <span className="text-sm text-neutral-500">Loading menu...</span>
+      <span className="text-sm text-neutral-500"><LoadingDots>Loading menu</LoadingDots></span>
     </div>
   );
 }
@@ -819,7 +820,7 @@ export default function PosPage() {
               </span>
             </div>
             {!tables ? (
-              <p className="py-4 text-center text-sm text-neutral-400">Loading tables...</p>
+              <p className="py-4 text-center text-sm text-neutral-400"><LoadingDots>Loading tables</LoadingDots></p>
             ) : tables.length === 0 ? (
               <p className="py-4 text-center text-sm text-neutral-400">No tables set up for this branch.</p>
             ) : (
@@ -1179,7 +1180,7 @@ export default function PosPage() {
                       disabled={placing || cart.length === 0}
                       className="w-full rounded-xl bg-brand-red py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:opacity-50"
                     >
-                      {placing ? "Adding..." : "Add These Items to the Bill"}
+                      {placing ? <LoadingDots>Adding</LoadingDots> : "Add These Items to the Bill"}
                     </button>
                   </>
                 ) : (
@@ -1370,7 +1371,7 @@ export default function PosPage() {
                       disabled={placing || !canPlace || cashShort || (cart.length > 0 && !quote)}
                       className="mt-3 w-full rounded-xl bg-brand-red py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:opacity-50"
                     >
-                      {placing ? "Placing..." : `Place Order${cart.length > 0 ? ` · ${formatPaisa(toCollect)}` : ""}`}
+                      {placing ? <LoadingDots>Placing</LoadingDots> : `Place Order${cart.length > 0 ? ` · ${formatPaisa(toCollect)}` : ""}`}
                     </button>
                     {cart.length > 0 && cashShort && <p className="mt-1.5 text-center text-xs text-red-600">Cash received is less than the total due.</p>}
                     {!canPlace && cart.length > 0 && (

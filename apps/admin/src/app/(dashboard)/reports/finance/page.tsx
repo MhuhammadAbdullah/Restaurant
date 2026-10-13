@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "../../../../components/LoadingDots";
 import { SearchInput } from "../../../../components/SearchFilterBar";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -328,13 +329,13 @@ export default function FinanceReportsPage() {
         {canExport && (
           <div className="flex flex-wrap gap-2">
             <button onClick={() => download("xlsx")} disabled={downloading !== null} className={exportBtn}>
-              <FaFileExcel size={14} className="text-green-600" /> {downloading === "xlsx" ? "Preparing..." : "Excel"}
+              <FaFileExcel size={14} className="text-green-600" /> {downloading === "xlsx" ? <LoadingDots>Preparing</LoadingDots> : "Excel"}
             </button>
             <button onClick={() => download("pdf")} disabled={downloading !== null} className={exportBtn}>
-              <FaFilePdf size={14} className="text-red-600" /> {downloading === "pdf" ? "Preparing..." : "PDF"}
+              <FaFilePdf size={14} className="text-red-600" /> {downloading === "pdf" ? <LoadingDots>Preparing</LoadingDots> : "PDF"}
             </button>
             <button onClick={() => download("csv")} disabled={downloading !== null} className={exportBtn}>
-              <FaDownload size={12} /> {downloading === "csv" ? "Preparing..." : "CSV"}
+              <FaDownload size={12} /> {downloading === "csv" ? <LoadingDots>Preparing</LoadingDots> : "CSV"}
             </button>
           </div>
         )}
@@ -416,7 +417,7 @@ export default function FinanceReportsPage() {
         <span>·</span>
         <span>{branchLabel}</span>
         <span>·</span>
-        <span>{report ? `${report.rows.length} record${report.rows.length === 1 ? "" : "s"}` : "Loading..."}</span>
+        <span>{report ? `${report.rows.length} record${report.rows.length === 1 ? "" : "s"}` : <LoadingDots>Loading</LoadingDots>}</span>
         {isFetching && report && <span className="text-neutral-400">Updating…</span>}
       </p>
 

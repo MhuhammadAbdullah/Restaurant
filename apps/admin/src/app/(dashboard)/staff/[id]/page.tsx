@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "../../../../components/LoadingDots";
 import { SearchInput } from "../../../../components/SearchFilterBar";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -300,7 +301,7 @@ export default function StaffAccessPage() {
                     </div>
                     <p className="text-xs text-neutral-400">They will be signed out everywhere. Share the new password with them securely.</p>
                     <div className="flex gap-2">
-                      <button disabled={pwSaving || newPassword.length < 8} className="rounded-lg bg-brand-red px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50">{pwSaving ? "Saving..." : "Set new password"}</button>
+                      <button disabled={pwSaving || newPassword.length < 8} className="rounded-lg bg-brand-red px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50">{pwSaving ? <LoadingDots>Saving</LoadingDots> : "Set new password"}</button>
                       <button type="button" onClick={() => { setPwOpen(false); setNewPassword(""); }} className="rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-medium">Cancel</button>
                     </div>
                   </form>
@@ -342,7 +343,7 @@ export default function StaffAccessPage() {
             <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-red text-xs font-semibold text-white">3</span>
             <div>
               <p className="text-sm font-semibold text-neutral-900">Permissions</p>
-              <p className="text-xs text-neutral-500">{permissions ? `${allowedCount} of ${perms.length} allowed` : "Loading..."}. Turn on only what this person needs.</p>
+              <p className="text-xs text-neutral-500">{permissions ? `${allowedCount} of ${perms.length} allowed` : <LoadingDots>Loading</LoadingDots>}. Turn on only what this person needs.</p>
             </div>
           </div>
           <SearchInput value={permSearch} onChange={setPermSearch} placeholder="Search permissions..." widthClass="w-full sm:w-64" />
@@ -467,7 +468,7 @@ export default function StaffAccessPage() {
               </div>
             </div>
           ))}
-          {permissions === undefined && <p className="py-6 text-center text-sm text-neutral-400">Loading permissions...</p>}
+          {permissions === undefined && <p className="py-6 text-center text-sm text-neutral-400"><LoadingDots>Loading permissions</LoadingDots></p>}
           {permissions && Object.keys(grouped).length === 0 && <p className="py-6 text-center text-sm text-neutral-400">No permissions match “{permSearch}”.</p>}
         </div>
       </section>
@@ -489,7 +490,7 @@ export default function StaffAccessPage() {
           <div className="flex shrink-0 items-center gap-2">
             <button onClick={() => setStaged({})} disabled={savingPermissions} className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50">Discard</button>
             <button onClick={savePermissions} disabled={savingPermissions || !canManagePermissions} className="rounded-lg bg-brand-red px-5 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90 disabled:opacity-50">
-              {savingPermissions ? "Saving..." : "Save changes"}
+              {savingPermissions ? <LoadingDots>Saving</LoadingDots> : "Save changes"}
             </button>
           </div>
         </div>

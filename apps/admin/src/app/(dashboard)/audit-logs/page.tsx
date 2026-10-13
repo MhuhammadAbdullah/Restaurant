@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "../../../components/LoadingDots";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { FaFolderOpen } from "react-icons/fa6";
@@ -185,7 +186,7 @@ export default function AuditLogsPage() {
               <button type="button" onClick={() => shiftMonth(-1)} aria-label="Previous month" className="rounded-lg border border-neutral-200 px-2.5 py-1 text-sm hover:bg-neutral-50">‹</button>
               <div className="text-center">
                 <p className="text-sm font-semibold text-neutral-900">{monthLabel}</p>
-                <p className="text-[11px] text-neutral-400">{loadingMonth ? "Loading..." : `${monthTotal.toLocaleString()} entries this month`}</p>
+                <p className="text-[11px] text-neutral-400">{loadingMonth ? <LoadingDots>Loading</LoadingDots> : `${monthTotal.toLocaleString()} entries this month`}</p>
               </div>
               <button type="button" onClick={() => shiftMonth(1)} disabled={atCurrentMonth} aria-label="Next month" className="rounded-lg border border-neutral-200 px-2.5 py-1 text-sm hover:bg-neutral-50 disabled:opacity-30">›</button>
             </div>
@@ -255,13 +256,13 @@ export default function AuditLogsPage() {
                 <div>
                   <h2 className="text-base font-semibold text-neutral-900">{dayLabel}</h2>
                   <p className="text-xs text-neutral-500">
-                    {dayData ? `${dayData.total.toLocaleString()} ${isFiltering ? "matching " : ""}entr${dayData.total === 1 ? "y" : "ies"}` : "Loading..."}
+                    {dayData ? `${dayData.total.toLocaleString()} ${isFiltering ? "matching " : ""}entr${dayData.total === 1 ? "y" : "ies"}` : <LoadingDots>Loading</LoadingDots>}
                     {loadingDay && dayData ? " · refreshing..." : ""}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button type="button" onClick={exportCsv} disabled={exporting || !dayData || dayData.total === 0} className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 hover:border-brand-red hover:text-brand-red disabled:opacity-50">
-                    {exporting ? "Exporting..." : "Download CSV"}
+                    {exporting ? <LoadingDots>Exporting</LoadingDots> : "Download CSV"}
                   </button>
                   <button type="button" onClick={() => setDay(null)} className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50">Close day</button>
                 </div>
@@ -345,7 +346,7 @@ export default function AuditLogsPage() {
                       );
                     })}
                     {!dayData && loadingDay && (
-                      <tr><td colSpan={6} className="px-4 py-10 text-center text-sm text-neutral-400">Loading this day from the database...</td></tr>
+                      <tr><td colSpan={6} className="px-4 py-10 text-center text-sm text-neutral-400"><LoadingDots>Loading this day from the database</LoadingDots></td></tr>
                     )}
                     {dayData && items.length === 0 && (
                       <tr><td colSpan={6} className="px-4 py-10 text-center text-sm text-neutral-400">{isFiltering ? "No entries match these filters." : "No entries on this day."}</td></tr>

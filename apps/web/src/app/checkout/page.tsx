@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "../../components/LoadingDots";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -179,7 +180,7 @@ export default function CheckoutPage() {
       <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center gap-4 bg-page">
         <span className="h-12 w-12 animate-spin rounded-full border-4 border-brand-red/20 border-t-brand-red" />
         <p className="text-base font-semibold text-ink">Order placed!</p>
-        <p className="-mt-2 text-sm text-muted">Please wait a moment...</p>
+        <p className="-mt-2 text-sm text-muted"><LoadingDots>Please wait a moment</LoadingDots></p>
       </div>
     );
   }
@@ -190,7 +191,7 @@ export default function CheckoutPage() {
     return (
       <div className="flex min-h-[70vh] flex-col items-center justify-center gap-3">
         <span className="h-10 w-10 animate-spin rounded-full border-4 border-brand-red/20 border-t-brand-red" />
-        <p className="text-sm text-muted">Loading your checkout...</p>
+        <p className="text-sm text-muted"><LoadingDots>Loading your checkout</LoadingDots></p>
       </div>
     );
   }
@@ -670,7 +671,7 @@ export default function CheckoutPage() {
                   disabled={applyingCoupon || !couponCode.trim()}
                   className="shrink-0 rounded-lg border border-brand-red px-4 text-sm font-semibold text-brand-red disabled:opacity-50"
                 >
-                  {applyingCoupon ? "Applying..." : "Apply"}
+                  {applyingCoupon ? <LoadingDots>Applying</LoadingDots> : "Apply"}
                 </button>
               </div>
             )}
@@ -795,7 +796,7 @@ export default function CheckoutPage() {
               className="flex w-full items-center justify-center gap-2.5 rounded-lg bg-brand-red py-3.5 font-semibold text-white shadow-md transition hover:opacity-95 disabled:opacity-60"
             >
               <FiShoppingBag size={20} />
-              {submitting ? "Placing Order..." : hasUnavailable ? "Remove sold-out items first" : "Place Order"}
+              {submitting ? <LoadingDots>Placing Order</LoadingDots> : hasUnavailable ? "Remove sold-out items first" : "Place Order"}
             </button>
             <button onClick={() => router.push("/")} className="mt-4 flex w-full items-center justify-center gap-1.5 text-center text-sm font-medium text-brand-red">
               <ArrowLeftIcon size={12} /> continue to add more items

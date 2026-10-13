@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "../../../../components/LoadingDots";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { formatPaisa } from "@restaurant/utils";
@@ -63,7 +64,7 @@ export default function MovementsPage() {
           </thead>
           <tbody className="divide-y divide-neutral-100">
             {isLoading ? (
-              <tr><td colSpan={6} className="p-6 text-center text-neutral-400">Loading...</td></tr>
+              <tr><td colSpan={6} className="p-6 text-center text-neutral-400"><LoadingDots>Loading</LoadingDots></td></tr>
             ) : (data?.items ?? []).length === 0 ? (
               <tr><td colSpan={6} className="p-8 text-center text-neutral-500">No stock changes found.</td></tr>
             ) : (

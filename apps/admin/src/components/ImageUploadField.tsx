@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "./LoadingDots";
 import { useRef, useState } from "react";
 import { ApiError } from "../lib/api";
 import { uploadToLibrary } from "../lib/media";
@@ -113,7 +114,7 @@ export function ImageUploadField({
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
             </svg>
-            <p className="text-sm">Uploading...</p>
+            <p className="text-sm"><LoadingDots>Uploading</LoadingDots></p>
           </div>
         ) : (
           <div className={`flex flex-col items-center text-center text-neutral-400 ${(compact && !shape) || icon ? "gap-1 px-2" : "gap-1.5 px-4"}`}>

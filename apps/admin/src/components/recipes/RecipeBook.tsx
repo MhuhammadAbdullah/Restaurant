@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "../LoadingDots";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { guideLines } from "@restaurant/validation";
@@ -60,7 +61,7 @@ export function RecipeBook({ canEdit }: { canEdit: boolean }) {
 
       <div className="mt-4 space-y-5">
         {isLoading ? (
-          <p className="text-sm text-neutral-400">Loading...</p>
+          <p className="text-sm text-neutral-400"><LoadingDots>Loading</LoadingDots></p>
         ) : groups.length === 0 ? (
           <p className="rounded-xl border border-dashed border-neutral-300 bg-white p-8 text-center text-sm text-neutral-500">{rows.length === 0 ? "No products yet." : "Nothing to show."}</p>
         ) : (
@@ -97,7 +98,7 @@ function RecipeModal({ productId, canEdit, editing, setEditing, onClose, onSaved
   if (isLoading || !guide) {
     return (
       <Modal title="Recipe" onClose={onClose} wide>
-        <p className="text-sm text-neutral-400">Loading...</p>
+        <p className="text-sm text-neutral-400"><LoadingDots>Loading</LoadingDots></p>
       </Modal>
     );
   }
@@ -236,7 +237,7 @@ function Editor({ guide, hasRecipe, onClose, onBack, onSaved }: { guide: Guide; 
         )}
         <div className="flex gap-2">
           <button type="button" onClick={hasRecipe ? onBack : onClose} disabled={saving} className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50">Cancel</button>
-          <button type="button" onClick={() => void save()} disabled={saving} className="rounded-lg bg-brand-red px-4 py-2 text-sm font-medium text-white disabled:opacity-60">{saving ? "Saving..." : "Save recipe"}</button>
+          <button type="button" onClick={() => void save()} disabled={saving} className="rounded-lg bg-brand-red px-4 py-2 text-sm font-medium text-white disabled:opacity-60">{saving ? <LoadingDots>Saving</LoadingDots> : "Save recipe"}</button>
         </div>
       </div>
     </Modal>

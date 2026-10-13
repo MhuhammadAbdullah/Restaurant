@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "../LoadingDots";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { FaPhotoFilm } from "react-icons/fa6";
@@ -115,7 +116,7 @@ export function MediaPickerModal({ uploadFolder, selectedUrl, onSelect, onClose 
                 {uploads.map((u, i) => (
                   <li key={i} className="flex items-center justify-between gap-3 rounded-lg border border-neutral-200 px-3 py-2 text-sm">
                     <span className="truncate text-neutral-700">{u.name}</span>
-                    <span className={u.state === "error" ? "text-red-600" : u.state === "done" ? "text-green-600" : "text-neutral-400"}>{u.state === "uploading" ? "Uploading..." : u.state === "done" ? "Uploaded" : u.message}</span>
+                    <span className={u.state === "error" ? "text-red-600" : u.state === "done" ? "text-green-600" : "text-neutral-400"}>{u.state === "uploading" ? <LoadingDots>Uploading</LoadingDots> : u.state === "done" ? "Uploaded" : u.message}</span>
                   </li>
                 ))}
               </ul>
@@ -131,7 +132,7 @@ export function MediaPickerModal({ uploadFolder, selectedUrl, onSelect, onClose 
             </div>
             <div className="modal-scroll min-h-0 flex-1 overflow-y-auto p-5">
               {isLoading ? (
-                <p className="py-10 text-center text-sm text-neutral-400">Loading images...</p>
+                <p className="py-10 text-center text-sm text-neutral-400"><LoadingDots>Loading images</LoadingDots></p>
               ) : items.length === 0 ? (
                 <div className="py-14 text-center">
                   <span className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-50 text-brand-red">
@@ -168,7 +169,7 @@ export function MediaPickerModal({ uploadFolder, selectedUrl, onSelect, onClose 
                   {hasNextPage && (
                     <div className="mt-4 text-center">
                       <button type="button" onClick={() => fetchNextPage()} disabled={isFetchingNextPage} className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-60">
-                        {isFetchingNextPage ? "Loading..." : "Load more"}
+                        {isFetchingNextPage ? <LoadingDots>Loading</LoadingDots> : "Load more"}
                       </button>
                     </div>
                   )}

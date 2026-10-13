@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "../../../components/LoadingDots";
 import { useEffect, useRef, useState } from "react";
 import { FaPhotoFilm } from "react-icons/fa6";
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -199,7 +200,7 @@ export default function MediaLibraryPage() {
         <div className="flex items-center gap-2">
           {canSync && (
             <button type="button" onClick={sync} disabled={syncing} className="rounded-lg border border-neutral-300 px-3.5 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-60">
-              {syncing ? "Importing..." : "Import existing images"}
+              {syncing ? <LoadingDots>Importing</LoadingDots> : "Import existing images"}
             </button>
           )}
           <button type="button" onClick={() => inputRef.current?.click()} disabled={!!uploading} className="rounded-lg bg-brand-red px-4 py-2 text-sm font-medium text-white disabled:opacity-60">
@@ -254,7 +255,7 @@ export default function MediaLibraryPage() {
               )}
               <div className="mt-2.5 flex gap-2">
                 <button type="button" disabled={bulkBusy} onClick={() => bulkDelete(bulkSkipped.length > 0)} className="rounded-lg bg-red-600 px-3.5 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-60">
-                  {bulkBusy ? "Deleting..." : bulkSkipped.length > 0 ? "Delete anyway" : "Delete"}
+                  {bulkBusy ? <LoadingDots>Deleting</LoadingDots> : bulkSkipped.length > 0 ? "Delete anyway" : "Delete"}
                 </button>
                 <button type="button" onClick={() => { setBulkConfirm(false); setBulkSkipped([]); }} className="rounded-lg border border-brand-red bg-white px-3.5 py-1.5 text-xs font-medium text-brand-red">
                   Cancel
@@ -268,7 +269,7 @@ export default function MediaLibraryPage() {
       <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_320px]">
         <div className="rounded-xl border border-neutral-200 bg-white p-4">
           {isLoading ? (
-            <p className="py-12 text-center text-sm text-neutral-400">Loading images...</p>
+            <p className="py-12 text-center text-sm text-neutral-400"><LoadingDots>Loading images</LoadingDots></p>
           ) : items.length === 0 ? (
             <div className="py-14 text-center">
               <span className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-50 text-brand-red">
@@ -314,7 +315,7 @@ export default function MediaLibraryPage() {
               {hasNextPage && (
                 <div className="mt-4 text-center">
                   <button type="button" onClick={() => fetchNextPage()} disabled={isFetchingNextPage} className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-60">
-                    {isFetchingNextPage ? "Loading..." : "Load more"}
+                    {isFetchingNextPage ? <LoadingDots>Loading</LoadingDots> : "Load more"}
                   </button>
                 </div>
               )}
@@ -355,7 +356,7 @@ export default function MediaLibraryPage() {
                 </div>
                 {canEdit && metaChanged && (
                   <button type="button" onClick={saveMeta} disabled={savingMeta || !nameDraft.trim()} className="w-full rounded-lg bg-brand-red px-3 py-2 text-sm font-medium text-white disabled:opacity-60">
-                    {savingMeta ? "Saving..." : "Save changes"}
+                    {savingMeta ? <LoadingDots>Saving</LoadingDots> : "Save changes"}
                   </button>
                 )}
               </div>
@@ -385,7 +386,7 @@ export default function MediaLibraryPage() {
                     <p className="text-xs text-neutral-400">Not used anywhere yet.</p>
                   )
                 ) : (
-                  <p className="text-xs text-neutral-400">Checking...</p>
+                  <p className="text-xs text-neutral-400"><LoadingDots>Checking</LoadingDots></p>
                 )}
               </div>
               {canDelete && (
@@ -401,7 +402,7 @@ export default function MediaLibraryPage() {
                       </p>
                       <div className="mt-2 flex gap-2">
                         <button type="button" disabled={deleting} onClick={() => remove(forceNeeded)} className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-60">
-                          {deleting ? "Deleting..." : forceNeeded ? "Delete anyway" : "Delete"}
+                          {deleting ? <LoadingDots>Deleting</LoadingDots> : forceNeeded ? "Delete anyway" : "Delete"}
                         </button>
                         <button type="button" onClick={() => { setConfirmDelete(false); setForceNeeded(false); }} className="rounded-lg border border-brand-red bg-white px-3 py-1.5 text-xs font-medium text-brand-red">Cancel</button>
                       </div>

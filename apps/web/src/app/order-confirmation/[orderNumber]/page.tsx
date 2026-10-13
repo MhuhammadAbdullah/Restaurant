@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "../../../components/LoadingDots";
 import { use, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import confetti from "canvas-confetti";
@@ -372,7 +373,7 @@ export default function OrderConfirmationPage({ params }: { params: Promise<{ or
             disabled={retrying}
             className="mt-3 w-full rounded-full bg-brand-red py-3 text-sm font-semibold text-white disabled:opacity-50"
           >
-            {retrying ? "Redirecting..." : "Retry Payment"}
+            {retrying ? <LoadingDots>Redirecting</LoadingDots> : "Retry Payment"}
           </button>
         </div>
       )}
@@ -511,7 +512,7 @@ export default function OrderConfirmationPage({ params }: { params: Promise<{ or
                 disabled={pushState === "loading"}
                 className="flex w-full items-center justify-center gap-2 rounded-full border border-line py-3 text-sm font-semibold text-ink disabled:opacity-50"
               >
-                <FaBell size={14} /> {pushState === "loading" ? "Enabling..." : "Get Order Updates"}
+                <FaBell size={14} /> {pushState === "loading" ? <LoadingDots>Enabling</LoadingDots> : "Get Order Updates"}
               </button>
             ) : null}
           </>

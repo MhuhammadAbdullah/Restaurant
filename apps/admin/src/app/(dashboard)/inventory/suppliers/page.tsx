@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "../../../../components/LoadingDots";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "../../../../lib/api";
@@ -136,7 +137,7 @@ export default function SuppliersPage() {
           </thead>
           <tbody className="divide-y divide-neutral-100">
             {isLoading ? (
-              <tr><td colSpan={8} className="p-6 text-center text-neutral-400">Loading...</td></tr>
+              <tr><td colSpan={8} className="p-6 text-center text-neutral-400"><LoadingDots>Loading</LoadingDots></td></tr>
             ) : rows.length === 0 ? (
               <tr><td colSpan={8} className="p-8 text-center text-neutral-500">{(data ?? []).length === 0 ? "No suppliers yet." : "No suppliers match the filters."}</td></tr>
             ) : (
@@ -189,7 +190,7 @@ export default function SuppliersPage() {
             )}
             <div className="flex justify-end gap-2 pt-1">
               <button type="button" onClick={() => setEditing(null)} disabled={saving} className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50">Cancel</button>
-              <button disabled={saving} className="rounded-lg bg-brand-red px-4 py-2 text-sm font-medium text-white disabled:opacity-60">{saving ? "Saving..." : "Save"}</button>
+              <button disabled={saving} className="rounded-lg bg-brand-red px-4 py-2 text-sm font-medium text-white disabled:opacity-60">{saving ? <LoadingDots>Saving</LoadingDots> : "Save"}</button>
             </div>
           </form>
         </Modal>

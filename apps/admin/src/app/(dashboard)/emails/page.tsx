@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "../../../components/LoadingDots";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FaCircleCheck, FaEnvelope, FaMobileScreen, FaDesktop, FaPaperPlane, FaRotateLeft } from "react-icons/fa6";
@@ -185,7 +186,7 @@ export default function EmailTemplatesPage() {
             The Google review link comes from the <b>branch the order was delivered from</b>. Add it when you create or edit a branch (Branches &gt; Contact &amp; location). A branch with no link sends the thank-you email without the review button.
           </p>
           <button type="button" onClick={saveSettings} disabled={!settingsDirty || savingSettings} className="rounded-lg bg-brand-red px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-40">
-            {savingSettings ? "Saving..." : "Save"}
+            {savingSettings ? <LoadingDots>Saving</LoadingDots> : "Save"}
           </button>
         </fieldset>
       </section>
@@ -261,7 +262,7 @@ export default function EmailTemplatesPage() {
                       <FaPaperPlane size={12} /> Send test
                     </button>
                     <button type="button" onClick={save} disabled={!canManage || !dirty || saving} className="rounded-lg bg-brand-red px-6 py-2 text-sm font-semibold text-white disabled:opacity-40">
-                      {saving ? "Saving..." : dirty ? "Save changes" : "Saved"}
+                      {saving ? <LoadingDots>Saving</LoadingDots> : dirty ? "Save changes" : "Saved"}
                     </button>
                   </div>
                 </div>
@@ -309,7 +310,7 @@ export default function EmailTemplatesPage() {
             <div className="mt-4 flex gap-2">
               <button onClick={() => setTestOpen(false)} disabled={testing} className="flex-1 rounded-lg border border-neutral-300 py-2.5 text-sm">Cancel</button>
               <button onClick={sendTest} disabled={testing || !/^\S+@\S+\.\S+$/.test(testTo.trim())} className="flex-1 rounded-lg bg-brand-red py-2.5 text-sm font-semibold text-white disabled:opacity-50">
-                {testing ? "Sending..." : "Send test"}
+                {testing ? <LoadingDots>Sending</LoadingDots> : "Send test"}
               </button>
             </div>
           </div>

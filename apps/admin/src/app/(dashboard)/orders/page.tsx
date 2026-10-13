@@ -1,5 +1,6 @@
 ﻿"use client";
 
+import { LoadingDots } from "../../../components/LoadingDots";
 import { SearchInput } from "../../../components/SearchFilterBar";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -256,7 +257,7 @@ export default function OrdersPage() {
         <h1 className="text-xl font-semibold text-neutral-900">Orders</h1>
         {canExport && (
           <button onClick={exportCsv} disabled={exporting} className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm hover:border-brand-red hover:text-brand-red disabled:opacity-50">
-            {exporting ? "Exporting..." : "Export CSV"}
+            {exporting ? <LoadingDots>Exporting</LoadingDots> : "Export CSV"}
           </button>
         )}
       </div>

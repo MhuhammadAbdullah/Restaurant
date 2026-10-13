@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "../../../components/LoadingDots";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -108,7 +109,7 @@ function ComplaintCard({ c }: { c: Complaint }) {
       {open && (
         <div className="border-t border-line px-4 pb-5 pt-4 sm:px-5">
           {isLoading || !detail ? (
-            <p className="text-sm text-muted">Loading...</p>
+            <p className="text-sm text-muted"><LoadingDots>Loading</LoadingDots></p>
           ) : (
             <>
               <p className="text-xs font-semibold uppercase tracking-wide text-muted">Your complaint</p>
@@ -162,7 +163,7 @@ function ComplaintCard({ c }: { c: Complaint }) {
                   />
                   <div className="mt-2 flex justify-end">
                     <button type="button" onClick={send} disabled={!reply.trim() || sending} className="flex items-center gap-2 rounded-xl bg-brand-red px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-40">
-                      <FaPaperPlane size={12} /> {sending ? "Sending..." : "Send message"}
+                      <FaPaperPlane size={12} /> {sending ? <LoadingDots>Sending</LoadingDots> : "Send message"}
                     </button>
                   </div>
                 </div>

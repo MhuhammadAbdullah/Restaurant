@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "../../../components/LoadingDots";
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { createPortal } from "react-dom";
@@ -155,7 +156,7 @@ export default function AddressesPage() {
                   Cancel
                 </button>
                 <button onClick={() => remove(deleteTarget)} disabled={busyId === deleteTarget.id} className="flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-60">
-                  {busyId === deleteTarget.id ? "Deleting..." : "Delete"}
+                  {busyId === deleteTarget.id ? <LoadingDots>Deleting</LoadingDots> : "Delete"}
                 </button>
               </div>
             </div>
@@ -393,7 +394,7 @@ function AddNewAddressModal({ onClose }: { onClose: () => void }) {
                   className="flex w-full items-center justify-center gap-2 rounded-xl border border-brand-red/40 bg-brand-red/5 px-4 py-3 text-sm font-semibold text-brand-red transition hover:bg-brand-red/10 disabled:opacity-60"
                 >
                   {locatingNow ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-brand-red/30 border-t-brand-red" /> : <FaCrosshairs size={14} />}
-                  {locatingNow ? "Finding your location..." : "Use my current location"}
+                  {locatingNow ? <LoadingDots>Finding your location</LoadingDots> : "Use my current location"}
                 </button>
                 {locationNote && <p className="mt-1.5 text-xs text-muted">{locationNote}</p>}
               </div>
@@ -443,7 +444,7 @@ function AddNewAddressModal({ onClose }: { onClose: () => void }) {
 
             <div className="shrink-0 border-t border-line p-4">
               <button type="submit" disabled={!canSave || saving} className="w-full rounded-xl bg-brand-red py-3.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40">
-                {saving ? "Saving..." : checkingEligibility ? "Checking delivery..." : "Save address"}
+                {saving ? <LoadingDots>Saving</LoadingDots> : checkingEligibility ? <LoadingDots>Checking delivery</LoadingDots> : "Save address"}
               </button>
             </div>
           </form>

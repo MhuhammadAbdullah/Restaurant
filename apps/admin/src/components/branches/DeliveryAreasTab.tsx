@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "../LoadingDots";
 import { useEffect, useMemo, useState } from "react";
 import * as Popover from "@radix-ui/react-popover";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -30,7 +31,7 @@ function ConfirmModal({ title, body, confirmLabel, busy, onConfirm, onClose }: {
         <div className="p-5">
           <div className="text-sm text-neutral-600">{body}</div>
           <div className="mt-5 flex items-center gap-3">
-            <button type="button" onClick={onConfirm} disabled={busy} className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60">{busy ? "Working..." : confirmLabel}</button>
+            <button type="button" onClick={onConfirm} disabled={busy} className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60">{busy ? <LoadingDots>Working</LoadingDots> : confirmLabel}</button>
             <button type="button" onClick={onClose} className="rounded-lg border border-brand-red bg-red-50 px-4 py-2 text-sm font-medium text-brand-red hover:bg-red-100">Cancel</button>
           </div>
         </div>

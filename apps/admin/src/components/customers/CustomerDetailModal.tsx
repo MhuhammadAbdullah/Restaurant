@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "../LoadingDots";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -170,7 +171,7 @@ export function CustomerDetailModal({ id, onClose }: { id: string; onClose: () =
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
         <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
           <div className="flex shrink-0 items-center justify-between border-b border-neutral-200 px-5 py-4">
-            <p className="text-base font-semibold text-neutral-900">{detail?.name ?? "Loading..."}</p>
+            <p className="text-base font-semibold text-neutral-900">{detail?.name ?? <LoadingDots>Loading</LoadingDots>}</p>
             <button onClick={onClose} aria-label="Close" className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-red text-white hover:opacity-90">
               <CloseIcon size={14} />
             </button>
@@ -204,7 +205,7 @@ export function CustomerDetailModal({ id, onClose }: { id: string; onClose: () =
                             className="w-56 rounded-lg border border-neutral-300 px-2.5 py-1.5 text-xs focus:border-brand-red focus:outline-none"
                           />
                           <button onClick={saveEmail} disabled={savingEmail || !emailDraft.trim()} className="rounded-lg bg-brand-red px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">
-                            {savingEmail ? "Saving..." : "Save"}
+                            {savingEmail ? <LoadingDots>Saving</LoadingDots> : "Save"}
                           </button>
                           <button onClick={() => setEditingEmail(false)} className="text-xs text-neutral-500 hover:text-neutral-800">Cancel</button>
                         </div>

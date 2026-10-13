@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "../../../../components/LoadingDots";
 import { SearchInput } from "../../../../components/SearchFilterBar";
 import { useEffect, useMemo, useState } from "react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -191,7 +192,7 @@ export default function EmailLogPage() {
               <button type="button" onClick={() => shiftMonth(-1)} aria-label="Previous month" className="rounded-lg border border-neutral-200 px-2.5 py-1 text-sm hover:bg-neutral-50">‹</button>
               <div className="text-center">
                 <p className="text-sm font-semibold text-neutral-900">{monthLabel}</p>
-                <p className="text-[11px] text-neutral-400">{loadingMonth ? "Loading..." : `${monthTotal.toLocaleString()} emails this month`}</p>
+                <p className="text-[11px] text-neutral-400">{loadingMonth ? <LoadingDots>Loading</LoadingDots> : `${monthTotal.toLocaleString()} emails this month`}</p>
               </div>
               <button type="button" onClick={() => shiftMonth(1)} disabled={atCurrentMonth} aria-label="Next month" className="rounded-lg border border-neutral-200 px-2.5 py-1 text-sm hover:bg-neutral-50 disabled:opacity-30">›</button>
             </div>
@@ -249,7 +250,7 @@ export default function EmailLogPage() {
               <DateRangePopover from={rangeFrom} to={rangeTo} onChange={(f, t) => { setRangeFrom(f); setRangeTo(t || f); }} />
             </div>
             <button type="button" onClick={exportRange} disabled={exportingRange || !rangeFrom} className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-brand-red py-2.5 text-sm font-semibold text-white disabled:opacity-50">
-              <FaDownload size={12} /> {exportingRange ? "Preparing..." : "Download CSV"}
+              <FaDownload size={12} /> {exportingRange ? <LoadingDots>Preparing</LoadingDots> : "Download CSV"}
             </button>
           </div>
         </aside>
@@ -268,13 +269,13 @@ export default function EmailLogPage() {
                 <div>
                   <h2 className="text-base font-semibold text-neutral-900">{dayLabel}</h2>
                   <p className="text-xs text-neutral-500">
-                    {dayData ? `${dayData.total.toLocaleString()} ${isFiltering ? "matching " : ""}email${dayData.total === 1 ? "" : "s"}` : "Loading..."}
+                    {dayData ? `${dayData.total.toLocaleString()} ${isFiltering ? "matching " : ""}email${dayData.total === 1 ? "" : "s"}` : <LoadingDots>Loading</LoadingDots>}
                     {loadingDay && dayData ? " · refreshing..." : ""}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button type="button" onClick={exportDay} disabled={exporting || !dayData || dayData.total === 0} className="flex items-center gap-2 rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 hover:border-brand-red hover:text-brand-red disabled:opacity-50">
-                    <FaDownload size={11} /> {exporting ? "Exporting..." : "Download this day"}
+                    <FaDownload size={11} /> {exporting ? <LoadingDots>Exporting</LoadingDots> : "Download this day"}
                   </button>
                   <button type="button" onClick={() => setDay(null)} className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50">Close day</button>
                 </div>
@@ -336,7 +337,7 @@ export default function EmailLogPage() {
                             )}
                             {canSend && l.status !== "PENDING" && l.templateKey !== "OTP" && (
                               <button onClick={() => resend(l.id)} disabled={busyId === l.id} className="flex items-center gap-1.5 rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:border-brand-red hover:text-brand-red disabled:opacity-50">
-                                <FaRotateRight size={11} /> {busyId === l.id ? "Sending..." : l.status === "FAILED" ? "Retry" : "Send again"}
+                                <FaRotateRight size={11} /> {busyId === l.id ? <LoadingDots>Sending</LoadingDots> : l.status === "FAILED" ? "Retry" : "Send again"}
                               </button>
                             )}
                           </div>
@@ -344,7 +345,7 @@ export default function EmailLogPage() {
                       </tr>
                     ))}
                     {!dayData && loadingDay && (
-                      <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-neutral-400">Loading this day from the database...</td></tr>
+                      <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-neutral-400"><LoadingDots>Loading this day from the database</LoadingDots></td></tr>
                     )}
                     {dayData && items.length === 0 && (
                       <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-neutral-400">{isFiltering ? "No emails match these filters." : "No emails on this day."}</td></tr>

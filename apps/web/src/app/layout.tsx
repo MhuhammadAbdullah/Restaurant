@@ -15,6 +15,7 @@ import { SeoScripts } from "../components/SeoScripts";
 import { PwaRegister } from "../components/PwaRegister";
 import { NativeAppBridge } from "../components/NativeAppBridge";
 import { applyTitleTemplate, getSite, siteUrlOf } from "../lib/seo";
+import { appIcon } from "../lib/appIcon";
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -46,7 +47,7 @@ export async function generateMetadata(): Promise<Metadata> {
       const pick = seo.faviconUrl || site.logoUrl;
       if (!pick) return undefined;
       const small = pick.includes("res.cloudinary.com") && pick.includes("/image/upload/") ? pick.replace("/image/upload/", "/image/upload/c_fit,w_96,h_96,f_png/") : pick;
-      return { icon: [{ url: small, sizes: "any" }], apple: site.logoUrl || pick };
+      return { icon: [{ url: small, sizes: "any" }], apple: site.logoUrl ? appIcon(site.logoUrl, 180) : pick };
     })(),
     alternates: { canonical: home.canonical || "./" },
     robots: seo.noindexSite || home.noindex

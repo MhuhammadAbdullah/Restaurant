@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "../../components/LoadingDots";
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -435,7 +436,7 @@ export default function ComplaintsPage() {
               </button>
             ) : (
               <button key="submit" type="submit" disabled={submitting} className="rounded-xl bg-brand-red px-7 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60">
-                {submitting ? "Submitting..." : "Submit complaint"}
+                {submitting ? <LoadingDots>Submitting</LoadingDots> : "Submit complaint"}
               </button>
             )}
           </div>

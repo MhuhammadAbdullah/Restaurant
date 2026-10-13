@@ -20,7 +20,7 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
       ? [
           { src: squareIcon(logo, 192), sizes: "192x192", type: "image/png", purpose: "any" },
           { src: squareIcon(logo, 512), sizes: "512x512", type: "image/png", purpose: "any" },
-          { src: squareIcon(logo, 512), sizes: "512x512", type: "image/png", purpose: "maskable" },
+          { src: squareIcon(logo, 512, 0.6), sizes: "512x512", type: "image/png", purpose: "maskable" },
         ]
       : [],
   };

@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "../../../components/LoadingDots";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -88,7 +89,7 @@ export default function BlogListPage() {
 
       <div className="mt-4 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
         {isLoading ? (
-          <p className="p-6 text-sm text-neutral-400">Loading...</p>
+          <p className="p-6 text-sm text-neutral-400"><LoadingDots>Loading</LoadingDots></p>
         ) : rows.length === 0 ? (
           <p className="p-8 text-center text-sm text-neutral-500">{(data ?? []).length === 0 ? "No posts yet. Write your first one." : "No posts match your search."}</p>
         ) : (

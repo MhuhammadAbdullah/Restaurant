@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "../../../../../components/LoadingDots";
 import { use, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -69,7 +70,7 @@ export default function CustomerReceiptPage({ params }: { params: Promise<{ orde
     }
   }
 
-  if (isLoading) return <p className="p-6 text-sm text-neutral-400">Loading receipt...</p>;
+  if (isLoading) return <p className="p-6 text-sm text-neutral-400"><LoadingDots>Loading receipt</LoadingDots></p>;
   if (error || !data) {
     return (
       <div className="p-6">

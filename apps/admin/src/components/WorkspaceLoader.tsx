@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "./LoadingDots";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
 
@@ -36,7 +37,7 @@ export function WorkspaceLoader({ failed, onRetry, onSignOut }: { failed?: boole
       ) : (
         <>
           <span className="mt-8 h-10 w-10 animate-spin rounded-full border-4 border-brand-red/20 border-t-brand-red" />
-          <p className="mt-5 text-sm font-medium text-neutral-700">Loading your workspace...</p>
+          <p className="mt-5 text-sm font-medium text-neutral-700"><LoadingDots>Loading your workspace</LoadingDots></p>
           <p className="mt-1 text-xs text-neutral-400">Getting your branch and permissions ready</p>
         </>
       )}

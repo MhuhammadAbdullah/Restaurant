@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "../../../components/LoadingDots";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "../../../lib/api";
@@ -154,7 +155,7 @@ export default function BankDiscountsAdminPage() {
         {canEdit && (
           <div className="mt-3 flex items-center gap-3">
             <button type="button" onClick={() => void saveSettings()} disabled={!settingsDirty || savingSettings} className="rounded-lg bg-brand-red px-4 py-2 text-sm font-medium text-white disabled:opacity-60">
-              {savingSettings ? "Saving..." : "Save texts"}
+              {savingSettings ? <LoadingDots>Saving</LoadingDots> : "Save texts"}
             </button>
             {settingsDirty && <span className="text-xs font-medium text-amber-600">You have unsaved changes</span>}
           </div>
@@ -177,7 +178,7 @@ export default function BankDiscountsAdminPage() {
 
       <div className="mt-3">
         {isLoading ? (
-          <p className="text-sm text-neutral-400">Loading...</p>
+          <p className="text-sm text-neutral-400"><LoadingDots>Loading</LoadingDots></p>
         ) : items.length === 0 ? (
           <p className="rounded-xl border border-dashed border-neutral-300 bg-white p-8 text-center text-sm text-neutral-500">No offers yet. Add the first offer picture.</p>
         ) : (
@@ -246,7 +247,7 @@ export default function BankDiscountsAdminPage() {
                 Cancel
               </button>
               <button disabled={saving} className="rounded-lg bg-brand-red px-4 py-2 text-sm font-medium text-white disabled:opacity-60">
-                {saving ? "Saving..." : "Save"}
+                {saving ? <LoadingDots>Saving</LoadingDots> : "Save"}
               </button>
             </div>
           </form>

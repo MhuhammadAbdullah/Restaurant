@@ -1,5 +1,6 @@
 ﻿"use client";
 
+import { LoadingDots } from "../../../components/LoadingDots";
 import { SearchInput } from "../../../components/SearchFilterBar";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -119,7 +120,7 @@ export default function CustomersPage() {
         </Select>
         {canExport && (
           <button type="button" onClick={exportCustomers} disabled={exporting} title="Downloads the customers matching the search and filter above" className="ml-auto flex items-center gap-2 rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:border-brand-red hover:text-brand-red disabled:opacity-50">
-            <FaDownload size={12} /> {exporting ? "Preparing..." : "Download CSV"}
+            <FaDownload size={12} /> {exporting ? <LoadingDots>Preparing</LoadingDots> : "Download CSV"}
           </button>
         )}
       </div>

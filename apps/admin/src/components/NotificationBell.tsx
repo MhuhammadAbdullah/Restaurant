@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "./LoadingDots";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -102,7 +103,7 @@ export function NotificationBell() {
               </button>
             ))}
             {notifications?.length === 0 && <p className="px-3 py-6 text-center text-xs text-neutral-400">No notifications yet.</p>}
-            {!notifications && <p className="px-3 py-6 text-center text-xs text-neutral-400">Loading...</p>}
+            {!notifications && <p className="px-3 py-6 text-center text-xs text-neutral-400"><LoadingDots>Loading</LoadingDots></p>}
           </div>
         </div>
       )}

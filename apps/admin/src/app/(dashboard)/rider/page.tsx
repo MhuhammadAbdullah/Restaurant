@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "../../../components/LoadingDots";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -284,12 +285,12 @@ export default function RiderDashboardPage() {
 
         {active && !onTheRoad && (
           <button onClick={() => markStatus(order, "OUT_FOR_DELIVERY")} disabled={busyId === order.id} className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-brand-red py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50">
-            <FaMotorcycle size={15} /> {busyId === order.id ? "Updating..." : "Start delivery"}
+            <FaMotorcycle size={15} /> {busyId === order.id ? <LoadingDots>Updating</LoadingDots> : "Start delivery"}
           </button>
         )}
         {onTheRoad && (
           <button onClick={() => markStatus(order, "DELIVERED")} disabled={busyId === order.id} className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-green-600 py-2.5 text-sm font-semibold text-white transition hover:bg-green-700 disabled:opacity-50">
-            <FaCircleCheck size={14} /> {busyId === order.id ? "Updating..." : cod ? "Delivered & cash received" : "Mark delivered"}
+            <FaCircleCheck size={14} /> {busyId === order.id ? <LoadingDots>Updating</LoadingDots> : cod ? "Delivered & cash received" : "Mark delivered"}
           </button>
         )}
       </div>
@@ -441,7 +442,7 @@ export default function RiderDashboardPage() {
           <h2 className="mt-7 flex items-center gap-2 text-sm font-semibold text-neutral-900"><FaClockRotateLeft size={12} className="text-neutral-400" /> Hand-in history</h2>
           <div className="mt-2.5 overflow-hidden rounded-xl border border-neutral-200 bg-white">
             {!submissions || submissions.length === 0 ? (
-              <p className="px-4 py-8 text-center text-sm text-neutral-400">{submissions ? "You have not handed in any cash yet." : "Loading..."}</p>
+              <p className="px-4 py-8 text-center text-sm text-neutral-400">{submissions ? "You have not handed in any cash yet." : <LoadingDots>Loading</LoadingDots>}</p>
             ) : (
               <ul className="divide-y divide-neutral-100">
                 {submissions.map((s) => (
@@ -477,7 +478,7 @@ export default function RiderDashboardPage() {
             <div className="mt-4 flex gap-2">
               <button onClick={() => setConfirmingSubmit(false)} className="flex-1 rounded-lg border border-neutral-300 py-2.5 text-sm">Cancel</button>
               <button onClick={submitCollection} disabled={submitting} className="flex-1 rounded-lg bg-brand-red py-2.5 text-sm font-semibold text-white disabled:opacity-50">
-                {submitting ? "Submitting..." : "Confirm hand-in"}
+                {submitting ? <LoadingDots>Submitting</LoadingDots> : "Confirm hand-in"}
               </button>
             </div>
           </div>

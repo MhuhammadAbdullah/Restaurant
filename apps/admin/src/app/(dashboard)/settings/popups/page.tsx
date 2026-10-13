@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "../../../../components/LoadingDots";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "../../../../lib/api";
@@ -412,7 +413,7 @@ export default function PopupsSettingsPage() {
 
               <div className="flex items-center gap-3 pt-1">
                 <button type="submit" disabled={saving || !form.image || !form.name.trim()} className="rounded-lg bg-brand-red px-4 py-2 text-sm font-medium text-white disabled:opacity-60">
-                  {saving ? "Saving..." : editingId ? "Save Changes" : "Create Pop-up"}
+                  {saving ? <LoadingDots>Saving</LoadingDots> : editingId ? "Save Changes" : "Create Pop-up"}
                 </button>
                 <button type="button" onClick={closeForm} className="rounded-lg border border-brand-red bg-red-50 px-4 py-2 text-sm font-medium text-brand-red hover:bg-red-100">
                   Cancel
@@ -440,7 +441,7 @@ export default function PopupsSettingsPage() {
               </div>
               <div className="mt-5 flex items-center gap-3">
                 <button type="button" onClick={confirmDelete} disabled={deleting} className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60">
-                  {deleting ? "Deleting..." : "Delete"}
+                  {deleting ? <LoadingDots>Deleting</LoadingDots> : "Delete"}
                 </button>
                 <button type="button" onClick={() => setDeleteTarget(null)} className="rounded-lg border border-brand-red bg-red-50 px-4 py-2 text-sm font-medium text-brand-red hover:bg-red-100">
                   Cancel

@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "../LoadingDots";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -125,7 +126,7 @@ export function ComplaintDetailModal({ id, onClose }: { id: string; onClose: () 
         <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
           <div className="flex shrink-0 items-center justify-between border-b border-neutral-200 px-5 py-4">
             <div>
-              <p className="text-base font-semibold text-neutral-900">{detail?.complaintNumber ?? "Loading..."}</p>
+              <p className="text-base font-semibold text-neutral-900">{detail?.complaintNumber ?? <LoadingDots>Loading</LoadingDots>}</p>
               {detail && <p className="text-xs text-neutral-400">{detail.subject}</p>}
             </div>
             <div className="flex items-center gap-2">
@@ -233,7 +234,7 @@ export function ComplaintDetailModal({ id, onClose }: { id: string; onClose: () 
                       {contactEmail ? `Also email this reply to ${contactEmail}` : "No email address on this complaint, so the reply is saved only"}
                     </label>
                     <button type="button" onClick={sendReply} disabled={!replyText.trim() || replying} className="rounded-lg bg-brand-red px-5 py-2 text-sm font-semibold text-white disabled:opacity-40">
-                      {replying ? "Sending..." : "Send reply"}
+                      {replying ? <LoadingDots>Sending</LoadingDots> : "Send reply"}
                     </button>
                   </div>
                 </div>
