@@ -11,6 +11,7 @@ import { BranchPicker } from "../../components/BranchPicker";
 import { NotificationBell } from "../../components/NotificationBell";
 import { NewOrderAlert } from "../../components/NewOrderAlert";
 import { FullscreenToggle, ThemeToggle } from "../../components/HeaderTools";
+import { InstallAppButton } from "../../components/InstallAppButton";
 import { WorkspaceLoader } from "../../components/WorkspaceLoader";
 import { MenuIcon, LogoutIcon } from "../../components/icons";
 import { useRealtimeOrders } from "../../lib/useRealtime";
@@ -152,6 +153,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <p className="text-xs text-neutral-400">{me?.role}</p>
             </Link>
             <div className="flex items-center gap-0.5">
+              <InstallAppButton />
               <FullscreenToggle />
               <ThemeToggle />
               <NotificationBell />

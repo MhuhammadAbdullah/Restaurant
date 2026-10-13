@@ -13,6 +13,7 @@ import { useAuthModalStore } from "../store/useAuthModalStore";
 import { useLocationStore } from "../store/useLocationStore";
 import { ContactPopover } from "./ContactPopover";
 import { HoverLink } from "./HoverLink";
+import { InstallAppButton } from "./InstallAppButton";
 import { hoverIn, hoverOut, staggerIn } from "../lib/hoverAnimation";
 import { CustomerNotificationBell } from "./CustomerNotificationBell";
 import { ThemeToggle } from "./ThemeToggle";
@@ -272,6 +273,10 @@ export function Header() {
           <HoverLink href="/complaints" target="_blank" rel="noopener noreferrer" onClick={() => setMenuOpen(false)} className={MENU_LINK}>
             <ComplaintIcon size={14} /> <span className="flex-1">Complaint</span> <span data-hover-icon className="inline-flex"><FaArrowUpRightFromSquare size={12} className="text-muted" aria-hidden="true" /></span>
           </HoverLink>
+        </div>
+
+        <div data-menu-item className="empty:hidden">
+          <InstallAppButton className={`${MENU_LINK} w-full`} onDone={() => setMenuOpen(false)} />
         </div>
 
         <div data-menu-item>

@@ -225,14 +225,9 @@ export default function HeaderSettingsPage() {
                   <ImageUploadField label="Logo" folder="restaurant" value={form.logoUrl} onChange={(url) => set("logoUrl", url)} shape="square" hint="Square, transparent PNG works best" />
                 </div>
                 <div className="space-y-3">
-                  <Field label="Favicon (browser tab icon)" hint="Optional. A small square picture, at least 96 x 96. Without one, the logo is used.">
-                    <div className="flex items-center gap-3">
-                      <div className="w-24">
-                        <ImageUploadField label="Favicon" hideLabel compact folder="restaurant" value={form.faviconUrl} onChange={(url) => set("faviconUrl", url)} />
-                      </div>
-                      {form.faviconUrl && (
-                        <button type="button" onClick={() => set("faviconUrl", "")} className="text-xs text-brand-red hover:underline">Use the logo instead</button>
-                      )}
+                  <Field label="Favicon (browser tab icon)" hint="Optional. A small square picture, at least 96 x 96. Click the X on the picture to go back to using the logo.">
+                    <div className="w-24">
+                      <ImageUploadField label="Favicon" hideLabel icon folder="restaurant" value={form.faviconUrl} onChange={(url) => set("faviconUrl", url)} />
                     </div>
                   </Field>
                   <Field label="Restaurant name *">

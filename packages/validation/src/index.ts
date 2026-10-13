@@ -16,3 +16,5 @@ export * from "./loyalty";
 export * from "./notifications";
 export * from "./blog";
 export * from "./bank-discounts";
+export * from "./inventory";
+export * from "./recipe-guide";

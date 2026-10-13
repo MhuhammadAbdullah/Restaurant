@@ -30,6 +30,18 @@ export const PERMISSION_SECTIONS: PermSection[] = [
     ],
   },
   {
+    label: "Inventory",
+    items: [
+      { id: "invStock", label: "Stock", modules: ["inventoryStock"], covers: "Items, stock in / out / waste / count, bulk add and bulk delete" },
+      { id: "invPurchases", label: "Purchases", modules: ["inventoryPurchases"], covers: "Purchase orders: create, edit, receive, delete" },
+      { id: "invSuppliers", label: "Suppliers", modules: ["inventorySuppliers"] },
+      { id: "invTransfers", label: "Transfers", modules: ["inventoryTransfers"], covers: "Moving stock between branches; deleting sends the stock back" },
+      { id: "invHistory", label: "History", modules: ["inventoryHistory"], covers: "View only: the stock history cannot be changed or deleted" },
+      { id: "invRecipes", label: "Recipes", modules: ["inventoryRecipes"], covers: "Kitchen recipes (Kitchen staff can always read them)" },
+      { id: "invReports", label: "Inventory Reports", modules: ["inventoryReports"] },
+    ],
+  },
+  {
     label: "Customers",
     items: [
       { id: "customers", label: "Customers", modules: ["customers"], covers: "Includes downloading the customer list" },

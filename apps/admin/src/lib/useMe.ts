@@ -20,7 +20,8 @@ export function useMe() {
   return useQuery({ queryKey: ["me"], queryFn: () => api.get<Me>("/auth/staff/me"), enabled: !!staff });
 }
 
+/** `key` may list several permissions separated by commas ("a,b"): having any one of them is enough. */
 export function hasPermission(me: Me | undefined, key: string): boolean {
   if (!me) return false;
-  return me.isOwner || me.permissions.includes("*") || me.permissions.includes(key);
+  return me.isOwner || me.permissions.includes("*") || key.split(",").some((k) => me.permissions.includes(k));
 }

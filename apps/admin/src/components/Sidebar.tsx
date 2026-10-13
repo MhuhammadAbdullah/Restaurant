@@ -26,6 +26,7 @@ import {
   FaBullhorn,
   FaNewspaper,
   FaBuildingColumns,
+  FaBoxesStacked,
   FaCartShopping,
   FaKitchenSet,
   FaLayerGroup,
@@ -79,6 +80,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/choice-sections", label: "Choice Sections", permission: "choiceGroups.view", icon: FaListCheck },
       { href: "/addons", label: "Add-ons", permission: "addonGroups.view", icon: FaCirclePlus },
       { href: "/coupons", label: "Coupons", permission: "coupons.view", icon: FaTicket },
+      { href: "/inventory", label: "Inventory", permission: "inventoryStock.view,inventoryRecipes.view,inventoryPurchases.view,inventorySuppliers.view,inventoryTransfers.view,inventoryHistory.view,inventoryReports.view", icon: FaBoxesStacked },
     ],
   },
   {

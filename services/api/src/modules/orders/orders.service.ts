@@ -484,7 +484,6 @@ export class OrdersService {
    */
   async onlinePaymentConfirmed(orderId: string): Promise<void> {
     const order = await this.prisma.order.findUniqueOrThrow({ where: { id: orderId } });
-
     if (order.customerId) {
       await this.prisma.notification.create({
         data: {
@@ -920,7 +919,6 @@ export class OrdersService {
     });
 
     await this.recomputeOrderPaymentStatus(orderId);
-
     await this.auditLogs.recordForStaff(staff, "order.itemsAdded", "Order", orderId, {
       newValue: { itemCount: input.items.length },
     });
