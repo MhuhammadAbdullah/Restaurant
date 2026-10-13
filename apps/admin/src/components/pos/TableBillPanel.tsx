@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "../LoadingDots";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -326,7 +327,7 @@ export function TableBillPanel({
                 disabled={busy || !amountValid || short}
                 className="mt-3 w-full rounded-xl bg-brand-red py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:opacity-50"
               >
-                {busy ? "Saving..." : method === "CASH" ? `Collect ${amountValid ? formatPaisa(amountPaisa) : ""}` : `Card payment received ${amountValid ? `· ${formatPaisa(amountPaisa)}` : ""}`}
+                {busy ? <LoadingDots>Saving</LoadingDots> : method === "CASH" ? `Collect ${amountValid ? formatPaisa(amountPaisa) : ""}` : `Card payment received ${amountValid ? `· ${formatPaisa(amountPaisa)}` : ""}`}
               </button>
               {pendingTotal > 0 && <p className="mt-1 text-xs text-neutral-400">Unconfirmed: {formatPaisa(pendingTotal)}</p>}
             </>

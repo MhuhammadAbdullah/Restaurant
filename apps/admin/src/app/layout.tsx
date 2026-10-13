@@ -5,7 +5,7 @@ import { Toaster } from "../components/Toaster";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { PwaRegister } from "../components/PwaRegister";
 import { THEME_INIT_SCRIPT } from "../components/HeaderTools";
-import { getBranding } from "../lib/branding";
+import { getBranding, squareIcon } from "../lib/branding";
 
 /** Colours the phone's status bar / address bar with the brand red. */
 export const viewport: Viewport = { themeColor: "#ED2320" };
@@ -21,7 +21,7 @@ export async function generateMetadata(): Promise<Metadata> {
     // The admin panel is private: keep it out of search results.
     robots: { index: false, follow: false },
     appleWebApp: { capable: true, title: `${b.name} Admin`, statusBarStyle: "default" },
-    icons: small ? { icon: [{ url: small, sizes: "any" }], apple: b.logoUrl || small } : undefined,
+    icons: small ? { icon: [{ url: small, sizes: "any" }], apple: b.logoUrl ? squareIcon(b.logoUrl, 180) : small } : undefined,
   };
 }
 

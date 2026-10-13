@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "../../../../components/LoadingDots";
 import { use, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -156,7 +157,7 @@ export default function BlogEditorPage({ params }: { params: Promise<{ id: strin
     }
   }
 
-  if (!isNew && isLoading) return <p className="text-sm text-neutral-400">Loading...</p>;
+  if (!isNew && isLoading) return <p className="text-sm text-neutral-400"><LoadingDots>Loading</LoadingDots></p>;
   if (!isNew && (error || !post)) {
     return (
       <div>
@@ -223,7 +224,7 @@ export default function BlogEditorPage({ params }: { params: Promise<{ id: strin
             </Field>
             <div className="flex gap-2 pt-1">
               <button type="button" onClick={() => void save()} disabled={saving || (!dirty && !isNew)} className="flex-1 rounded-lg bg-brand-red px-4 py-2 text-sm font-medium text-white disabled:opacity-60">
-                {saving ? "Saving..." : isNew ? (form.status === "PUBLISHED" ? "Publish" : "Save draft") : "Save changes"}
+                {saving ? <LoadingDots>Saving</LoadingDots> : isNew ? (form.status === "PUBLISHED" ? "Publish" : "Save draft") : "Save changes"}
               </button>
               {!isNew && form.status === "DRAFT" && (
                 <button type="button" onClick={() => void save("PUBLISHED")} disabled={saving} className="rounded-lg border border-brand-red px-3 py-2 text-sm font-medium text-brand-red hover:bg-red-50 disabled:opacity-60">

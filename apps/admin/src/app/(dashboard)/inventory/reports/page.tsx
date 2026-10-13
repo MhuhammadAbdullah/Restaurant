@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "../../../../components/LoadingDots";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { formatPaisa } from "@restaurant/utils";
@@ -75,7 +76,7 @@ export default function ReportsPage() {
       </div>
 
       {isLoading || !data ? (
-        <p className="mt-6 text-sm text-neutral-400">Loading...</p>
+        <p className="mt-6 text-sm text-neutral-400"><LoadingDots>Loading</LoadingDots></p>
       ) : (
         <>
           <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">

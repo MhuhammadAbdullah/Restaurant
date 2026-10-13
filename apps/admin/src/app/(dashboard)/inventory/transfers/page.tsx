@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "../../../../components/LoadingDots";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { INVENTORY_UNITS, type InventoryUnit } from "@restaurant/validation";
@@ -91,7 +92,7 @@ export default function TransfersPage() {
           </thead>
           <tbody className="divide-y divide-neutral-100">
             {isLoading ? (
-              <tr><td colSpan={7} className="p-6 text-center text-neutral-400">Loading...</td></tr>
+              <tr><td colSpan={7} className="p-6 text-center text-neutral-400"><LoadingDots>Loading</LoadingDots></td></tr>
             ) : shown.length === 0 ? (
               <tr><td colSpan={7} className="p-8 text-center text-neutral-500">{(data ?? []).length === 0 ? "No transfers yet." : "No transfers match the filters."}</td></tr>
             ) : (
@@ -196,7 +197,7 @@ function NewTransfer({ branches, initialFrom, onClose, onSaved }: { branches: { 
       <Field label="Note (optional)"><input value={note} onChange={(e) => setNote(e.target.value)} className={`${INPUT} mt-3`} maxLength={300} /></Field>
       <div className="mt-4 flex justify-end gap-2">
         <button type="button" onClick={onClose} disabled={saving} className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50">Cancel</button>
-        <button type="button" onClick={() => void save()} disabled={saving} className="rounded-lg bg-brand-red px-4 py-2 text-sm font-medium text-white disabled:opacity-60">{saving ? "Moving..." : "Transfer"}</button>
+        <button type="button" onClick={() => void save()} disabled={saving} className="rounded-lg bg-brand-red px-4 py-2 text-sm font-medium text-white disabled:opacity-60">{saving ? <LoadingDots>Moving</LoadingDots> : "Transfer"}</button>
       </div>
     </Modal>
   );

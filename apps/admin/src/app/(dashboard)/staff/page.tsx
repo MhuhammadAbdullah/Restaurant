@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "../../../components/LoadingDots";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -260,7 +261,7 @@ function StaffFormModal({
 
           <div className="sticky bottom-[-1.25rem] z-10 -mx-5 -mb-5 flex items-center gap-3 border-t border-neutral-200 bg-white px-5 py-3">
             <button disabled={saving} className="rounded-lg bg-brand-red px-4 py-2 text-sm font-medium text-white disabled:opacity-60">
-              {saving ? "Saving..." : mode === "create" ? "Create & set permissions" : "Save Changes"}
+              {saving ? <LoadingDots>Saving</LoadingDots> : mode === "create" ? "Create & set permissions" : "Save Changes"}
             </button>
             <button type="button" onClick={onClose} className="rounded-lg border border-brand-red bg-red-50 px-4 py-2 text-sm font-medium text-brand-red hover:bg-red-100">Cancel</button>
           </div>
@@ -519,7 +520,7 @@ export default function StaffPage() {
                 The account is closed straight away: they are signed out, can no longer log in, and disappear from this list. Orders and payments they handled stay in your records, so reports and history are not affected. This cannot be undone.
               </p>
               <div className="mt-5 flex items-center gap-3">
-                <button type="button" onClick={confirmDelete} disabled={deleting} className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60">{deleting ? "Deleting..." : "Delete"}</button>
+                <button type="button" onClick={confirmDelete} disabled={deleting} className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60">{deleting ? <LoadingDots>Deleting</LoadingDots> : "Delete"}</button>
                 <button type="button" onClick={() => setDeleteTarget(null)} className="rounded-lg border border-brand-red bg-red-50 px-4 py-2 text-sm font-medium text-brand-red hover:bg-red-100">Cancel</button>
               </div>
             </div>

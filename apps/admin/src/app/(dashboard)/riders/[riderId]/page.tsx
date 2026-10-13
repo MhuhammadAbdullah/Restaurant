@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "../../../../components/LoadingDots";
 import { useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -454,7 +455,7 @@ export default function RiderDetailPage() {
                   );
                 })}
                 {!deliveries && (
-                  <tr><td colSpan={6} className="px-4 py-8 text-center text-neutral-400">Loading deliveries...</td></tr>
+                  <tr><td colSpan={6} className="px-4 py-8 text-center text-neutral-400"><LoadingDots>Loading deliveries</LoadingDots></td></tr>
                 )}
                 {deliveries?.length === 0 && (
                   <tr><td colSpan={6} className="px-4 py-10 text-center text-neutral-400">No deliveries match these filters.</td></tr>
@@ -558,7 +559,7 @@ export default function RiderDetailPage() {
                       disabled={!countedMatches || settling}
                       className="rounded-lg bg-brand-red px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
                     >
-                      {settling ? "Saving..." : "Mark cash received"}
+                      {settling ? <LoadingDots>Saving</LoadingDots> : "Mark cash received"}
                     </button>
                   </div>
                   {countedPaisa != null && pickedTotal > 0 && countedPaisa !== pickedTotal && (
@@ -639,7 +640,7 @@ export default function RiderDetailPage() {
                   </tr>
                 ))}
                 {!submissions && (
-                  <tr><td colSpan={8} className="px-4 py-8 text-center text-neutral-400">Loading submissions...</td></tr>
+                  <tr><td colSpan={8} className="px-4 py-8 text-center text-neutral-400"><LoadingDots>Loading submissions</LoadingDots></td></tr>
                 )}
                 {submissions?.length === 0 && (
                   <tr><td colSpan={8} className="px-4 py-10 text-center text-neutral-400">No collection submissions in this range.</td></tr>

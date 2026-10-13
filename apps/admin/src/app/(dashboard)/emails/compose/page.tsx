@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "../../../../components/LoadingDots";
 import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { FaPaperPlane } from "react-icons/fa6";
@@ -66,7 +67,7 @@ export default function ComposeEmailPage() {
         </div>
         <div className="flex justify-end border-t border-neutral-100 pt-4">
           <button type="button" onClick={send} disabled={!valid || sending} className="flex items-center gap-2 rounded-lg bg-brand-red px-6 py-2.5 text-sm font-semibold text-white disabled:opacity-40">
-            <FaPaperPlane size={12} /> {sending ? "Sending..." : "Send email"}
+            <FaPaperPlane size={12} /> {sending ? <LoadingDots>Sending</LoadingDots> : "Send email"}
           </button>
         </div>
       </fieldset>

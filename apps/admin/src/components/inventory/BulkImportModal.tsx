@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "../LoadingDots";
 import { useMemo, useState } from "react";
 import { INVENTORY_UNITS, type InventoryUnit } from "@restaurant/validation";
 import { api, ApiError } from "../../lib/api";
@@ -113,7 +114,7 @@ export function BulkImportModal({ branchId, branchName, onClose, onDone }: { bra
         <p className="text-xs text-neutral-500">{rows.length === 0 ? "" : `${good.length} ready${rows.length - good.length ? `, ${rows.length - good.length} need fixing` : ""}. Names that already exist are skipped.`}</p>
         <div className="flex gap-2">
           <button type="button" onClick={onClose} disabled={saving} className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50">Cancel</button>
-          <button type="button" onClick={() => void save()} disabled={saving || good.length === 0} className="rounded-lg bg-brand-red px-4 py-2 text-sm font-medium text-white disabled:opacity-50">{saving ? "Adding..." : `Add ${good.length || ""} item${good.length === 1 ? "" : "s"}`}</button>
+          <button type="button" onClick={() => void save()} disabled={saving || good.length === 0} className="rounded-lg bg-brand-red px-4 py-2 text-sm font-medium text-white disabled:opacity-50">{saving ? <LoadingDots>Adding</LoadingDots> : `Add ${good.length || ""} item${good.length === 1 ? "" : "s"}`}</button>
         </div>
       </div>
     </Modal>

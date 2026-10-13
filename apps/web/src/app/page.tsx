@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { api } from "../lib/api";
@@ -17,6 +17,7 @@ import { HomeFooterPromo } from "../components/HomeFooterPromo";
 import { SectionBanner } from "../components/SectionBanner";
 import { CategoryTabs, type TabItem } from "../components/CategoryTabs";
 import { SearchBar } from "../components/SearchBar";
+import { SearchResults } from "../components/SearchResults";
 import { ScrollFabs } from "../components/ScrollFabs";
 import {
   SkeletonCategoryTabs,
@@ -34,7 +35,6 @@ export default function HomePage() {
   const [activeProduct, setActiveProduct] = useState<Product | null>(null);
   const [activeDeal, setActiveDeal] = useState<Deal | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [submittedQuery, setSubmittedQuery] = useState("");
   const [activeTab, setActiveTab] = useState("popular");
   const [stuck, setStuck] = useState(false);
 
@@ -105,12 +105,9 @@ export default function HomePage() {
     placeholderData: keepPreviousData,
   });
 
-  const { data: searchResults, isLoading: searchLoading } = useQuery({
-    queryKey: ["search-products", branch?.id, submittedQuery],
-    queryFn: () => api.public.get<Product[]>(`/catalog/products?branchId=${branch?.id}&search=${encodeURIComponent(submittedQuery)}&includeOutOfStock=true`),
-    enabled: !!branch && submittedQuery.trim().length > 1,
-    placeholderData: keepPreviousData,
-  });
+  // Search runs on the menu that is already loaded, while the person types: no request per keystroke.
+  const searchTerm = useDeferredValue(searchQuery);
+  const searching = searchTerm.trim().length > 1;
 
   const tabsLoading = categoriesLoading || dealsLoading || sectionsLoading;
 
@@ -201,10 +198,10 @@ export default function HomePage() {
 
   function handleSearchChange(v: string) {
     setSearchQuery(v);
-    if (v.trim().length === 0) setSubmittedQuery("");
   }
+  // Results are already showing as you type; Enter or the button just brings them into view.
   function handleSearchSubmit() {
-    setSubmittedQuery(searchQuery);
+    scrollToSearch();
   }
 
   async function openProduct(id: string) {
@@ -242,22 +239,8 @@ export default function HomePage() {
           <ScrollFabs visible={stuck} onSearchClick={scrollToSearch} onTopClick={scrollToTop} />
 
           <div className="mx-auto max-w-7xl px-4 sm:px-8">
-            {submittedQuery.trim().length > 1 ? (
-              <section>
-                <h2 className="mb-4 text-lg font-semibold text-ink">Results for &quot;{submittedQuery}&quot;</h2>
-                {searchLoading ? (
-                  <SkeletonGrid count={8} render={(i) => <SkeletonProductCard key={i} />} />
-                ) : (
-                  <>
-                    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4">
-                      {searchResults?.map((p) => (
-                        <ProductCard key={p.id} product={p} onClick={() => openProduct(p.id)} />
-                      ))}
-                    </div>
-                    {searchResults?.length === 0 && <p className="text-sm text-muted">No items match your search.</p>}
-                  </>
-                )}
-              </section>
+            {searching ? (
+              <SearchResults query={searchTerm} products={allProducts ?? []} deals={deals ?? []} categories={categories ?? []} dealsCategory={dealsCategory} onOpenProduct={openProduct} onOpenDeal={openDeal} />
             ) : (
               <>
                 <section

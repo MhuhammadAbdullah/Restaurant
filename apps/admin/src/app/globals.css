@@ -163,3 +163,36 @@ body {
   html.dark *::-webkit-scrollbar-thumb { border-color: #1b1b1f; }
   html.dark img { filter: none; }
 }
+/* ---- Buttons feel alive: a quick press, a soft hover, a clear keyboard focus. Utility classes on a button still win (zero-specificity :where). ---- */
+@media (prefers-reduced-motion: no-preference) {
+  :where(button, [role="button"]) {
+    transition-property: background-color, border-color, color, box-shadow, opacity, filter, scale;
+    transition-duration: 160ms;
+    transition-timing-function: ease;
+  }
+  :where(button:not(:disabled), [role="button"]:not([aria-disabled="true"])):hover {
+    filter: brightness(0.97) saturate(1.08);
+  }
+  :where(button:not(:disabled), [role="button"]:not([aria-disabled="true"])):active {
+    scale: 0.95;
+    filter: brightness(0.94);
+  }
+  :where(button:disabled) {
+    cursor: not-allowed;
+  }
+  /* Animated dots of a loading label, e.g. "Saving..." */
+  .dots > span {
+    display: inline-block;
+    animation: dots-wave 1.2s ease-in-out infinite;
+  }
+  .dots > span:nth-child(2) { animation-delay: 0.15s; }
+  .dots > span:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes dots-wave {
+    0%, 60%, 100% { opacity: 0.25; transform: translateY(0); }
+    30% { opacity: 1; transform: translateY(-3px); }
+  }
+}
+:where(button, [role="button"]):focus-visible {
+  outline: 2px solid #ED2320;
+  outline-offset: 2px;
+}

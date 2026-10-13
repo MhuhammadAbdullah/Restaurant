@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "../../../components/LoadingDots";
 import { SearchInput } from "../../../components/SearchFilterBar";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -346,7 +347,7 @@ export default function ComplaintsPage() {
               );
             })}
             {isLoading && (
-              <tr><td colSpan={8} className="px-4 py-10 text-center text-neutral-400">Loading complaints...</td></tr>
+              <tr><td colSpan={8} className="px-4 py-10 text-center text-neutral-400"><LoadingDots>Loading complaints</LoadingDots></td></tr>
             )}
             {isError && !all && (
               <tr><td colSpan={8} className="px-4 py-10 text-center text-red-600">Could not load complaints. Please refresh.</td></tr>

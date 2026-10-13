@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "../../../components/LoadingDots";
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -26,7 +27,7 @@ function describeApiError(e: ApiError): string {
   return e.message;
 }
 
-const MapLoading = () => <div className="flex h-72 items-center justify-center rounded-xl border border-neutral-200 bg-neutral-50 text-sm text-neutral-400">Loading map...</div>;
+const MapLoading = () => <div className="flex h-72 items-center justify-center rounded-xl border border-neutral-200 bg-neutral-50 text-sm text-neutral-400"><LoadingDots>Loading map</LoadingDots></div>;
 const LocationMap = dynamic(() => import("../../../components/maps/BranchMaps").then((m) => m.LocationMap), { ssr: false, loading: MapLoading });
 const CoverageMap = dynamic(() => import("../../../components/maps/BranchMaps").then((m) => m.CoverageMap), { ssr: false, loading: MapLoading });
 
@@ -174,7 +175,7 @@ function ConfirmModal({ title, body, confirmLabel, busy, onConfirm, onClose }: {
           <div className="text-sm text-neutral-600">{body}</div>
           <div className="mt-5 flex items-center gap-3">
             <button type="button" onClick={onConfirm} disabled={busy} className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60">
-              {busy ? "Working..." : confirmLabel}
+              {busy ? <LoadingDots>Working</LoadingDots> : confirmLabel}
             </button>
             <button type="button" onClick={onClose} className="rounded-lg border border-brand-red bg-red-50 px-4 py-2 text-sm font-medium text-brand-red hover:bg-red-100">Cancel</button>
           </div>
@@ -799,7 +800,7 @@ function BranchFormModal({ branch, cities, existingCodes, otherBranches, onClose
 
           <div className="sticky bottom-[-1.25rem] z-10 -mx-5 -mb-5 flex items-center gap-3 border-t border-neutral-200 bg-white px-5 py-3">
             <button type="submit" disabled={saving} className="rounded-lg bg-brand-red px-4 py-2 text-sm font-medium text-white disabled:opacity-60">
-              {saving ? "Saving..." : isEdit ? "Save Changes" : "Create Branch"}
+              {saving ? <LoadingDots>Saving</LoadingDots> : isEdit ? "Save Changes" : "Create Branch"}
             </button>
             <button type="button" onClick={onClose} className="rounded-lg border border-brand-red bg-red-50 px-4 py-2 text-sm font-medium text-brand-red hover:bg-red-100">Cancel</button>
             {firstError && <span className="ml-auto truncate text-xs text-red-600">{firstError}</span>}

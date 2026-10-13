@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "../../../components/LoadingDots";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatPaisa } from "@restaurant/utils";
@@ -207,7 +208,7 @@ export default function InventoryStockPage() {
       {/* Phones: one card per item */}
       <div className="mt-3 space-y-2 md:hidden">
         {isLoading ? (
-          <p className="p-6 text-center text-sm text-neutral-400">Loading...</p>
+          <p className="p-6 text-center text-sm text-neutral-400"><LoadingDots>Loading</LoadingDots></p>
         ) : shown.length === 0 ? (
           <p className="rounded-xl border border-dashed border-neutral-300 bg-white p-6 text-center text-sm text-neutral-500">{all.length === 0 ? "No items yet. Add your first ingredient." : "Nothing matches."}</p>
         ) : (
@@ -261,7 +262,7 @@ export default function InventoryStockPage() {
           </thead>
           <tbody className="divide-y divide-neutral-100">
             {isLoading ? (
-              <tr><td colSpan={9} className="p-6 text-center text-neutral-400">Loading...</td></tr>
+              <tr><td colSpan={9} className="p-6 text-center text-neutral-400"><LoadingDots>Loading</LoadingDots></td></tr>
             ) : shown.length === 0 ? (
               <tr><td colSpan={9} className="p-8 text-center text-neutral-500">{all.length === 0 ? "No items yet. Add your first ingredient, or paste a whole list with Add many." : "Nothing matches."}</td></tr>
             ) : (
@@ -386,7 +387,7 @@ function ItemModal({ row, branchId, categories, onClose, onSaved }: { row: Stock
         )}
         <div className="flex justify-end gap-2 pt-2">
           <button type="button" onClick={onClose} disabled={saving} className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50">Cancel</button>
-          <button disabled={saving} className="rounded-lg bg-brand-red px-4 py-2 text-sm font-medium text-white disabled:opacity-60">{saving ? "Saving..." : "Save"}</button>
+          <button disabled={saving} className="rounded-lg bg-brand-red px-4 py-2 text-sm font-medium text-white disabled:opacity-60">{saving ? <LoadingDots>Saving</LoadingDots> : "Save"}</button>
         </div>
       </form>
     </Modal>
@@ -474,7 +475,7 @@ function StockModal({ row, mode: initial, branchId, onClose, onSaved }: { row: S
         )}
         <div className="flex justify-end gap-2 pt-1">
           <button type="button" onClick={onClose} disabled={saving} className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50">Cancel</button>
-          <button disabled={saving || tooMuch} className="rounded-lg bg-brand-red px-4 py-2 text-sm font-medium text-white disabled:opacity-60">{saving ? "Saving..." : "Save"}</button>
+          <button disabled={saving || tooMuch} className="rounded-lg bg-brand-red px-4 py-2 text-sm font-medium text-white disabled:opacity-60">{saving ? <LoadingDots>Saving</LoadingDots> : "Save"}</button>
         </div>
       </form>
     </Modal>

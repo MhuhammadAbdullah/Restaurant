@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "../../../components/LoadingDots";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FaCircleCheck, FaEye, FaEyeSlash, FaImage, FaKey, FaRegCircleUser } from "react-icons/fa6";
@@ -225,7 +226,7 @@ export default function ProfilePage() {
                 </button>
               )}
               <button type="submit" disabled={!detailsDirty || savingDetails || !!nameError || !!phoneError} className="rounded-lg bg-brand-red px-6 py-2 text-sm font-semibold text-white disabled:opacity-40">
-                {savingDetails ? "Saving..." : "Save changes"}
+                {savingDetails ? <LoadingDots>Saving</LoadingDots> : "Save changes"}
               </button>
             </div>
           </form>
@@ -245,7 +246,7 @@ export default function ProfilePage() {
                   <button type="button" onClick={() => setLoginImage(site?.adminLoginImageUrl ?? "")} disabled={savingImage} className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50">Discard</button>
                 )}
                 <button type="button" onClick={saveLoginImage} disabled={!imageDirty || savingImage} className="rounded-lg bg-brand-red px-6 py-2 text-sm font-semibold text-white disabled:opacity-40">
-                  {savingImage ? "Saving..." : "Save picture"}
+                  {savingImage ? <LoadingDots>Saving</LoadingDots> : "Save picture"}
                 </button>
               </div>
             </section>
@@ -280,7 +281,7 @@ export default function ProfilePage() {
                 <FaCircleCheck size={11} /> Forgot your current password? Ask an admin to reset it.
               </p>
               <button type="submit" disabled={savingPw || !current || !next || !confirm} className="rounded-lg bg-brand-red px-6 py-2 text-sm font-semibold text-white disabled:opacity-40">
-                {savingPw ? "Updating..." : "Update password"}
+                {savingPw ? <LoadingDots>Updating</LoadingDots> : "Update password"}
               </button>
             </div>
           </form>

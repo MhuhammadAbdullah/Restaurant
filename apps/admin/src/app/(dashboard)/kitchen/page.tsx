@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "../../../components/LoadingDots";
 import { SearchInput } from "../../../components/SearchFilterBar";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -383,7 +384,7 @@ export default function KitchenPage() {
 
       {isError && (
         <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
-          Could not refresh the board{error instanceof Error && error.message ? `: ${error.message}` : ""}. {history ? "Try selecting the date again." : "Retrying..."}
+          Could not refresh the board{error instanceof Error && error.message ? `: ${error.message}` : ""}. {history ? "Try selecting the date again." : <LoadingDots>Retrying</LoadingDots>}
         </p>
       )}
 
@@ -397,7 +398,7 @@ export default function KitchenPage() {
               Clear
             </button>
             <button onClick={runBulkAction} disabled={bulkLoading} className="rounded-lg bg-brand-red px-3.5 py-1.5 text-xs font-semibold text-white disabled:opacity-60">
-              {bulkLoading ? "Working..." : `${action.bulk} (${selected.size})`}
+              {bulkLoading ? <LoadingDots>Working</LoadingDots> : `${action.bulk} (${selected.size})`}
             </button>
           </div>
         </div>
@@ -487,7 +488,7 @@ export default function KitchenPage() {
                           disabled={actingId === o.id}
                           className={`whitespace-nowrap rounded-lg px-3.5 py-2 text-xs font-semibold text-white transition disabled:opacity-60 ${action.button}`}
                         >
-                          {actingId === o.id ? "Updating..." : action.label(o)}
+                          {actingId === o.id ? <LoadingDots>Updating</LoadingDots> : action.label(o)}
                         </button>
                       ) : (
                         <span className="text-xs text-neutral-400">{activeTab === "DONE" ? "Finished" : "Called off — stop preparing"}</span>
@@ -507,7 +508,7 @@ export default function KitchenPage() {
             })}
             {!orders && (
               <tr>
-                <td colSpan={colCount} className="px-4 py-8 text-center text-neutral-400">Loading orders...</td>
+                <td colSpan={colCount} className="px-4 py-8 text-center text-neutral-400"><LoadingDots>Loading orders</LoadingDots></td>
               </tr>
             )}
             {orders && tabOrders.length === 0 && (

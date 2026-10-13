@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "../../../../../components/LoadingDots";
 import { use, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -91,7 +92,7 @@ export default function KitchenTicketPage({ params }: { params: Promise<{ orderI
     }
   }
 
-  if (isLoading) return <p className="p-6 text-sm text-neutral-400">Loading ticket...</p>;
+  if (isLoading) return <p className="p-6 text-sm text-neutral-400"><LoadingDots>Loading ticket</LoadingDots></p>;
   if (error || !data) return <p className="p-6 text-sm text-red-600">{error instanceof ApiError ? error.message : "Could not load kitchen ticket"}</p>;
 
   const { restaurant, order: ord } = data;

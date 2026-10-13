@@ -58,7 +58,7 @@ export class ProductsService {
           ? { branchAvailability: { some: query.includeOutOfStock === "true" ? { branchId: query.branchId } : { branchId: query.branchId, isAvailable: true } } }
           : {}),
       },
-      include: {
+      include: query.full === "true" ? { ...PRODUCT_DETAIL_INCLUDE, category: true } : {
         images: { orderBy: { sortOrder: "asc" } },
         branchAvailability: true,
         category: true,

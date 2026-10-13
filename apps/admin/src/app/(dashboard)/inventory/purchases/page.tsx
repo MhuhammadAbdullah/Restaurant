@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "../../../../components/LoadingDots";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatPaisa } from "@restaurant/utils";
@@ -130,7 +131,7 @@ export default function PurchasesPage() {
           </thead>
           <tbody className="divide-y divide-neutral-100">
             {isLoading ? (
-              <tr><td colSpan={7} className="p-6 text-center text-neutral-400">Loading...</td></tr>
+              <tr><td colSpan={7} className="p-6 text-center text-neutral-400"><LoadingDots>Loading</LoadingDots></td></tr>
             ) : (data ?? []).length === 0 ? (
               <tr><td colSpan={7} className="p-8 text-center text-neutral-500">No purchase orders yet.</td></tr>
             ) : (
@@ -264,7 +265,7 @@ function NewPo({ branchId, prefill, editing, onClose, onSaved }: { branchId: str
         {total > 0 && <p className="mr-auto text-sm text-neutral-600">Total: <b className="text-neutral-900">{formatPaisa(total)}</b></p>}
         <button type="button" onClick={onClose} disabled={saving} className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50">Cancel</button>
         {(!editing || editing.status === "DRAFT") && <button type="button" onClick={() => void save("DRAFT")} disabled={saving} className="rounded-lg border border-brand-red px-4 py-2 text-sm font-medium text-brand-red hover:bg-red-50 disabled:opacity-60">Save draft</button>}
-        <button type="button" onClick={() => void save("ORDERED")} disabled={saving} className="rounded-lg bg-brand-red px-4 py-2 text-sm font-medium text-white disabled:opacity-60">{saving ? "Saving..." : editing ? (editing.status === "DRAFT" ? "Save and order" : "Save changes") : "Create order"}</button>
+        <button type="button" onClick={() => void save("ORDERED")} disabled={saving} className="rounded-lg bg-brand-red px-4 py-2 text-sm font-medium text-white disabled:opacity-60">{saving ? <LoadingDots>Saving</LoadingDots> : editing ? (editing.status === "DRAFT" ? "Save and order" : "Save changes") : "Create order"}</button>
       </div>
     </Modal>
   );
@@ -307,7 +308,7 @@ function ReceivePo({ po, onClose, onSaved }: { po: Po; onClose: () => void; onSa
       <Field label="Note (optional)"><input value={note} onChange={(e) => setNote(e.target.value)} className={`${INPUT} mt-3`} maxLength={300} /></Field>
       <div className="mt-4 flex justify-end gap-2">
         <button type="button" onClick={onClose} disabled={saving} className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50">Cancel</button>
-        <button type="button" onClick={() => void save()} disabled={saving} className="rounded-lg bg-brand-red px-4 py-2 text-sm font-medium text-white disabled:opacity-60">{saving ? "Saving..." : "Receive into stock"}</button>
+        <button type="button" onClick={() => void save()} disabled={saving} className="rounded-lg bg-brand-red px-4 py-2 text-sm font-medium text-white disabled:opacity-60">{saving ? <LoadingDots>Saving</LoadingDots> : "Receive into stock"}</button>
       </div>
     </Modal>
   );

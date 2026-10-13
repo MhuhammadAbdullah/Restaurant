@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "../../components/LoadingDots";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -129,7 +130,7 @@ export default function LoginPage() {
               {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2.5 text-sm text-red-700">{error}</p>}
 
               <button disabled={loading} className="w-full rounded-lg bg-brand-red py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60">
-                {loading ? "Logging in..." : "Login"}
+                {loading ? <LoadingDots>Logging in</LoadingDots> : "Login"}
               </button>
             </div>
           </form>

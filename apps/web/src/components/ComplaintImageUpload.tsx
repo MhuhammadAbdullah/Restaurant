@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "./LoadingDots";
 import { useRef, useState } from "react";
 import { FaCloudArrowUp, FaXmark } from "react-icons/fa6";
 import { api, ApiError } from "../lib/api";
@@ -103,7 +104,7 @@ export function ComplaintImageUpload({ value, onChange }: { value: string[]; onC
           {uploading ? (
             <>
               <span className="h-7 w-7 animate-spin rounded-full border-[3px] border-brand-red/20 border-t-brand-red" />
-              <span className="text-sm font-medium text-ink">Uploading...</span>
+              <span className="text-sm font-medium text-ink"><LoadingDots>Uploading</LoadingDots></span>
             </>
           ) : (
             <>

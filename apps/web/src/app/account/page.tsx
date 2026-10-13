@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "../../components/LoadingDots";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -209,7 +210,7 @@ export default function ProfilePage() {
             </button>
           )}
           <button type="submit" disabled={saving || !dirty} className="rounded-xl bg-brand-red px-8 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40">
-            {saving ? "Saving..." : "Save changes"}
+            {saving ? <LoadingDots>Saving</LoadingDots> : "Save changes"}
           </button>
         </div>
       </form>
@@ -244,7 +245,7 @@ export default function ProfilePage() {
                   Keep my account
                 </button>
                 <button onClick={requestAccountDeletion} disabled={deleting} className="flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-60">
-                  {deleting ? "Sending..." : "Yes, request deletion"}
+                  {deleting ? <LoadingDots>Sending</LoadingDots> : "Yes, request deletion"}
                 </button>
               </div>
             </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "../../../../components/LoadingDots";
 import { useEffect, useMemo, useState } from "react";
 import { FaArrowUpRightFromSquare } from "react-icons/fa6";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -213,7 +214,7 @@ export default function LegalPagesSettingsPage() {
             </div>
 
             {!pages ? (
-              <div className="mt-4 flex h-64 items-center justify-center rounded-lg border border-neutral-200 text-sm text-neutral-400">Loading...</div>
+              <div className="mt-4 flex h-64 items-center justify-center rounded-lg border border-neutral-200 text-sm text-neutral-400"><LoadingDots>Loading</LoadingDots></div>
             ) : activeTab === "faqs" ? (
               <>
                 <div className="mt-4">
@@ -308,7 +309,7 @@ export default function LegalPagesSettingsPage() {
 
           <div className="sticky bottom-0 z-10 flex items-center gap-3 rounded-xl border border-neutral-200 bg-white px-4 py-3 shadow-lg">
             <button className="rounded-lg bg-brand-red px-4 py-2 text-sm font-medium text-white disabled:opacity-60" disabled={saving || !dirty}>
-              {saving ? "Saving..." : "Save Changes"}
+              {saving ? <LoadingDots>Saving</LoadingDots> : "Save Changes"}
             </button>
             <button
               type="button"

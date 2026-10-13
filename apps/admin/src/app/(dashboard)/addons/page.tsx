@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "../../../components/LoadingDots";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatPaisa, effectivePrice, discountPercent } from "@restaurant/utils";
@@ -478,7 +479,7 @@ export default function AddonsPage() {
 
               <div className="sticky bottom-[-1.25rem] z-10 -mx-5 -mb-5 flex items-center gap-3 border-t border-neutral-200 bg-white px-5 py-3">
                 <button type="submit" className="rounded-lg bg-brand-red px-4 py-2 text-sm font-medium text-white disabled:opacity-60" disabled={saving}>
-                  {saving ? "Saving..." : editingId ? "Save Changes" : "Create Add-on"}
+                  {saving ? <LoadingDots>Saving</LoadingDots> : editingId ? "Save Changes" : "Create Add-on"}
                 </button>
                 <button type="button" onClick={closeForm} className="rounded-lg border border-brand-red bg-red-50 px-4 py-2 text-sm font-medium text-brand-red hover:bg-red-100">
                   Cancel
@@ -504,7 +505,7 @@ export default function AddonsPage() {
               </p>
               <div className="mt-5 flex items-center gap-3">
                 <button type="button" onClick={confirmDelete} disabled={deleting} className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60">
-                  {deleting ? "Deleting..." : "Delete"}
+                  {deleting ? <LoadingDots>Deleting</LoadingDots> : "Delete"}
                 </button>
                 <button type="button" onClick={() => setDeleteTarget(null)} className="rounded-lg border border-brand-red bg-red-50 px-4 py-2 text-sm font-medium text-brand-red hover:bg-red-100">
                   Cancel
