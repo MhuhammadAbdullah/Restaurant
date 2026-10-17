@@ -94,6 +94,17 @@ const HERO_ICON: Record<string, { icon: React.ReactElement; bg: string }> = {
 };
 
 /** Mirrors the on-page layout (hero status, status card, order info, items, payment) as a self-contained downloadable snapshot — frozen at whatever status the order was in at download time. */
+/** "about 12 min" until the promised time, refreshed every 20 seconds; says so when the time has passed. */
+function TimeLeft({ until, label }: { until: string; label: string }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 20_000);
+    return () => clearInterval(t);
+  }, []);
+  const mins = Math.ceil((new Date(until).getTime() - now) / 60_000);
+  return <Row label={label} value={mins > 0 ? `about ${mins} min` : "any moment now"} />;
+}
+
 function downloadReceipt(order: OrderDetail, restaurantName: string, isPickup: boolean, isDelivery: boolean, mapUrl: string | null) {
   const { headline, subtext } = getStatusMessage(order.status);
   const hero = HERO_ICON[order.status] ?? { icon: <FaCircleCheck size={26} />, bg: "#22c55e" };
@@ -438,7 +449,10 @@ export default function OrderConfirmationPage({ params }: { params: Promise<{ or
             <Row label="Order Type" value={order.type.replace(/_/g, " ")} />
             <Row label="Date" value={new Date(order.createdAt).toLocaleString()} />
             {order.estimatedDeliveryAt && (
-              <Row label="Estimated Delivery" value={new Date(order.estimatedDeliveryAt).toLocaleTimeString()} />
+              <Row label={isPickup ? "Estimated Ready" : "Estimated Delivery"} value={new Date(order.estimatedDeliveryAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} />
+            )}
+            {order.estimatedDeliveryAt && !["DELIVERED", "COMPLETED", "CANCELLED", "REFUNDED"].includes(order.status) && (
+              <TimeLeft until={order.estimatedDeliveryAt} label={isPickup ? "Ready in" : "Arriving in"} />
             )}
           </div>
 

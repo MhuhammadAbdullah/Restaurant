@@ -11,7 +11,7 @@ import { toast } from "../../../store/useToastStore";
 import { confirmDialog } from "../../../store/useConfirmStore";
 import { useSelectedBranch } from "../../../lib/useSelectedBranch";
 import { useMe, hasPermission } from "../../../lib/useMe";
-import { OrderDetailModal, STATUSES, TERMINAL } from "../../../components/orders/OrderDetailModal";
+import { OrderDetailModal, STATUSES, TERMINAL, prefetchOrderDetail } from "../../../components/orders/OrderDetailModal";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select";
 import { DateRangePopover } from "../../../components/ui/date-range-popover";
 
@@ -365,7 +365,7 @@ export default function OrdersPage() {
                   <input type="checkbox" checked={selected.has(o.id)} onChange={() => toggleSelected(o.id)} aria-label={`Select order ${o.orderNumber}`} />
                 </td>
                 <td className="px-4 py-2 font-medium">
-                  <button onClick={() => setDetailOrderId(o.id)} className="hover:text-brand-red hover:underline">{o.orderCode ?? o.orderNumber}</button>
+                  <button onClick={() => setDetailOrderId(o.id)} onMouseEnter={() => void prefetchOrderDetail(queryClient, o.id)} className="hover:text-brand-red hover:underline">{o.orderCode ?? o.orderNumber}</button>
                   <p className="text-[11px] text-neutral-400">Inv {o.orderNumber.replace(/\D/g, "")}</p>
                 </td>
                 <td className="px-4 py-2 text-xs text-neutral-600">{o.customer?.name ?? "Guest"}</td>

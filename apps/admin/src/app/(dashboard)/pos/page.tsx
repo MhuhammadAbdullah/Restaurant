@@ -13,12 +13,19 @@ import { TipPicker } from "../../../components/pos/TipPicker";
 import { ProductConfigModal, type ProductDetail, type ProductCartLine } from "../../../components/pos/ProductConfigModal";
 import { DealConfigModal, type Deal, type DealCartLine } from "../../../components/pos/DealConfigModal";
 import { TableBillPanel } from "../../../components/pos/TableBillPanel";
-import { CashIcon, CardIcon } from "../../../components/pos/payment-icons";
-import { MinusIcon, PlusIcon } from "../../../components/icons";
+import { PaymentModal, type PaymentChoice } from "../../../components/pos/PaymentModal";
+import { PrintDialog, type PrintChoice } from "../../../components/pos/PrintDialog";
+import { ActiveOrdersDrawer, useActiveOrders } from "../../../components/pos/ActiveOrdersDrawer";
+import { hasPermission, useMe } from "../../../lib/useMe";
+import { CloseIcon, MinusIcon, PlusIcon } from "../../../components/icons";
+import { AreaCombobox } from "../../../components/pos/AreaCombobox";
 import {
   FaBoxOpen,
   FaCartShopping,
   FaCheck,
+  FaChair,
+  FaClipboardList,
+  FaStore,
   FaMagnifyingGlass,
   FaMotorcycle,
   FaPenToSquare,
@@ -49,6 +56,9 @@ type TableRow = {
   openOrder: { id: string; orderNumber: string; status: string; grandTotal: number; paidTotal: number; balanceDue: number; itemCount: number; createdAt: string } | null;
 };
 type CustomerLite = { id: string; name: string; phone: string; loyaltyAccount: { pointsBalance: number } | null };
+/** What the phone lookup returns: the customer plus the delivery addresses saved for them. */
+type SavedAddress = { id: string; label: string; city: string; area: string; addressLine: string; landmark: string | null; contactNumber: string | null; isDefault: boolean };
+type LookupCustomer = { id: string; name: string; phone: string; email: string | null; isGuest: boolean; loyaltyPoints: number; addresses: SavedAddress[] };
 type Quote = {
   subtotal: number;
   taxPct: number;
@@ -75,7 +85,6 @@ const TABLE_STATUS_META: Record<TableRow["status"], { label: string; dot: string
   RESERVED: { label: "Reserved", dot: "bg-amber-500", card: "border-amber-200 bg-amber-50/60 hover:border-amber-500" },
   CLEANING: { label: "Cleaning", dot: "bg-blue-500", card: "border-blue-200 bg-blue-50/60 hover:border-blue-500" },
 };
-const QUICK_CASH = [500, 1000, 2000, 5000];
 const fieldClass =
   "w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm placeholder:text-neutral-400 focus:border-brand-red focus:outline-none disabled:bg-neutral-50";
 
@@ -133,7 +142,10 @@ function minutesSince(iso: string): string {
 export default function PosPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { branchId, branches } = useSelectedBranch();
+  const { branchId, branches, setBranchId, ready: branchesReady } = useSelectedBranch();
+  const { data: me } = useMe();
+  const canSeeOrders = hasPermission(me, "orders.view,pos.access");
+  const { data: activeOrders } = useActiveOrders(branchId ?? "", canSeeOrders);
 
   // ---- Order setup ----
   const [orderType, setOrderType] = useState<(typeof ORDER_TYPES)[number]>("TAKEAWAY");
@@ -142,7 +154,7 @@ export default function PosPage() {
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [foundCustomer, setFoundCustomer] = useState<CustomerLite | null>(null);
-  const [customerSearchResults, setCustomerSearchResults] = useState<CustomerLite[]>([]);
+  const [customerSearchResults, setCustomerSearchResults] = useState<LookupCustomer[]>([]);
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerAltPhone, setCustomerAltPhone] = useState("");
   const [deliveryNote, setDeliveryNote] = useState("");
@@ -169,8 +181,12 @@ export default function PosPage() {
   const [loyaltyRedeem, setLoyaltyRedeem] = useState(0);
 
   // ---- Payment ----
-  const [paymentMethod, setPaymentMethod] = useState<"CASH" | "CARD">("CASH");
-  const [amountTendered, setAmountTendered] = useState("");
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [printOpen, setPrintOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+  // The phone number of a customer just picked from the suggestions, so the list does not pop open again for it.
+  const [lookupSkip, setLookupSkip] = useState<string | null>(null);
   const [tip, setTip] = useState(""); // optional tip, in rupees
   const [tipOpen, setTipOpen] = useState(false);
 
@@ -194,7 +210,8 @@ export default function PosPage() {
   const [amendOrderId, setAmendOrderId] = useState<string | null>(null);
 
   // ---- UI-only toggles ----
-  const [customerOpen, setCustomerOpen] = useState(false);
+  const [customerDrawerOpen, setCustomerDrawerOpen] = useState(false);
+  const [tableDrawerOpen, setTableDrawerOpen] = useState(false);
   const [couponOpen, setCouponOpen] = useState(false);
 
   const { data: restaurantInfo } = useQuery({
@@ -297,25 +314,34 @@ export default function PosPage() {
                 );
   };
 
-  // Searching looks across the whole menu and groups the matches by category, like the storefront.
+  // "All" and searching show the menu grouped by category, in the same order as the category buttons above (the order set in
+  // Admin > Categories), each group under its category name. A single category or the Deals button shows just that one.
   const dealsCategory = activeCategories.find((c) => c.name.toLowerCase() === "deals");
+  const showGrouped = !!searchTerm || isAllTab;
   const searchGroups = useMemo(() => {
-    if (!searchTerm) return [];
-    const words = searchTerm.split(/s+/).filter(Boolean);
+    if (!showGrouped) return [];
+    const words = searchTerm.split(/\s+/).filter(Boolean);
     const matches = (name: string, category: string) => {
       const hay = `${name} ${category}`.toLowerCase();
       return words.every((w) => hay.includes(w));
     };
+    const dealsGroup = () => {
+      const ds = (deals ?? []).filter((d) => matches(d.name, dealsCategory?.name ?? "Deals"));
+      return ds.length > 0 && !discountedOnly ? [{ key: "deals", name: dealsCategory?.name ?? "Deals", products: [] as ProductListItem[], deals: ds }] : [];
+    };
     const out: { key: string; name: string; products: ProductListItem[]; deals: Deal[] }[] = [];
+    // With no Deals category among the buttons, deals come first, as before.
+    if (!dealsCategory) out.push(...dealsGroup());
     for (const c of activeCategories) {
-      if (c.id === dealsCategory?.id) continue;
+      if (c.id === dealsCategory?.id) {
+        out.push(...dealsGroup());
+        continue;
+      }
       const ps = (products ?? []).filter((p) => p.categoryId === c.id && (!discountedOnly || p.discountPrice != null) && matches(p.name, c.name));
       if (ps.length > 0) out.push({ key: c.id, name: c.name, products: ps, deals: [] });
     }
-    const ds = (deals ?? []).filter((d) => matches(d.name, dealsCategory?.name ?? "Deals"));
-    if (ds.length > 0 && !discountedOnly) out.push({ key: "deals", name: dealsCategory?.name ?? "Deals", products: [], deals: ds });
     return out;
-  }, [searchTerm, products, deals, activeCategories, dealsCategory, discountedOnly]);
+  }, [showGrouped, searchTerm, products, deals, activeCategories, dealsCategory, discountedOnly]);
   function openCategory(key: string) {
     setSearchInput("");
     if (key === "deals") setShowDeals(true);
@@ -403,44 +429,150 @@ export default function PosPage() {
 
   const subtotal = cart.reduce((s, l) => s + lineTotal(l), 0);
 
-  // Live search as the phone number is typed. People who only ever appeared on an order ("guest:" ids)
-  // have no profile to attach — selecting one just pre-fills the name and phone.
+  useEffect(() => {
+    if (!tableDrawerOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setTableDrawerOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [tableDrawerOpen]);
+  useEffect(() => {
+    if (!customerDrawerOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setCustomerDrawerOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [customerDrawerOpen]);
+
+  // The address starts in the branch's own city; the area is picked from the areas set up for that city.
+  const { data: publicBranches } = useQuery({ queryKey: ["branches-public"], queryFn: () => api.get<{ id: string; city: string }[]>("/branches"), staleTime: 5 * 60_000 });
+  const branchCity = publicBranches?.find((b) => b.id === branchId)?.city ?? "";
+  useEffect(() => {
+    if (branchCity) setDeliveryAddress((cur) => (cur.city.trim() ? cur : { ...cur, city: branchCity }));
+  }, [branchCity]);
+  // The areas are loaded as soon as the branch is known (not when the drawer is opened) and kept for half an hour, so the
+  // Area box has its list the moment it is tapped. Searching then happens on the list already here.
+  const areaCity = deliveryAddress.city.trim() || branchCity;
+  const { data: cityAreas, isLoading: areasLoading } = useQuery({
+    queryKey: ["pos-areas", areaCity.toLowerCase()],
+    queryFn: () => api.get<string[]>(`/branches/areas?city=${encodeURIComponent(areaCity)}`),
+    enabled: !!areaCity,
+    staleTime: 30 * 60_000,
+    gcTime: 60 * 60_000,
+    placeholderData: (prev) => prev,
+  });
+
+  // ---- Customer search in the drawer: the latest customers load once and are filtered as you type (instant); the server is
+  // asked as well, so older customers are found too.
+  const [custQuery, setCustQuery] = useState("");
+  const [custRemote, setCustRemote] = useState<LookupCustomer[]>([]);
+  const [custSearching, setCustSearching] = useState(false);
+  const { data: recentCustomers } = useQuery({
+    queryKey: ["pos-recent-customers"],
+    queryFn: () => api.get<LookupCustomer[]>("/staff/customers/lookup?q="),
+    enabled: customerDrawerOpen,
+    staleTime: 60_000,
+  });
+  const custTerm = custQuery.trim().toLowerCase();
+  useEffect(() => {
+    if (custTerm.length < 2) {
+      setCustRemote([]);
+      setCustSearching(false);
+      return;
+    }
+    let cancelled = false;
+    setCustSearching(true);
+    const t = setTimeout(async () => {
+      try {
+        const r = await api.get<LookupCustomer[]>(`/staff/customers/lookup?q=${encodeURIComponent(custQuery.trim())}`);
+        if (!cancelled) setCustRemote(r);
+      } catch {
+        if (!cancelled) setCustRemote([]);
+      } finally {
+        if (!cancelled) setCustSearching(false);
+      }
+    }, 200);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [custTerm, custQuery]);
+  const custResults = useMemo(() => {
+    const all = recentCustomers ?? [];
+    if (!custTerm) return [];
+    // the same idea as the server: a number matches in any format (03XX, +92, 92...)
+    let digits = custTerm.replace(/\D/g, "");
+    if (digits.startsWith("00")) digits = digits.slice(2);
+    if (digits.startsWith("92") && (custTerm.startsWith("+") || digits.length >= 11)) digits = digits.slice(2);
+    else if (digits.startsWith("0")) digits = digits.slice(1);
+    const phoneTerm = digits.length >= 3 ? digits : "";
+    const local = all.filter((c) => c.name.toLowerCase().includes(custTerm) || (c.email ?? "").toLowerCase().includes(custTerm) || (!!phoneTerm && c.phone.replace(/\D/g, "").includes(phoneTerm)));
+    const seen = new Set(local.map((c) => c.id));
+    return [...local, ...custRemote.filter((c) => !seen.has(c.id))].slice(0, 8);
+  }, [recentCustomers, custRemote, custTerm]);
+  function pickFromSearch(c: LookupCustomer) {
+    setCustQuery("");
+    setCustRemote([]);
+    setLookupSkip(null);
+    selectCustomer(c, true);
+  }
+
+  // Customer lookup while the phone number is typed. Any way of writing the number finds the customer (03XX, +92, 92...); the
+  // server returns the matches with their saved addresses, and the cashier picks one. Nothing is filled in until they do.
   useEffect(() => {
     const q = customerPhone.trim();
-    if (foundCustomer || q.length < 4) {
+    if (foundCustomer || q === lookupSkip || q.replace(/\D/g, "").length < 4) {
       setCustomerSearchResults([]);
       return;
     }
     let cancelled = false;
     const t = setTimeout(async () => {
       try {
-        const results = await api.get<CustomerLite[]>(`/staff/customers?search=${encodeURIComponent(q)}`);
-        if (cancelled) return;
-        setCustomerSearchResults(results.slice(0, 6));
-        const exact = results.find((r) => r.phone === q);
-        if (exact) selectCustomer(exact);
+        const results = await api.get<LookupCustomer[]>(`/staff/customers/lookup?phone=${encodeURIComponent(q)}`);
+        if (!cancelled) setCustomerSearchResults(results);
       } catch {
         if (!cancelled) setCustomerSearchResults([]);
       }
-    }, 300);
+    }, 250);
     return () => {
       cancelled = true;
       clearTimeout(t);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [customerPhone, foundCustomer]);
+  }, [customerPhone, foundCustomer, lookupSkip]);
 
-  function selectCustomer(c: CustomerLite) {
-    if (c.id.startsWith("guest:")) {
-      setCustomerName(c.name);
-      setCustomerPhone(c.phone);
+  /**
+   * Picking a suggestion fills the customer's details. Only boxes that are still empty are filled, so nothing the cashier has
+   * already typed is overwritten; the customer's other saved addresses stay one tap away under the address heading.
+   */
+  function selectCustomer(c: LookupCustomer, fresh = false) {
+    if (c.isGuest || c.id.startsWith("guest:")) {
+      // Phone-only profile (they ordered before without an account): keep the phone, no account to attach.
+      setLookupSkip(c.phone);
     } else {
-      setFoundCustomer(c);
-      setCustomerName(c.name);
-      setCustomerPhone(c.phone);
+      setFoundCustomer({ id: c.id, name: c.name, phone: c.phone, loyaltyAccount: { pointsBalance: c.loyaltyPoints } });
+    }
+    setCustomerName(c.name);
+    setCustomerPhone(c.phone);
+    if (fresh) setCustomerEmail(c.email ?? "");
+    else if (c.email && !customerEmail.trim()) setCustomerEmail(c.email);
+    setSavedAddresses(c.addresses);
+    const a = c.addresses.find((x) => x.isDefault) ?? c.addresses[0];
+    if (fresh) {
+      setDeliveryAddress(a ? { city: a.city || branchCity, area: a.area, addressLine: a.addressLine, landmark: a.landmark ?? "" } : { city: branchCity, area: "", addressLine: "", landmark: "" });
+      setCustomerAltPhone(a?.contactNumber && a.contactNumber !== c.phone ? a.contactNumber : "");
+    } else if (a) {
+      setDeliveryAddress((cur) => ({
+        city: cur.city.trim() ? cur.city : a.city || branchCity,
+        area: cur.area.trim() ? cur.area : a.area,
+        addressLine: cur.addressLine.trim() ? cur.addressLine : a.addressLine,
+        landmark: cur.landmark.trim() ? cur.landmark : a.landmark ?? "",
+      }));
+      if (a.contactNumber && a.contactNumber !== c.phone && !customerAltPhone.trim()) setCustomerAltPhone(a.contactNumber);
     }
     setCustomerSearchResults([]);
     setLoyaltyRedeem(0);
+  }
+  function useSavedAddress(a: SavedAddress) {
+    setDeliveryAddress({ city: a.city || branchCity, area: a.area, addressLine: a.addressLine, landmark: a.landmark ?? "" });
+    if (a.contactNumber && a.contactNumber !== customerPhone) setCustomerAltPhone(a.contactNumber);
   }
   function clearCustomer() {
     setFoundCustomer(null);
@@ -448,6 +580,8 @@ export default function PosPage() {
     setCustomerPhone("");
     setCustomerEmail("");
     setCustomerAltPhone("");
+    setSavedAddresses([]);
+    setLookupSkip(null);
     setLoyaltyRedeem(0);
   }
 
@@ -479,7 +613,7 @@ export default function PosPage() {
   // Exact amount due (tax, delivery fee, discounts) straight from the server — the cashier never has to
   // guess the total or the change. Re-priced whenever the cart, order type, coupon or points change.
   const quoteItems = useMemo(() => buildItems(), [cart]); // eslint-disable-line react-hooks/exhaustive-deps
-  const { data: quote } = useQuery({
+  const { data: rawQuote, isFetching: quoteFetching } = useQuery({
     queryKey: ["pos-quote", branchId, orderType, appliedCoupon?.code ?? "", loyaltyRedeem, foundCustomer?.id ?? "", quoteItems],
     queryFn: () =>
       api.post<Quote>("/pos/orders/quote", {
@@ -493,6 +627,9 @@ export default function PosPage() {
     enabled: !!branchId && cart.length > 0 && !amendOrderId,
     placeholderData: (prev) => prev,
   });
+  // The last price is kept on screen while a new one is worked out, but never for an empty cart: with nothing in it there is
+  // nothing to price, so no subtotal, tax or total is shown.
+  const quote = cart.length > 0 ? rawQuote : undefined;
 
   const { data: lastAddress } = useQuery({
     queryKey: ["pos-last-address", foundCustomer?.id],
@@ -502,7 +639,7 @@ export default function PosPage() {
       );
       return orders.find((o) => o.deliveryAddressSnapshot) ?? null;
     },
-    enabled: !!foundCustomer && !foundCustomer.id.startsWith("guest:") && orderType === "DELIVERY",
+    enabled: !!foundCustomer && !foundCustomer.id.startsWith("guest:") && true,
   });
 
   async function applyCoupon() {
@@ -543,13 +680,16 @@ export default function PosPage() {
     setOrderNote("");
     setNoteOpen(false);
     setTableId("");
-    setDeliveryAddress({ city: "", area: "", addressLine: "", landmark: "" });
+    setDeliveryAddress({ city: branchCity, area: "", addressLine: "", landmark: "" });
     setCouponInput("");
     setAppliedCoupon(null);
     setLoyaltyRedeem(0);
-    setAmountTendered("");
     setTip("");
     setTipOpen(false);
+    setSavedAddresses([]);
+    setLookupSkip(null);
+    setPaymentOpen(false);
+    setPrintOpen(false);
     setLastResult(null);
     setAmendOrderId(null);
     setIdempotencyKey(newIdempotencyKey());
@@ -559,15 +699,13 @@ export default function PosPage() {
   // Dine-in bills are settled later, from the table, so no payment is taken at placement.
   const isDineIn = orderType === "DINE_IN";
   const total = quote?.grandTotal ?? Math.max(0, subtotal - (appliedCoupon?.discountAmount ?? 0));
-  const tenderedPaisa = amountTendered.trim() ? Math.round(Number(amountTendered) * 100) : null;
   // Optional tip, on top of the bill (not part of the order total, reported separately).
   const tipPaisa = !isDineIn && tip.trim() && Number(tip) > 0 ? Math.round(Number(tip) * 100) : 0;
   const toCollect = total + tipPaisa;
-  const cashShort = !isDineIn && paymentMethod === "CASH" && tenderedPaisa != null && tenderedPaisa < toCollect;
-  const changeDue = !isDineIn && paymentMethod === "CASH" && tenderedPaisa != null && tenderedPaisa >= toCollect ? tenderedPaisa - toCollect : 0;
 
-  async function placeOrder() {
-    if (!branchId || cart.length === 0) return;
+  /** `pay` comes from the payment popup (counter orders); dine-in bills and added items are placed without one. */
+  async function placeOrder(pay?: PaymentChoice) {
+    if (!branchId || cart.length === 0 || placing) return;
     setPlacing(true);
     try {
       if (amendOrderId) {
@@ -587,7 +725,9 @@ export default function PosPage() {
         setCart([]);
         setIdempotencyKey(newIdempotencyKey());
       } else {
-        const cashPaid = !isDineIn && paymentMethod === "CASH" && tenderedPaisa != null;
+        const method: "CASH" | "CARD" = isDineIn ? "CASH" : pay?.method ?? "CASH";
+        const tenderedPaisa = pay?.method === "CASH" ? pay.tendered ?? null : null;
+        const cashPaid = !isDineIn && method === "CASH" && tenderedPaisa != null;
         const result = await api.post<{ id: string; orderNumber: string; grandTotal: number; paymentStatus: string; type: string }>("/pos/orders", {
           branchId,
           type: orderType,
@@ -595,18 +735,19 @@ export default function PosPage() {
           customerId: foundCustomer?.id,
           customerName: customerName || undefined,
           customerPhone: customerPhone || undefined,
-          customerAlternatePhone: orderType === "DELIVERY" ? customerAltPhone.trim() || undefined : undefined,
+          customerAlternatePhone: customerAltPhone.trim() || undefined,
           customerEmail: customerEmail.trim() || undefined,
           specialInstructions:
-            [orderNote.trim(), orderType === "DELIVERY" && deliveryNote.trim() ? `Rider: ${deliveryNote.trim()}` : ""].filter(Boolean).join(" | ").slice(0, 500) || undefined,
-          deliveryAddress: orderType === "DELIVERY" ? deliveryAddress : undefined,
+            [orderNote.trim(), deliveryNote.trim() ? (orderType === "DELIVERY" ? `Rider: ${deliveryNote.trim()}` : deliveryNote.trim()) : ""].filter(Boolean).join(" | ").slice(0, 500) || undefined,
+          deliveryAddress: orderType === "DELIVERY" || (deliveryAddress.city.trim() && deliveryAddress.area.trim() && deliveryAddress.addressLine.trim()) ? deliveryAddress : undefined,
           items: buildItems(),
           couponCode: appliedCoupon?.code,
           loyaltyPointsToRedeem: loyaltyEnabled ? loyaltyRedeem || undefined : undefined,
-          paymentMethod: isDineIn ? "CASH" : paymentMethod,
+          paymentMethod: method,
           amountTendered: cashPaid ? tenderedPaisa : undefined,
           tipAmount: tipPaisa > 0 ? tipPaisa : undefined,
-          clientTotal: quote?.grandTotal,
+          // Only vouched for when the price shown is up to date; the server prices the order itself either way.
+          clientTotal: quoteFetching ? undefined : quote?.grandTotal,
           idempotencyKey,
         });
         setLastResult({
@@ -621,6 +762,11 @@ export default function PosPage() {
           tip: tipPaisa > 0 ? tipPaisa : undefined,
         });
         setCart([]);
+        setPaymentOpen(false);
+        setPrintOpen(true);
+        // Load the receipts now, while the print dialog is open, so the print page already has them when a button is pressed.
+        if (result.type !== "DINE_IN") void queryClient.prefetchQuery({ queryKey: ["receipt-customer", result.id], queryFn: () => api.get(`/staff/orders/${result.id}/receipt/customer`) });
+        void queryClient.prefetchQuery({ queryKey: ["receipt-kitchen", result.id, undefined, false], queryFn: () => api.get(`/staff/orders/${result.id}/receipt/kitchen`) });
       }
       refreshFloor();
     } catch (e) {
@@ -630,6 +776,14 @@ export default function PosPage() {
     } finally {
       setPlacing(false);
     }
+  }
+
+  /** Goes to the print page for the chosen slip(s); it prints straight away and comes back here. */
+  function choosePrint(choice: PrintChoice) {
+    if (!lastResult) return;
+    const id = lastResult.id;
+    setPrintOpen(false);
+    router.push(choice === "customer" ? `/pos/receipt/${id}` : choice === "kitchen" ? `/pos/kitchen-ticket/${id}` : `/pos/print/${id}?parts=both`);
   }
 
   async function confirmCardPayment() {
@@ -643,6 +797,7 @@ export default function PosPage() {
   }
 
   function pickTable(t: TableRow) {
+    setTableDrawerOpen(false);
     if (t.status === "OCCUPIED" && t.openOrder) {
       // Occupied table with a live bill: open it for adding items and taking payment.
       setTableId(t.id);
@@ -679,16 +834,39 @@ export default function PosPage() {
     !!branchId &&
     (orderType !== "DINE_IN" || !!tableId) &&
     !selectedTableBlocked &&
-    (orderType !== "DELIVERY" || (!!deliveryAddress.addressLine.trim() && !!customerName.trim() && !!customerPhone.trim()));
+    (orderType !== "DELIVERY" || (!!deliveryAddress.city.trim() && !!deliveryAddress.area.trim() && !!deliveryAddress.addressLine.trim() && !!customerName.trim() && !!customerPhone.trim())) &&
+    // for other order types an address is optional, but a half-filled one cannot be saved
+    (orderType === "DELIVERY" || !(!!deliveryAddress.area.trim() || !!deliveryAddress.addressLine.trim()) || (!!deliveryAddress.city.trim() && !!deliveryAddress.area.trim() && !!deliveryAddress.addressLine.trim()));
 
+  if (!branchesReady) {
+    return <p className="py-16 text-center text-sm text-neutral-400"><LoadingDots>Loading</LoadingDots></p>;
+  }
+
+  // With more than one branch, nothing is shown until one is chosen (a single branch is chosen automatically).
   if (!branchId && branches.length > 1) {
     return (
-      <div className="flex flex-col items-center rounded-xl border border-dashed border-neutral-300 p-8 text-center">
-        <span className="flex h-14 w-14 items-center justify-center rounded-full bg-red-50 text-brand-red">
-          <FaCashRegister size={24} />
+      <div className="flex min-h-[60vh] flex-col items-center justify-center rounded-xl border border-dashed border-neutral-300 bg-white p-8 text-center">
+        <span className="flex h-16 w-16 items-center justify-center rounded-full bg-red-50 text-brand-red">
+          <FaCashRegister size={28} />
         </span>
-        <p className="mt-4 text-sm font-medium text-neutral-700">Select a branch above to start a POS order</p>
-        <p className="mt-1 text-xs text-neutral-400">You have access to {branches.length} branches. Pick one from the switcher in the header.</p>
+        <h1 className="mt-4 text-lg font-semibold text-neutral-900">Choose a branch to start selling</h1>
+        <p className="mt-1 max-w-sm text-sm text-neutral-500">Each branch has its own menu, tables and orders. Pick the one you are working at.</p>
+        <div className="mt-5 grid w-full max-w-md gap-2.5 sm:grid-cols-2">
+          {branches.map((b) => (
+            <button
+              key={b.id}
+              type="button"
+              onClick={() => setBranchId(b.id)}
+              className="flex items-center gap-3 rounded-xl border-2 border-neutral-200 bg-white px-4 py-3 text-left transition hover:border-brand-red hover:bg-brand-red/5"
+            >
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-red/10 text-brand-red"><FaStore size={15} /></span>
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-semibold text-neutral-900">{b.name}</span>
+                <span className="block text-xs text-neutral-400">{b.code}</span>
+              </span>
+            </button>
+          ))}
+        </div>
       </div>
     );
   }
@@ -725,17 +903,6 @@ export default function PosPage() {
               onChange={(e) => setCustomerPhone(e.target.value)}
               className={fieldClass}
             />
-            {customerSearchResults.length > 0 && !foundCustomer && (
-              <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-lg">
-                <p className="border-b border-neutral-100 px-3 py-1.5 text-[11px] font-medium uppercase tracking-wide text-neutral-400">Existing customers</p>
-                {customerSearchResults.map((c) => (
-                  <button key={c.id} onClick={() => selectCustomer(c)} className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-neutral-50">
-                    <span className="truncate font-medium text-neutral-800">{c.name}</span>
-                    <span className="shrink-0 text-xs text-neutral-500">{c.phone}</span>
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
           <div>
             <label className={label}>Name{star}</label>
@@ -758,13 +925,32 @@ export default function PosPage() {
             />
           </div>
         </div>
+        {customerSearchResults.length > 0 && !foundCustomer && (
+          <div className="overflow-hidden rounded-xl border border-brand-red/30 bg-white shadow-sm">
+            <p className="border-b border-neutral-100 bg-brand-red/5 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-brand-red">Customers with this number: tap one to fill the details</p>
+            {customerSearchResults.map((c) => (
+              <button key={c.id} type="button" onClick={() => selectCustomer(c, false)} className="flex w-full items-center justify-between gap-3 border-b border-neutral-100 px-3 py-2.5 text-left text-sm last:border-b-0 hover:bg-neutral-50">
+                <span className="min-w-0">
+                  <span className="block truncate font-medium text-neutral-800">{c.name}{c.isGuest && <span className="ml-1.5 rounded bg-neutral-100 px-1 text-[10px] font-medium text-neutral-500">phone only</span>}</span>
+                  {c.addresses[0] && <span className="block truncate text-[11px] text-neutral-400">{c.addresses[0].addressLine}</span>}
+                </span>
+                <span className="shrink-0 text-xs text-neutral-500">{c.phone}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     );
   }
 
   const cartCount = cart.reduce((n, l) => n + l.quantity, 0);
   const branchName = branches.find((b) => b.id === branchId)?.name;
-  const showCustomerFields = customerOpen || !!customerPhone || !!customerName || !!foundCustomer;
+  // A delivery order needs the customer's name and phone and a delivery address before it can be placed.
+  const isDeliveryType = orderType === "DELIVERY";
+  const addressComplete = !!deliveryAddress.city.trim() && !!deliveryAddress.area.trim() && !!deliveryAddress.addressLine.trim();
+  // (the city alone, which starts as the branch's city, is not a half-filled address)
+  const addressPartial = !addressComplete && (!!deliveryAddress.area.trim() || !!deliveryAddress.addressLine.trim());
+  const deliveryReady = !!customerName.trim() && !!customerPhone.trim() && addressComplete;
   const showCouponField = couponOpen || !!appliedCoupon;
   const amendTable = amendOrderId ? tables?.find((t) => t.openOrder?.id === amendOrderId) : undefined;
 
@@ -776,6 +962,47 @@ export default function PosPage() {
           <div>
             <h1 className="text-xl font-semibold text-neutral-900">Point of Sale</h1>
             {branchName && <p className="text-xs text-neutral-500">{branchName}</p>}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+          {isDineIn && (
+            <button
+              type="button"
+              onClick={() => setTableDrawerOpen(true)}
+              title={tableId ? "Change the table" : "Select a table"}
+              className={`relative inline-flex max-w-[260px] items-center gap-2 rounded-lg border bg-white px-3.5 py-2 text-sm font-medium transition focus:outline-none ${
+                tableId ? "border-neutral-300 text-neutral-700 hover:border-brand-red hover:text-brand-red" : "border-red-300 text-red-700 hover:border-brand-red"
+              }`}
+            >
+              <FaChair size={14} className="shrink-0" />
+              <span className="truncate">{selectedTable ? `Table ${selectedTable.name ?? selectedTable.number}` : tableId ? "Table selected" : "Select table"}</span>
+              {amendOrderId && <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">Open bill</span>}
+              {!tableId && <span className="h-2 w-2 shrink-0 rounded-full bg-red-500" aria-label="A table is needed" />}
+            </button>
+          )}
+          {!amendOrderId && (
+            <button
+              type="button"
+              onClick={() => setCustomerDrawerOpen(true)}
+              title={customerName.trim() || customerPhone.trim() ? "Edit the customer details" : "Add customer details"}
+              className={`relative inline-flex max-w-[260px] items-center gap-2 rounded-lg border bg-white px-3.5 py-2 text-sm font-medium transition focus:outline-none ${
+                isDeliveryType && !deliveryReady ? "border-red-300 text-red-700 hover:border-brand-red" : "border-neutral-300 text-neutral-700 hover:border-brand-red hover:text-brand-red"
+              }`}
+            >
+              <FaUserPlus size={14} className="shrink-0" />
+              <span className="truncate">{customerName.trim() || customerPhone.trim() || (isDeliveryType ? "Customer & address" : "Add customer")}</span>
+              {isDeliveryType && !deliveryReady && <span className="h-2 w-2 shrink-0 rounded-full bg-red-500" aria-label="Details needed" />}
+            </button>
+          )}
+          {canSeeOrders && branchId && (
+            <button
+              type="button"
+              onClick={() => setDrawerOpen(true)}
+              className="relative inline-flex items-center gap-2 rounded-lg border border-neutral-300 bg-white px-3.5 py-2 text-sm font-medium text-neutral-700 transition hover:border-brand-red hover:text-brand-red"
+            >
+              <FaClipboardList size={14} /> Active orders
+              {(activeOrders?.length ?? 0) > 0 && <span className="rounded-full bg-brand-red px-1.5 py-0.5 text-[11px] font-semibold leading-none text-white">{activeOrders!.length}</span>}
+            </button>
+          )}
           </div>
         </div>
 
@@ -806,95 +1033,6 @@ export default function PosPage() {
                 </button>
               );
             })}
-          </div>
-        )}
-
-        {isDineIn && (
-          <div className="mt-3 rounded-xl border border-neutral-200 bg-white p-3">
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <p className="text-xs font-medium text-neutral-500">Tables — tap an occupied table to view its bill, add items or take payment</p>
-              <span className="hidden shrink-0 items-center gap-3 text-[11px] text-neutral-400 sm:flex">
-                {(["AVAILABLE", "OCCUPIED"] as const).map((s) => (
-                  <span key={s} className="flex items-center gap-1"><span className={`h-2 w-2 rounded-full ${TABLE_STATUS_META[s].dot}`} />{TABLE_STATUS_META[s].label}</span>
-                ))}
-              </span>
-            </div>
-            {!tables ? (
-              <p className="py-4 text-center text-sm text-neutral-400"><LoadingDots>Loading tables</LoadingDots></p>
-            ) : tables.length === 0 ? (
-              <p className="py-4 text-center text-sm text-neutral-400">No tables set up for this branch.</p>
-            ) : (
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
-                {tables.map((t) => {
-                  const meta = TABLE_STATUS_META[t.status];
-                  const selected = tableId === t.id;
-                  return (
-                    <button
-                      key={t.id}
-                      onClick={() => pickTable(t)}
-                      className={`rounded-xl border-2 p-2.5 text-left transition ${meta.card} ${selected ? "ring-2 ring-brand-red ring-offset-1" : ""}`}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="truncate text-sm font-semibold text-neutral-900">{t.name ?? `T${t.number}`}</span>
-                        <span className="flex items-center gap-1 text-[11px] text-neutral-500"><span className={`h-2 w-2 rounded-full ${meta.dot}`} />{meta.label}</span>
-                      </div>
-                      {t.status === "OCCUPIED" && t.openOrder ? (
-                        <p className="mt-1.5 text-xs text-neutral-600">
-                          <span className="font-semibold text-brand-red">{formatPaisa(t.openOrder.balanceDue)}</span> due · {t.openOrder.itemCount} items · {minutesSince(t.openOrder.createdAt)}
-                        </p>
-                      ) : (
-                        <p className="mt-1.5 text-xs text-neutral-400">{t.status === "OCCUPIED" ? "No open order" : "Tap to start an order"}</p>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-            {selectedTableBlocked && selectedTable && (
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">
-                <span>This table is marked Occupied but has no open order.</span>
-                <button onClick={() => freeTable(selectedTable.id)} className="rounded-md bg-red-600 px-3 py-1 font-semibold text-white hover:bg-red-700">Mark available</button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {!amendOrderId && orderType === "DELIVERY" && (
-          <div className="mt-3 rounded-xl border border-neutral-200 bg-white p-4">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-sm font-semibold text-neutral-900">Customer details</p>
-              <span className="text-[11px] text-neutral-400">Name and phone are required so the rider can call</span>
-            </div>
-            <div className="mt-3">{renderCustomerForm({ required: true, delivery: true })}</div>
-
-            <div className="my-4 border-t border-neutral-100" />
-
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-sm font-semibold text-neutral-900">Delivery address</p>
-              {lastAddress && (
-                <button
-                  onClick={() =>
-                    setDeliveryAddress({
-                      city: lastAddress.deliveryCity ?? "",
-                      area: lastAddress.deliveryArea ?? "",
-                      addressLine: lastAddress.deliveryAddressSnapshot ?? "",
-                      landmark: lastAddress.deliveryLandmark ?? "",
-                    })
-                  }
-                  className="max-w-full truncate rounded-lg border border-brand-red/30 bg-brand-red/5 px-3 py-1 text-xs font-medium text-brand-red transition hover:bg-brand-red/10"
-                  title={lastAddress.deliveryAddressSnapshot ?? ""}
-                >
-                  Use last address: {lastAddress.deliveryAddressSnapshot}
-                </button>
-              )}
-            </div>
-            <div className="mt-3 grid grid-cols-2 gap-3">
-              <input placeholder="City" value={deliveryAddress.city} onChange={(e) => setDeliveryAddress({ ...deliveryAddress, city: e.target.value })} className={fieldClass} />
-              <input placeholder="Area" value={deliveryAddress.area} onChange={(e) => setDeliveryAddress({ ...deliveryAddress, area: e.target.value })} className={fieldClass} />
-              <input placeholder="Complete address *" value={deliveryAddress.addressLine} onChange={(e) => setDeliveryAddress({ ...deliveryAddress, addressLine: e.target.value })} className={`col-span-2 ${fieldClass}`} />
-              <input placeholder="Nearest landmark (optional)" value={deliveryAddress.landmark} onChange={(e) => setDeliveryAddress({ ...deliveryAddress, landmark: e.target.value })} className={`col-span-2 ${fieldClass}`} />
-              <input placeholder="Instructions for the rider (optional)" value={deliveryNote} onChange={(e) => setDeliveryNote(e.target.value)} className={`col-span-2 ${fieldClass}`} />
-            </div>
           </div>
         )}
 
@@ -950,12 +1088,12 @@ export default function PosPage() {
           })}
         </div>
 
-        {searchTerm ? (
+        {showGrouped ? (
           <div className="mt-5">
             {productsLoading || dealsLoading ? (
               <div className="grid"><PosLoading /></div>
             ) : searchGroups.length === 0 ? (
-              <p className="py-8 text-center text-sm text-neutral-400">Nothing matches &quot;{searchInput.trim()}&quot;.</p>
+              <p className="py-8 text-center text-sm text-neutral-400">{searchTerm ? <>Nothing matches &quot;{searchInput.trim()}&quot;.</> : "No items are available at this branch."}</p>
             ) : (
               searchGroups.map((g) => (
                 <div key={g.key} className="mb-8">
@@ -998,8 +1136,8 @@ export default function PosPage() {
       </div>
 
       {/* ======================= ORDER PANEL ======================= */}
-      <div className="w-full shrink-0 lg:sticky lg:top-4 lg:w-[400px]">
-        <div className="flex flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm lg:max-h-[calc(100vh-2rem)]">
+      <div className="w-full shrink-0 lg:sticky lg:top-0 lg:h-[calc(100dvh-7.25rem)] lg:w-[340px] xl:w-[360px] 2xl:w-[400px]">
+        <div className="flex flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm lg:h-full">
           {lastResult ? (
             <div className="overflow-y-auto p-5">
               <div className="flex flex-col items-center text-center">
@@ -1087,34 +1225,10 @@ export default function PosPage() {
                   </div>
                 )}
 
-                {!amendOrderId && orderType === "DELIVERY" && (
-                  <div className={`mb-3 rounded-lg px-3 py-2 text-xs ${customerName.trim() && customerPhone.trim() ? "bg-neutral-50 text-neutral-600" : "bg-red-50 text-red-700"}`}>
-                    {customerName.trim() && customerPhone.trim() ? (
-                      <>Deliver to <span className="font-semibold text-neutral-900">{customerName}</span> · {customerPhone}</>
-                    ) : (
-                      "Add the customer's name and phone in the delivery form."
-                    )}
-                  </div>
-                )}
-
-                {!amendOrderId && orderType !== "DELIVERY" && (
-                  <div className="mb-3">
-                    {!showCustomerFields ? (
-                      <button onClick={() => setCustomerOpen(true)} className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-red hover:underline">
-                        <FaUserPlus size={12} /> Add customer details (optional)
-                      </button>
-                    ) : (
-                      <div className="rounded-xl border border-neutral-200 p-3">
-                        <div className="mb-2.5 flex items-center justify-between">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Customer</p>
-                          {!foundCustomer && !customerPhone && !customerName && !customerEmail && (
-                            <button onClick={() => setCustomerOpen(false)} className="text-xs text-neutral-400 hover:text-neutral-700">Hide</button>
-                          )}
-                        </div>
-                        {renderCustomerForm({ required: false, delivery: false })}
-                      </div>
-                    )}
-                  </div>
+                {!amendOrderId && orderType === "DELIVERY" && !deliveryReady && (
+                  <button type="button" onClick={() => setCustomerDrawerOpen(true)} className="mb-3 block w-full rounded-lg bg-red-50 px-3 py-2 text-left text-xs font-medium text-red-700 hover:bg-red-100">
+                    Add the customer&apos;s name, phone and delivery address to place this order. Tap here.
+                  </button>
                 )}
 
                 {cart.length === 0 ? (
@@ -1176,7 +1290,7 @@ export default function PosPage() {
                       </p>
                     )}
                     <button
-                      onClick={placeOrder}
+                      onClick={() => void placeOrder()}
                       disabled={placing || cart.length === 0}
                       className="w-full rounded-xl bg-brand-red py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:opacity-50"
                     >
@@ -1297,90 +1411,31 @@ export default function PosPage() {
                       )}
 
                       <div className="flex items-center justify-between border-t border-neutral-200 bg-neutral-50 px-3 py-3">
-                        <span className="text-base font-semibold text-neutral-900">Total due</span>
-                        <span className="text-xl font-bold text-brand-red">{formatPaisa(toCollect)}</span>
+                        <span className="text-lg font-semibold text-neutral-900">Total due</span>
+                        <span className="text-2xl font-bold text-brand-red">{formatPaisa(toCollect)}</span>
                       </div>
                     </div>
 
-                    {isDineIn ? (
+                    {isDineIn && (
                       <p className="mt-3 rounded-lg bg-white px-3 py-2 text-xs text-neutral-500 ring-1 ring-neutral-200">
                         Dine-in is paid at the end of the meal — place the order now, then tap the table to collect payment (cash or card, split if needed).
                       </p>
-                    ) : (
-                      <div className="mt-3">
-                        <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-500">Payment method</p>
-                        <div className="grid grid-cols-2 gap-2">
-                          {(["CASH", "CARD"] as const).map((m) => (
-                            <button
-                              key={m}
-                              onClick={() => setPaymentMethod(m)}
-                              className={`flex flex-col items-center gap-1 rounded-xl border-2 py-2 text-xs font-medium transition ${
-                                paymentMethod === m ? "border-brand-red bg-brand-red/10 text-brand-red" : "border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300"
-                              }`}
-                            >
-                              {m === "CASH" && <CashIcon size={20} />}
-                              {m === "CARD" && <CardIcon size={20} />}
-                              {m === "CASH" ? "Cash" : "Card"}
-                            </button>
-                          ))}
-                        </div>
-                        {paymentMethod === "CASH" ? (
-                          <div className="mt-2.5">
-                            <input
-                              type="number"
-                              min={0}
-                              placeholder="Cash received (Rs.)"
-                              value={amountTendered}
-                              onChange={(e) => setAmountTendered(e.target.value)}
-                              className={fieldClass}
-                            />
-                            <div className="mt-2 flex flex-wrap gap-1.5">
-                              {toCollect > 0 && (
-                                <button
-                                  onClick={() => setAmountTendered(String(Math.ceil(toCollect / 100)))}
-                                  className="rounded-lg border border-neutral-300 bg-white px-3 py-1 text-xs font-medium text-neutral-600 hover:border-brand-red hover:text-brand-red"
-                                >
-                                  Exact
-                                </button>
-                              )}
-                              {QUICK_CASH.map((amt) => (
-                                <button
-                                  key={amt}
-                                  onClick={() => setAmountTendered(String(amt))}
-                                  className="rounded-lg border border-neutral-300 bg-white px-3 py-1 text-xs font-medium text-neutral-600 hover:border-brand-red hover:text-brand-red"
-                                >
-                                  {amt.toLocaleString()}
-                                </button>
-                              ))}
-                            </div>
-                            {tenderedPaisa != null && toCollect > 0 && (
-                              <div className={`mt-2 flex items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold ${cashShort ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>
-                                <span>{cashShort ? "Short by" : "Change to return"}</span>
-                                <span className="text-lg">{formatPaisa(cashShort ? toCollect - (tenderedPaisa ?? 0) : changeDue)}</span>
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <p className="mt-2 text-xs text-neutral-500">Payment stays pending until you confirm it after the customer&apos;s card is charged.</p>
-                        )}
-                      </div>
                     )}
 
                     <button
-                      onClick={placeOrder}
-                      disabled={placing || !canPlace || cashShort || (cart.length > 0 && !quote)}
-                      className="mt-3 w-full rounded-xl bg-brand-red py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:opacity-50"
+                      onClick={() => (isDineIn || amendOrderId ? void placeOrder() : setPaymentOpen(true))}
+                      disabled={placing || !canPlace}
+                      className="mt-3 w-full rounded-xl bg-brand-red py-3.5 text-base font-semibold text-white shadow-sm transition hover:opacity-90 disabled:opacity-50"
                     >
                       {placing ? <LoadingDots>Placing</LoadingDots> : `Place Order${cart.length > 0 ? ` · ${formatPaisa(toCollect)}` : ""}`}
                     </button>
-                    {cart.length > 0 && cashShort && <p className="mt-1.5 text-center text-xs text-red-600">Cash received is less than the total due.</p>}
                     {!canPlace && cart.length > 0 && (
                       <p className="mt-1.5 text-center text-xs text-neutral-400">
                         {orderType === "DINE_IN" && !tableId
                           ? "Select a table to continue."
                           : orderType === "DELIVERY" && (!customerName.trim() || !customerPhone.trim())
                             ? "Enter the customer's name and phone to continue."
-                            : orderType === "DELIVERY" && !deliveryAddress.addressLine.trim()
+                            : orderType === "DELIVERY" && !(deliveryAddress.city.trim() && deliveryAddress.area.trim() && deliveryAddress.addressLine.trim())
                               ? "Enter the delivery address to continue."
                               : ""}
                       </p>
@@ -1392,6 +1447,223 @@ export default function PosPage() {
           )}
         </div>
       </div>
+
+      {paymentOpen && (
+        <PaymentModal orderTotal={total} tip={tipPaisa} busy={placing} calculating={quoteFetching || !quote} onClose={() => setPaymentOpen(false)} onConfirm={(choice) => void placeOrder(choice)} />
+      )}
+      {printOpen && lastResult && !lastResult.isAmendment && (
+        <PrintDialog
+          orderNumber={lastResult.orderNumber}
+          isDineIn={lastResult.type === "DINE_IN"}
+          total={lastResult.grandTotal}
+          cashReceived={lastResult.cashTendered}
+          change={lastResult.changeDue}
+          onClose={() => setPrintOpen(false)}
+          onChoose={choosePrint}
+        />
+      )}
+      {/* Tables: slides in from the left */}
+      <div className={`fixed inset-0 z-[45] bg-black/40 transition-opacity duration-300 ${tableDrawerOpen ? "opacity-100" : "pointer-events-none opacity-0"}`} onClick={() => setTableDrawerOpen(false)} aria-hidden="true" />
+      <aside
+        role="dialog"
+        aria-modal="true"
+        aria-label="Select a table"
+        aria-hidden={!tableDrawerOpen}
+        className={`fixed left-0 top-0 z-[45] flex h-full w-full max-w-[520px] flex-col bg-white shadow-2xl transition-transform duration-300 ease-in-out ${tableDrawerOpen ? "translate-x-0" : "-translate-x-full"}`}
+      >
+        <div className="flex items-start justify-between gap-3 border-b border-neutral-200 px-5 py-4">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-base font-semibold text-neutral-900">Select a table</h2>
+            <p className="text-xs text-neutral-500">Tap a free table to start an order, or an occupied one to see its bill, add items or take payment</p>
+          </div>
+          <button type="button" onClick={() => setTableDrawerOpen(false)} aria-label="Close" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-red text-white hover:opacity-90"><CloseIcon size={14} /></button>
+        </div>
+        <div className="flex items-center gap-4 border-b border-neutral-100 px-5 py-2 text-[11px] text-neutral-500">
+          {(["AVAILABLE", "OCCUPIED"] as const).map((st) => (
+            <span key={st} className="flex items-center gap-1.5"><span className={`h-2.5 w-2.5 rounded-full ${TABLE_STATUS_META[st].dot}`} />{TABLE_STATUS_META[st].label}{tables ? ` (${tables.filter((t) => t.status === st).length})` : ""}</span>
+          ))}
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto bg-neutral-50 p-4">
+          {!tables ? (
+            <p className="py-10 text-center text-sm text-neutral-400"><LoadingDots>Loading tables</LoadingDots></p>
+          ) : tables.length === 0 ? (
+            <div className="flex flex-col items-center py-14 text-center">
+              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-brand-red/10 text-brand-red"><FaChair size={22} /></span>
+              <p className="mt-3 text-sm font-semibold text-neutral-800">No tables set up for this branch</p>
+              <p className="mt-1 text-xs text-neutral-500">Add tables under Tables in the menu.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              {tables.map((t) => {
+                const meta = TABLE_STATUS_META[t.status];
+                const selected = tableId === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => pickTable(t)}
+                    className={`rounded-xl border-2 p-3 text-left transition ${meta.card} ${selected ? "ring-2 ring-brand-red ring-offset-1" : ""}`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="truncate text-sm font-semibold text-neutral-900">{t.name ?? `T${t.number}`}</span>
+                      <span className="flex items-center gap-1 text-[11px] text-neutral-500"><span className={`h-2 w-2 rounded-full ${meta.dot}`} />{meta.label}</span>
+                    </div>
+                    {t.status === "OCCUPIED" && t.openOrder ? (
+                      <p className="mt-1.5 text-xs text-neutral-600">
+                        <span className="font-semibold text-brand-red">{formatPaisa(t.openOrder.balanceDue)}</span> due · {t.openOrder.itemCount} items · {minutesSince(t.openOrder.createdAt)}
+                      </p>
+                    ) : (
+                      <p className="mt-1.5 text-xs text-neutral-400">{t.status === "OCCUPIED" ? "No open order" : "Tap to start an order"}</p>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {selectedTableBlocked && selectedTable && (
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">
+              <span>{selectedTable.name ?? `T${selectedTable.number}`} is marked Occupied but has no open order.</span>
+              <button type="button" onClick={() => freeTable(selectedTable.id)} className="rounded-md bg-red-600 px-3 py-1 font-semibold text-white hover:bg-red-700">Mark available</button>
+            </div>
+          )}
+        </div>
+      </aside>
+
+      {/* Customer details: slides in from the left */}
+      <div className={`fixed inset-0 z-[45] bg-black/40 transition-opacity duration-300 ${customerDrawerOpen ? "opacity-100" : "pointer-events-none opacity-0"}`} onClick={() => setCustomerDrawerOpen(false)} aria-hidden="true" />
+      <aside
+        role="dialog"
+        aria-modal="true"
+        aria-label="Customer details"
+        aria-hidden={!customerDrawerOpen}
+        className={`fixed left-0 top-0 z-[45] flex h-full w-full max-w-[480px] flex-col bg-white shadow-2xl transition-transform duration-300 ease-in-out ${customerDrawerOpen ? "translate-x-0" : "-translate-x-full"}`}
+      >
+        <div className="flex items-start justify-between gap-3 border-b border-neutral-200 px-5 py-4">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-base font-semibold text-neutral-900">Customer details</h2>
+            <p className="text-xs text-neutral-500">Name, phone and address are needed for delivery; for other orders they are optional</p>
+          </div>
+          <button type="button" onClick={() => setCustomerDrawerOpen(false)} aria-label="Close" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-red text-white hover:opacity-90"><CloseIcon size={14} /></button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+          <div className="relative">
+            <FaMagnifyingGlass size={13} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" />
+            <input
+              value={custQuery}
+              onChange={(e) => setCustQuery(e.target.value)}
+              placeholder="Search customer by name, phone or email"
+              aria-label="Search customers"
+              className="h-11 w-full rounded-xl border border-neutral-300 bg-white pl-9 pr-9 text-sm outline-none focus:border-brand-red"
+            />
+            {custQuery && (
+              <button type="button" onClick={() => setCustQuery("")} aria-label="Clear search" className="absolute right-2.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"><CloseIcon size={11} /></button>
+            )}
+          </div>
+          {custTerm && (
+          <div className="mt-2 overflow-hidden rounded-xl border border-neutral-200">
+            <p className="border-b border-neutral-100 bg-neutral-50 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+              Search results{custSearching && <span className="ml-2 font-normal normal-case text-neutral-400">searching...</span>}
+            </p>
+            {custResults.length === 0 ? (
+              <p className="px-3 py-3 text-xs text-neutral-400">{custSearching ? "Looking..." : "No customer found. Enter the details below to add a new one."}</p>
+            ) : (
+              <ul className="max-h-60 divide-y divide-neutral-100 overflow-y-auto">
+                {custResults.map((c) => (
+                  <li key={c.id}>
+                    <button type="button" onClick={() => pickFromSearch(c)} className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-neutral-50">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-red/10 text-xs font-semibold text-brand-red">{c.name.charAt(0).toUpperCase()}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium text-neutral-800">{c.name}{c.isGuest && <span className="ml-1.5 rounded bg-neutral-100 px-1 text-[10px] font-medium text-neutral-500">phone only</span>}</span>
+                        <span className="block truncate text-[11px] text-neutral-400">{c.phone}{c.addresses[0] ? ` · ${c.addresses[0].addressLine}` : ""}</span>
+                      </span>
+                      <span className="shrink-0 text-xs font-semibold text-brand-red">Select</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          )}
+
+          <p className="mb-3 mt-5 text-xs font-semibold uppercase tracking-wide text-neutral-400">Customer details</p>
+          {renderCustomerForm({ required: isDeliveryType, delivery: true })}
+
+          <div className="my-5 border-t border-neutral-100" />
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-semibold text-neutral-900">Address<span className="ml-1.5 text-xs font-normal text-neutral-400">(needed for delivery)</span></p>
+            {lastAddress && (
+              <button
+                type="button"
+                onClick={() =>
+                  setDeliveryAddress({
+                    city: lastAddress.deliveryCity ?? "",
+                    area: lastAddress.deliveryArea ?? "",
+                    addressLine: lastAddress.deliveryAddressSnapshot ?? "",
+                    landmark: lastAddress.deliveryLandmark ?? "",
+                  })
+                }
+                className="max-w-full truncate rounded-lg border border-brand-red/30 bg-brand-red/5 px-3 py-1 text-xs font-medium text-brand-red transition hover:bg-brand-red/10"
+                title={lastAddress.deliveryAddressSnapshot ?? ""}
+              >
+                Use last address: {lastAddress.deliveryAddressSnapshot}
+              </button>
+            )}
+          </div>
+          {savedAddresses.length > 0 && (
+            <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+              <span className="text-[11px] font-medium uppercase tracking-wide text-neutral-400">Saved addresses</span>
+              {savedAddresses.map((a) => (
+                <button
+                  key={a.id}
+                  type="button"
+                  onClick={() => useSavedAddress(a)}
+                  title={a.addressLine}
+                  className="max-w-[260px] truncate rounded-lg border border-neutral-300 bg-white px-2.5 py-1 text-xs font-medium text-neutral-700 transition hover:border-brand-red hover:text-brand-red"
+                >
+                  {a.label}: {a.addressLine}
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-neutral-500">City{isDeliveryType && <span className="text-brand-red"> *</span>}</label>
+              <input placeholder="City" value={deliveryAddress.city} onChange={(e) => setDeliveryAddress({ ...deliveryAddress, city: e.target.value })} className={fieldClass} />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-neutral-500">Area{isDeliveryType && <span className="text-brand-red"> *</span>}</label>
+              <AreaCombobox value={deliveryAddress.area} options={cityAreas ?? []} loading={areasLoading} onChange={(area) => setDeliveryAddress((cur) => ({ ...cur, area }))} />
+            </div>
+            <div className="col-span-2">
+              <label className="mb-1 block text-xs font-medium text-neutral-500">Complete address{isDeliveryType && <span className="text-brand-red"> *</span>}</label>
+              <input placeholder="House / shop, street, block" value={deliveryAddress.addressLine} onChange={(e) => setDeliveryAddress({ ...deliveryAddress, addressLine: e.target.value })} className={fieldClass} />
+            </div>
+            <div className="col-span-2">
+              <label className="mb-1 block text-xs font-medium text-neutral-500">Nearest landmark</label>
+              <input placeholder="Optional" value={deliveryAddress.landmark} onChange={(e) => setDeliveryAddress({ ...deliveryAddress, landmark: e.target.value })} className={fieldClass} />
+            </div>
+            <div className="col-span-2">
+              <label className="mb-1 block text-xs font-medium text-neutral-500">Instructions {isDeliveryType ? "for the rider" : "for this order"}</label>
+              <input placeholder="Optional" value={deliveryNote} onChange={(e) => setDeliveryNote(e.target.value)} className={fieldClass} />
+            </div>
+          </div>
+          {addressPartial && !isDeliveryType && (
+            <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">An address is saved with the order only when city, area and the complete address are all filled. Fill the rest or clear these boxes.</p>
+          )}
+          {isDeliveryType && !deliveryReady && (
+            <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">Still needed: {[!customerName.trim() && "name", !customerPhone.trim() && "phone", !deliveryAddress.city.trim() && "city", !deliveryAddress.area.trim() && "area", !deliveryAddress.addressLine.trim() && "complete address"].filter(Boolean).join(", ")}.</p>
+          )}
+        </div>
+        <div className="flex items-center gap-2 border-t border-neutral-200 p-4">
+          {(customerName || customerPhone || foundCustomer) && (
+            <button type="button" onClick={clearCustomer} className="rounded-lg border border-neutral-300 px-4 py-2.5 text-sm font-medium text-neutral-600 hover:border-red-300 hover:text-red-600">Clear</button>
+          )}
+          <button type="button" onClick={() => setCustomerDrawerOpen(false)} className="flex-1 rounded-xl bg-brand-red py-2.5 text-sm font-semibold text-white hover:opacity-90">
+            {isDeliveryType && !deliveryReady ? "Save for now" : "Done"}
+          </button>
+        </div>
+      </aside>
+      {canSeeOrders && branchId && <ActiveOrdersDrawer branchId={branchId} open={drawerOpen} onClose={() => setDrawerOpen(false)} />}
 
       {configuringProduct && (
         <ProductConfigModal

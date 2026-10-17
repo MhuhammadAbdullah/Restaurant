@@ -1,10 +1,10 @@
 ﻿"use client";
 
 import { SearchInput } from "../SearchFilterBar";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { formatPaisa } from "@restaurant/utils";
+import { formatPaisa, minutesForOrderType, orderTimer, type BranchTimes } from "@restaurant/utils";
 import { api, ApiError } from "../../lib/api";
 import { useMe, hasPermission } from "../../lib/useMe";
 import { ProductConfigModal, type ProductDetail, type ProductCartLine } from "../pos/ProductConfigModal";
@@ -16,6 +16,10 @@ import { confirmDialog } from "../../store/useConfirmStore";
 import { Skeleton } from "../ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 
+/** Starts loading an order's details before its popup is opened (e.g. when the mouse reaches the button), so it opens at once. */
+export function prefetchOrderDetail(queryClient: { prefetchQuery: (o: { queryKey: unknown[]; queryFn: () => Promise<unknown>; staleTime?: number }) => Promise<void> }, orderId: string) {
+  return queryClient.prefetchQuery({ queryKey: ["order-detail", orderId], queryFn: () => api.get(`/staff/orders/${orderId}`), staleTime: 10_000 });
+}
 export const STATUSES = ["PENDING", "CONFIRMED", "PREPARING", "READY", "OUT_FOR_DELIVERY", "DELIVERED", "COMPLETED", "CANCELLED", "REFUNDED"];
 export const NEXT_STATUS: Record<string, string | null> = {
   PENDING: "CONFIRMED",
@@ -177,12 +181,12 @@ export type OrderDetail = {
   deliveryArea: string | null;
   deliveryLandmark: string | null;
   estimatedDeliveryAt: string | null;
-  branch: { id: string; name: string; address: string | null; city: string; area: string };
+  branch: { id: string; name: string; address: string | null; city: string; area: string } & BranchTimes;
   table: { number: string; name: string | null } | null;
   customer: { id: string; name: string; phone: string; email: string | null } | null;
   assignedRider: { id: string; name: string; phone: string | null } | null;
   items: OrderItemDetail[];
-  payments: { id: string; method: string; status: string; amount: number; transactionRef: string | null; createdAt: string }[];
+  payments: { id: string; method: string; provider: string | null; status: string; amount: number; transactionRef: string | null; createdAt: string }[];
   revisions: { id: string; staffId: string | null; previousGrandTotal: number; newGrandTotal: number; note: string | null; createdAt: string }[];
   branchTransfers: {
     id: string;
@@ -244,6 +248,7 @@ export function OrderDetailModal({ orderId, onClose, onNavigateReceipt }: { orde
   const canViewCustomers = hasPermission(me, "customers.view");
   const canTransfer = hasPermission(me, "orders.transfer");
   const canAssignRider = hasPermission(me, "riders.assign");
+  const canReversePayment = hasPermission(me, "orders.refund,orders.edit");
 
   const [viewingCustomerId, setViewingCustomerId] = useState<string | null>(null);
   const [statusPopupOpen, setStatusPopupOpen] = useState(false);
@@ -257,7 +262,20 @@ export function OrderDetailModal({ orderId, onClose, onNavigateReceipt }: { orde
   const [payMethod, setPayMethod] = useState<"CASH" | "CARD">("CASH");
 
   const { data: order } = useQuery({ queryKey: ["order-detail", orderId], queryFn: () => api.get<OrderDetail>(`/staff/orders/${orderId}`) });
-  const { data: printEvents } = useQuery({ queryKey: ["order-print-events", orderId], queryFn: () => api.get<PrintEvent[]>(`/staff/orders/${orderId}/print-events`) });
+  // The order's timer: counts down to the time promised for this kind of order, and shows how late it is after that.
+  const timerActive = !!order && !TERMINAL.has(order.status);
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    if (!timerActive) return;
+    setNowMs(Date.now());
+    const t = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [timerActive]);
+  const timer = order ? orderTimer({ type: order.type, status: order.status, createdAt: order.createdAt, estimatedDeliveryAt: order.estimatedDeliveryAt, branch: order.branch }, nowMs) : null;
+  const promisedMins = order ? minutesForOrderType(order.type, order.branch) : 0;
+  // Only the order itself is needed to open the popup. Everything else is fetched once it is needed (or once the order is on
+  // screen), so these requests never compete with the one the person is waiting for.
+  const { data: printEvents } = useQuery({ queryKey: ["order-print-events", orderId], queryFn: () => api.get<PrintEvent[]>(`/staff/orders/${orderId}/print-events`), enabled: !!order });
   const { data: history } = useQuery({
     queryKey: ["order-history", orderId],
     queryFn: () => api.get<HistoryEntry[]>(`/staff/orders/${orderId}/history`),
@@ -266,7 +284,7 @@ export function OrderDetailModal({ orderId, onClose, onNavigateReceipt }: { orde
   const { data: riders } = useQuery({
     queryKey: ["order-modal-riders", order?.branch.id],
     queryFn: () => api.get<RiderOption[]>(`/staff/riders?branchId=${order!.branch.id}`),
-    enabled: canAssignRider && !!order,
+    enabled: canAssignRider && !!order && riderPopupOpen,
   });
   // Full branch records (with city) for the "nearby branches only" transfer picker — the global
   // BranchPicker only exposes {id,name,code}, not enough to filter geographically.
@@ -302,7 +320,7 @@ export function OrderDetailModal({ orderId, onClose, onNavigateReceipt }: { orde
   const { data: products } = useQuery({
     queryKey: ["order-modal-products", order?.branch.id],
     queryFn: () => api.get<ProductOption[]>(`/catalog/products?branchId=${order!.branch.id}`),
-    enabled: canAddItems && !!order,
+    enabled: canAddItems && !!order && addItemOpen,
   });
 
   const activeProducts = useMemo(() => (products ?? []).filter((p) => p.status === "ACTIVE"), [products]);
@@ -381,6 +399,28 @@ export function OrderDetailModal({ orderId, onClose, onNavigateReceipt }: { orde
       await refresh();
     } catch (e) {
       toast.error(e instanceof ApiError ? e.message : "Could not record payment");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** Undo a payment that was marked as paid by mistake: the order is unpaid again and, if paying had completed it, it goes back to what it was. */
+  async function reversePaymentAction(payment: { id: string; method: string; amount: number }) {
+    if (!order) return;
+    const ok = await confirmDialog({
+      title: "Reverse this payment?",
+      message: `The ${payment.method.toLowerCase()} payment of ${formatPaisa(payment.amount)} on ${order.orderCode ?? order.orderNumber} is cancelled and the order becomes unpaid again. If marking it as paid had completed the order, it goes back to the status it had. The payment stays on record.`,
+      confirmLabel: "Reverse payment",
+      tone: "danger",
+    });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      await api.post(`/staff/orders/${orderId}/payments/${payment.id}/reverse`, {});
+      toast.success("Payment reversed. The order is unpaid again.");
+      await refresh();
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.message : "Could not reverse the payment");
     } finally {
       setBusy(false);
     }
@@ -664,6 +704,15 @@ export function OrderDetailModal({ orderId, onClose, onNavigateReceipt }: { orde
             ) : (
               <Skeleton className="h-5 w-32" />
             )}
+            {timer && (
+              <div
+                className={`ml-auto shrink-0 rounded-xl px-3.5 py-1.5 text-center ${timer.tone === "late" ? "bg-red-100 text-red-700" : timer.tone === "warn" ? "bg-amber-100 text-amber-700" : timer.tone === "ok" ? "bg-green-100 text-green-700" : "bg-neutral-100 text-neutral-600"}`}
+                title={timer.kind === "countdown" ? `Time left of the ${promisedMins || "promised"} minutes for this kind of order` : "Time since the order was placed (no time is set for this kind of order)"}
+              >
+                <span className="block font-mono text-xl font-bold leading-tight tabular-nums">{timer.suffix === "late" ? "+" : ""}{timer.text}</span>
+                <span className="block text-[10px] font-semibold uppercase leading-none tracking-wide opacity-70">{timer.suffix}</span>
+              </div>
+            )}
             <button onClick={onClose} aria-label="Close" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-red text-white hover:opacity-90"><CloseIcon size={14} /></button>
           </div>
           {order && <OrderProgress status={order.status} isDelivery={isDeliveryType} />}
@@ -864,16 +913,16 @@ export function OrderDetailModal({ orderId, onClose, onNavigateReceipt }: { orde
 
                   {/* Payment attempt history — each retry after a failed/expired online payment
                       is its own Payment row against this same order, kept for reconciliation. */}
-                  {order.paymentMethod === "ONLINE" && order.payments.length > 0 && (
+                  {order.payments.length > 0 && (
                     <div className="rounded-lg border border-neutral-200 p-3">
-                      <p className="text-xs font-semibold uppercase text-neutral-500">Payment Attempts</p>
+                      <p className="text-xs font-semibold uppercase text-neutral-500">{order.paymentMethod === "ONLINE" ? "Payment Attempts" : "Payments"}</p>
                       <div className="mt-2 space-y-1.5">
                         {[...order.payments]
                           .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
                           .map((p, i) => (
                             <div key={p.id} className="flex items-center justify-between gap-2 text-xs">
                               <span className="text-neutral-500">
-                                #{i + 1} · {new Date(p.createdAt).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                                #{i + 1} · {order.paymentMethod !== "ONLINE" && <>{p.method} · </>}{new Date(p.createdAt).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                                 {p.transactionRef && <span className="ml-1 text-neutral-400">({p.transactionRef})</span>}
                               </span>
                               <span className="flex items-center gap-2">
@@ -891,6 +940,17 @@ export function OrderDetailModal({ orderId, onClose, onNavigateReceipt }: { orde
                                 >
                                   {p.status}
                                 </span>
+                                {canReversePayment && p.status === "PAID" && (p.provider === "pos" || p.provider === "cod") && (
+                                  <button
+                                    type="button"
+                                    onClick={() => void reversePaymentAction(p)}
+                                    disabled={busy}
+                                    title="Marked as paid by mistake? Reverse it."
+                                    className="rounded-md border border-red-200 px-2 py-0.5 font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+                                  >
+                                    Reverse
+                                  </button>
+                                )}
                               </span>
                             </div>
                           ))}
@@ -901,7 +961,7 @@ export function OrderDetailModal({ orderId, onClose, onNavigateReceipt }: { orde
 
                   {/* Record Payment ("request the bill") — never auto-closes the order itself;
                       closing + freeing the table happens server-side only once payment actually
-                      clears (recordPayment/confirmPayment → closeDineInOrderIfFullyPaid). */}
+                      clears (recordPayment/confirmPayment → completeOrderAfterPayment). */}
                   {canAddItems && order.paymentStatus !== "PAID" && !TERMINAL.has(order.status) && (
                     <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
                       <div className="flex items-center justify-between">

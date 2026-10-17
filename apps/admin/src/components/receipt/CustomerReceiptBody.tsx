@@ -114,7 +114,8 @@ export function CustomerReceiptBody({ data, isPre }: { data: ReceiptData; isPre:
   const title = isPre ? "PRE-PAYMENT BILL" : "SALE RECEIPT";
   // Today's serial for this branch (01, 02, 03...). Falls back to the Order ID for very old orders without one.
   const serial = order.dailyNo != null ? String(order.dailyNo).padStart(2, "0") : (order.orderCode ?? order.orderNumber);
-  const headline = serial;
+  // The daily serial is the customer's token number, so it says so ("TOKEN 07"); an old order without one shows its Order ID alone.
+  const headline = order.dailyNo != null ? `TOKEN ${serial}` : serial;
   const when = new Date(order.createdAt);
   const dateText = when.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }).replace(/ /g, "-");
   const timeText = when.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });

@@ -395,9 +395,9 @@ export default function CheckoutPage() {
                   <span className="font-semibold text-muted">Phone:</span> <span className="text-ink">{branch.phone}</span>
                 </p>
               )}
-              {branch && branch.estimatedDeliveryMins > 0 && (
+              {branch && branch.estimatedPickupMins > 0 && (
                 <p className="mt-3 text-sm text-muted">
-                  Your order will be ready for pickup in approximately <span className="font-semibold text-ink">{branch.estimatedDeliveryMins} minutes</span>.
+                  Your order will be ready for pickup in approximately <span className="font-semibold text-ink">{branch.estimatedPickupMins} minutes</span>.
                 </p>
               )}
             </div>

@@ -64,6 +64,8 @@ export class ProductsService {
         category: true,
       },
       orderBy: query.mainPage ? { mainPageSortOrder: "asc" } : { createdAt: "desc" },
+      // One database round trip for the products and everything attached to them (same data, several times faster on a remote database).
+      relationLoadStrategy: "join",
       take,
     });
   }
@@ -133,6 +135,7 @@ export class ProductsService {
     const product = await this.prisma.product.findUnique({
       where: { id },
       include: PRODUCT_DETAIL_INCLUDE,
+      relationLoadStrategy: "join",
     });
     if (!product) throw new NotFoundException({ code: "PRODUCT_NOT_FOUND", message: "Product not found" });
     return product;
