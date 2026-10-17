@@ -43,7 +43,11 @@ const branchFieldsSchema = z.object({
   deliveryRadiusKm: z.number().min(0).default(5),
   deliveryFee: z.number().int().min(0).default(0),
   minimumOrder: z.number().int().min(0).default(0),
-  estimatedDeliveryMins: z.number().int().min(0).default(45),
+  // How long each kind of order should take, in minutes (0 = no time promised). The POS timer counts down from these and customers are told them.
+  estimatedDeliveryMins: z.number().int().min(0).max(600).default(45),
+  estimatedTakeawayMins: z.number().int().min(0).max(600).default(15),
+  estimatedPickupMins: z.number().int().min(0).max(600).default(20),
+  estimatedDineInMins: z.number().int().min(0).max(600).default(25),
   deliveryEnabled: z.boolean().default(true),
   pickupEnabled: z.boolean().default(true),
   dineInEnabled: z.boolean().default(true),

@@ -10,6 +10,7 @@ import type {
 } from "@restaurant/validation";
 import { PrismaService } from "../../common/prisma/prisma.service";
 import { RestaurantContextService } from "../../common/restaurant/restaurant-context.service";
+import { phoneSearchCore } from "./phone-search";
 
 @Injectable()
 export class CustomersService {
@@ -198,6 +199,91 @@ export class CustomersService {
     const header = ["Name", "Phone", "Email", "Account", "Status", "Orders", "Loyalty points", "Customer since"];
     const lines = rows.map((c) => [c.name, c.phone, c.email ?? "", c.isGuest ? "Not registered" : "Registered", c.status, c.orderCount, c.loyaltyPoints, new Date(c.createdAt).toISOString().slice(0, 10)].map(cell).join(","));
     return { csv: [header.join(","), ...lines].join("\n"), count: rows.length };
+  }
+
+  /**
+   * POS customer search. Type a phone number in any format (03XX, +92, 92...), a name or an email; with nothing typed it
+   * returns the most recent customers. Each match comes with the saved delivery addresses and details an order needs.
+   * People who only ever ordered as a guest (no profile) are included with the address of their latest order, so a
+   * returning guest is recognised too.
+   */
+  async lookupForPos(search: string) {
+    const q = search.trim();
+    const core = phoneSearchCore(q);
+    // Text to match against names and emails: anything with a letter or @ in it.
+    const text = q.length >= 2 && /[^\d\s+()-]/.test(q) ? q : "";
+    if (q && !core && !text) return [];
+    const restaurantId = await this.restaurantContext.getRestaurantId();
+    const customerMatch = q ? { OR: [...(core ? [{ phone: { contains: core } }] : []), ...(text ? [{ name: { contains: text, mode: "insensitive" as const } }, { email: { contains: text, mode: "insensitive" as const } }] : [])] } : {};
+    const guestMatch = q ? { OR: [...(core ? [{ contactPhone: { contains: core } }] : []), ...(text ? [{ contactName: { contains: text, mode: "insensitive" as const } }] : [])] } : {};
+
+    const customers = await this.prisma.customer.findMany({
+      where: { restaurantId, ...customerMatch },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        email: true,
+        isGuest: true,
+        loyaltyAccount: { select: { pointsBalance: true } },
+        addresses: { orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }], take: 5, select: { id: true, label: true, city: true, area: true, addressLine: true, landmark: true, contactNumber: true, isDefault: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: q ? 8 : 25,
+    });
+
+    const known = new Set(customers.map((c) => c.phone));
+    const guestOrders = await this.prisma.order.findMany({
+      where: { restaurantId, customerId: null, contactPhone: { not: null }, ...guestMatch },
+      select: { contactPhone: true, contactName: true, contactEmail: true, deliveryAddressSnapshot: true, deliveryCity: true, deliveryArea: true, deliveryLandmark: true },
+      orderBy: { createdAt: "desc" },
+      take: 40,
+    });
+    const guests = new Map<string, (typeof guestOrders)[number]>();
+    for (const o of guestOrders) {
+      if (!o.contactPhone || known.has(o.contactPhone) || guests.has(o.contactPhone)) continue;
+      guests.set(o.contactPhone, o); // newest first, so the first one seen is the latest
+    }
+
+    // A customer who never saved an address, but has ordered for delivery before, brings the address (and second phone) of their latest such order.
+    const withoutAddress = customers.filter((c) => c.addresses.length === 0).map((c) => c.id);
+    const lastOrders = withoutAddress.length
+      ? await this.prisma.order.findMany({
+          where: { restaurantId, customerId: { in: withoutAddress }, deliveryAddressSnapshot: { not: null } },
+          select: { customerId: true, deliveryAddressSnapshot: true, deliveryCity: true, deliveryArea: true, deliveryLandmark: true, contactAlternatePhone: true },
+          orderBy: { createdAt: "desc" },
+          take: 100,
+        })
+      : [];
+    const lastByCustomer = new Map<string, (typeof lastOrders)[number]>();
+    for (const o of lastOrders) if (o.customerId && !lastByCustomer.has(o.customerId)) lastByCustomer.set(o.customerId, o);
+
+    const fromCustomers = customers.map((c) => {
+      const last = lastByCustomer.get(c.id);
+      return {
+        id: c.id,
+        name: c.name,
+        phone: c.phone,
+        email: c.email,
+        isGuest: c.isGuest,
+        loyaltyPoints: c.loyaltyAccount?.pointsBalance ?? 0,
+        addresses: last
+          ? [{ id: `last:${c.id}`, label: "Last order", city: last.deliveryCity ?? "", area: last.deliveryArea ?? "", addressLine: last.deliveryAddressSnapshot!, landmark: last.deliveryLandmark ?? null, contactNumber: last.contactAlternatePhone ?? null, isDefault: true }]
+          : c.addresses.map((a) => ({ ...a, contactNumber: a.contactNumber ?? null, landmark: a.landmark ?? null })),
+      };
+    });
+    const fromGuests = [...guests.values()].slice(0, q ? 4 : 10).map((o) => ({
+      id: `guest:${o.contactPhone}`,
+      name: o.contactName ?? o.contactPhone!,
+      phone: o.contactPhone!,
+      email: o.contactEmail,
+      isGuest: true,
+      loyaltyPoints: 0,
+      addresses: o.deliveryAddressSnapshot
+        ? [{ id: `last:${o.contactPhone}`, label: "Last order", city: o.deliveryCity ?? "", area: o.deliveryArea ?? "", addressLine: o.deliveryAddressSnapshot, landmark: o.deliveryLandmark ?? null, contactNumber: null, isDefault: true }]
+        : [],
+    }));
+    return [...fromCustomers, ...fromGuests];
   }
 
   async listForStaff(search?: string, status?: "registered" | "guest", cap = 200) {

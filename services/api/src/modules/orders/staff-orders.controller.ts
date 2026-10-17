@@ -48,7 +48,8 @@ export class StaffOrdersController {
     private readonly auditLogs: AuditLogService,
   ) {}
 
-  @RequirePermission("orders.view")
+  // The POS "Active orders" drawer reads this list, so the POS permission is enough to see it (changing an order still needs orders.edit).
+  @RequirePermission("orders.view", "pos.access")
   @Get()
   async list(
     @CurrentStaff() staff: StaffJwtPayload,
@@ -63,12 +64,13 @@ export class StaffOrdersController {
     @Query("take") take?: string,
     @Query("customerId") customerId?: string,
     @Query("contactPhone") contactPhone?: string,
+    @Query("active") active?: string,
   ) {
     // Optional cap for callers that only need a small slice (e.g. a dashboard "recent orders"
     // widget) — never allowed above the list view's own default ceiling.
     const data = await this.orders.listOrdersForStaff(
       staff,
-      { branchId, status, source, type, paymentStatus, search, from, to, customerId, contactPhone },
+      { branchId, status, source, type, paymentStatus, search, from, to, customerId, contactPhone, active: active === "true" },
       take ? Math.min(Number(take), 500) : undefined,
     );
     return { success: true, data };
@@ -297,6 +299,20 @@ export class StaffOrdersController {
     @Body(new ZodValidationPipe(confirmPaymentSchema)) body: ConfirmPaymentInput,
   ) {
     const data = await this.orders.confirmPayment(staff, id, body);
+    return { success: true, data };
+  }
+
+  /** Undo a payment that was marked as paid by mistake. Needs the permission to change orders or to refund them. */
+  @RequirePermission("orders.refund", "orders.edit")
+  @Post(":id/payments/:paymentId/reverse")
+  async reversePayment(
+    @CurrentStaff() staff: StaffJwtPayload,
+    @Param("id") id: string,
+    @Param("paymentId") paymentId: string,
+    @Body() body: { reason?: string } | undefined,
+  ) {
+    const reason = typeof body?.reason === "string" ? body.reason.trim().slice(0, 300) : undefined;
+    const data = await this.orders.reversePayment(staff, id, paymentId, reason);
     return { success: true, data };
   }
 

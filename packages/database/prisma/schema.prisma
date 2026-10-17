@@ -2,6 +2,8 @@ generator client {
   provider      = "prisma-client-js"
   output        = "../generated/client"
   binaryTargets = ["native", "rhel-openssl-3.0.x"]
+  // Lets one query fetch an order with all its relations in a single database round trip (opt-in per query).
+  previewFeatures = ["relationJoins"]
 }
 
 datasource db {
@@ -390,6 +392,10 @@ model Branch {
   deliveryFee           Int          @default(0) // paisa
   minimumOrder          Int          @default(0) // paisa
   estimatedDeliveryMins Int          @default(45)
+  // How long each kind of order is expected to take, in minutes: the timer on the POS counts down from these, and customers are told them.
+  estimatedTakeawayMins Int          @default(15)
+  estimatedPickupMins   Int          @default(20)
+  estimatedDineInMins   Int          @default(25)
   status                BranchStatus @default(ACTIVE)
   deliveryEnabled       Boolean      @default(true)
   pickupEnabled         Boolean      @default(true)

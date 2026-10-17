@@ -115,6 +115,9 @@ export type Branch = {
   deliveryFee: number;
   minimumOrder: number;
   estimatedDeliveryMins: number;
+  estimatedTakeawayMins: number;
+  estimatedPickupMins: number;
+  estimatedDineInMins: number;
   pickupEnabled: boolean;
 };
 

@@ -54,6 +54,9 @@ type Branch = {
   deliveryFee: number;
   minimumOrder: number;
   estimatedDeliveryMins: number;
+  estimatedTakeawayMins: number;
+  estimatedPickupMins: number;
+  estimatedDineInMins: number;
   status: BranchStatus;
   deliveryEnabled: boolean;
   pickupEnabled: boolean;
@@ -90,6 +93,9 @@ const EMPTY_FORM = {
   deliveryFee: "100",
   minimumOrder: "500",
   estimatedDeliveryMins: "45",
+  estimatedTakeawayMins: "15",
+  estimatedPickupMins: "20",
+  estimatedDineInMins: "25",
   deliveryEnabled: true,
   pickupEnabled: true,
   dineInEnabled: true,
@@ -118,6 +124,9 @@ function branchToForm(b: Branch): FormState {
     deliveryFee: String(b.deliveryFee / 100),
     minimumOrder: String(b.minimumOrder / 100),
     estimatedDeliveryMins: String(b.estimatedDeliveryMins),
+    estimatedTakeawayMins: String(b.estimatedTakeawayMins ?? 15),
+    estimatedPickupMins: String(b.estimatedPickupMins ?? 20),
+    estimatedDineInMins: String(b.estimatedDineInMins ?? 25),
     deliveryEnabled: b.deliveryEnabled,
     pickupEnabled: b.pickupEnabled,
     dineInEnabled: b.dineInEnabled,
@@ -395,9 +404,12 @@ function BranchesTab({ canCreate, onOpenAreas }: { canCreate: boolean; onOpenAre
                 ))}
                 {types.length === 0 && <span className="rounded-full bg-amber-50 px-2 py-0.5 font-medium text-amber-700">No order types enabled</span>}
               </div>
+              <p className="mt-2 text-[11px] text-neutral-400">
+                Order times: Delivery {b.estimatedDeliveryMins} · Takeaway {b.estimatedTakeawayMins ?? 15} · Pickup {b.estimatedPickupMins ?? 20} · Dine-in {b.estimatedDineInMins ?? 25} min
+              </p>
               {b.deliveryEnabled && (
-                <p className="mt-2 text-[11px] text-neutral-400">
-                  Delivery {formatPaisa(b.deliveryFee)} · min order {formatPaisa(b.minimumOrder)} · ~{b.estimatedDeliveryMins} min · {b.deliveryRadiusKm} km radius
+                <p className="mt-1 text-[11px] text-neutral-400">
+                  Delivery {formatPaisa(b.deliveryFee)} · min order {formatPaisa(b.minimumOrder)} · {b.deliveryRadiusKm} km radius
                   {b.latitude == null || b.longitude == null ? <span className="ml-1 font-medium text-amber-600">· no map pin</span> : null}
                 </p>
               )}
@@ -570,6 +582,9 @@ function BranchFormModal({ branch, cities, existingCodes, otherBranches, onClose
         deliveryFee: Math.round(Number(form.deliveryFee) * 100),
         minimumOrder: Math.round(Number(form.minimumOrder) * 100),
         estimatedDeliveryMins: Number(form.estimatedDeliveryMins),
+        estimatedTakeawayMins: Number(form.estimatedTakeawayMins),
+        estimatedPickupMins: Number(form.estimatedPickupMins),
+        estimatedDineInMins: Number(form.estimatedDineInMins),
         deliveryEnabled: form.deliveryEnabled,
         pickupEnabled: form.pickupEnabled,
         dineInEnabled: form.dineInEnabled,
@@ -778,18 +793,34 @@ function BranchFormModal({ branch, cities, existingCodes, otherBranches, onClose
             <Err text={errors.types} />
           </section>
 
+          <section className="space-y-3 rounded-xl border border-neutral-200 p-4">
+            <SectionTitle n={5} title="Order times" hint="How long each kind of order should take. The POS timer counts down from this, and customers are told the same time. 0 means no time is promised." />
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {(
+                [
+                  ["estimatedDeliveryMins", "Delivery", "Placed to at the door"],
+                  ["estimatedTakeawayMins", "Takeaway", "Counter orders"],
+                  ["estimatedPickupMins", "Pickup", "Ordered online, collected"],
+                  ["estimatedDineInMins", "Dine-in", "Placed to served"],
+                ] as ["estimatedDeliveryMins" | "estimatedTakeawayMins" | "estimatedPickupMins" | "estimatedDineInMins", string, string][]
+              ).map(([key, label, hint]) => (
+                <label key={key} className="text-xs font-medium text-neutral-500">{label} (min)
+                  <input type="number" min="0" max="600" value={form[key]} onChange={(e) => set(key, e.target.value)} className="input mt-1 w-full" />
+                  <span className="mt-0.5 block text-[10px] font-normal text-neutral-400">{hint}</span>
+                </label>
+              ))}
+            </div>
+          </section>
+
           {form.deliveryEnabled && (
             <section className="space-y-3 rounded-xl border border-neutral-200 p-4">
-              <SectionTitle n={5} title="Delivery settings" hint="Fee, minimum order and delivery time. The radius is set on the map above." />
+              <SectionTitle n={6} title="Delivery settings" hint="Fee and minimum order. The radius is set on the map above." />
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 <label className="text-xs font-medium text-neutral-500">Fee (Rs.)
                   <input type="number" min="0" value={form.deliveryFee} onChange={(e) => set("deliveryFee", e.target.value)} className="input mt-1 w-full" />
                 </label>
                 <label className="text-xs font-medium text-neutral-500">Min. order (Rs.)
                   <input type="number" min="0" value={form.minimumOrder} onChange={(e) => set("minimumOrder", e.target.value)} className="input mt-1 w-full" />
-                </label>
-                <label className="text-xs font-medium text-neutral-500">Est. time (min)
-                  <input type="number" min="0" value={form.estimatedDeliveryMins} onChange={(e) => set("estimatedDeliveryMins", e.target.value)} className="input mt-1 w-full" />
                 </label>
               </div>
               <p className="text-xs text-neutral-400">

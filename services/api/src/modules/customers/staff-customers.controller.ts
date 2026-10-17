@@ -25,6 +25,14 @@ export class StaffCustomersController {
     private readonly auditLogs: AuditLogService,
   ) {}
 
+  /** POS: find a customer by phone number (any format) with their saved addresses. Declared before ":id" routes. */
+  @RequirePermission("customers.view", "pos.access")
+  @Get("lookup")
+  async lookup(@Query("q") q?: string, @Query("phone") phone?: string) {
+    const data = await this.customers.lookupForPos(q ?? phone ?? "");
+    return { success: true, data };
+  }
+
   @RequirePermission("customers.view", "pos.access")
   @Get()
   async list(@Query("search") search?: string, @Query("status") status?: "registered" | "guest") {
