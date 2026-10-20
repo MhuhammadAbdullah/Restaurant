@@ -4,12 +4,13 @@ import { SearchInput } from "../SearchFilterBar";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { formatPaisa, minutesForOrderType, orderTimer, type BranchTimes } from "@restaurant/utils";
+import { formatPaisa, minutesForOrderType, orderTimer, printOptionsFor, printPartsParam, type BranchTimes } from "@restaurant/utils";
 import { api, ApiError } from "../../lib/api";
 import { useMe, hasPermission } from "../../lib/useMe";
 import { ProductConfigModal, type ProductDetail, type ProductCartLine } from "../pos/ProductConfigModal";
+import { PrintMenuDialog } from "../pos/PrintMenuDialog";
 import { CustomerDetailModal } from "../customers/CustomerDetailModal";
-import { FaArrowRight, FaBan, FaCheck, FaMotorcycle, FaPlus, FaReceipt, FaRightLeft, FaRotateLeft, FaUtensils } from "react-icons/fa6";
+import { FaArrowRight, FaBan, FaCheck, FaMotorcycle, FaPlus, FaPrint, FaRightLeft, FaRotateLeft } from "react-icons/fa6";
 import { CloseIcon, EditIcon, TrashIcon } from "../icons";
 import { toast } from "../../store/useToastStore";
 import { confirmDialog } from "../../store/useConfirmStore";
@@ -258,6 +259,7 @@ export function OrderDetailModal({ orderId, onClose, onNavigateReceipt }: { orde
   const [showHistory, setShowHistory] = useState(false);
   const [activityTab, setActivityTab] = useState<"status" | "revisions" | "prints" | null>(null);
   const [riderPopupOpen, setRiderPopupOpen] = useState(false);
+  const [printOpen, setPrintOpen] = useState(false);
   const [selectedRiderId, setSelectedRiderId] = useState("");
   const [payMethod, setPayMethod] = useState<"CASH" | "CARD">("CASH");
 
@@ -748,20 +750,9 @@ export function OrderDetailModal({ orderId, onClose, onNavigateReceipt }: { orde
               </button>
             )}
             <span aria-hidden="true" className="mx-1 hidden h-5 w-px bg-neutral-200 sm:block" />
-            {order.type === "DINE_IN" && order.paymentStatus !== "PAID" && !TERMINAL.has(order.status) && (
-              <button onClick={() => router.push(`/pos/receipt/${order.id}?kind=pre`)} className={actionBtn}>
-                <FaReceipt size={12} /> Pre-Bill
-              </button>
-            )}
-            <button onClick={() => onNavigateReceipt(order.id)} className={actionBtn}>
-              <FaReceipt size={12} /> {order.type === "DINE_IN" ? "Final Receipt" : "Customer Receipt"}
+            <button onClick={() => setPrintOpen(true)} className={actionBtn}>
+              <FaPrint size={12} /> Print
             </button>
-            <button onClick={() => router.push(`/pos/kitchen-ticket/${order.id}`)} className={actionBtn}>
-              <FaUtensils size={12} /> Kitchen Ticket
-            </button>
-            {order.revisions.length > 0 && (
-              <button onClick={() => router.push(`/pos/kitchen-ticket/${order.id}?full=true`)} className={`${actionBtn} text-neutral-500`}>Reprint Full Kitchen Order</button>
-            )}
             <div className="ml-auto flex items-center gap-2">
               {canRefund && order.paymentStatus !== "REFUNDED" && order.status !== "REFUNDED" && (
                 <button
@@ -1448,6 +1439,17 @@ export function OrderDetailModal({ orderId, onClose, onNavigateReceipt }: { orde
       )}
 
       {/* Assign Rider popup (spec §17-19) — branch-scoped rider list + WhatsApp message preview */}
+      {printOpen && order && (
+        <PrintMenuDialog
+          title={`${order.orderCode ?? order.orderNumber} · ${order.type.replace(/_/g, " ")} · ${formatPaisa(order.grandTotal)}`}
+          options={printOptionsFor(order)}
+          onClose={() => setPrintOpen(false)}
+          onPrint={(keys) => {
+            setPrintOpen(false);
+            router.push(`/pos/print/${order.id}?parts=${printPartsParam(keys)}`);
+          }}
+        />
+      )}
       {riderPopupOpen && order && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" onClick={() => setRiderPopupOpen(false)}>
           <div className="w-full max-w-sm rounded-2xl bg-white p-4" onClick={(e) => e.stopPropagation()}>
