@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, ApiError } from "../lib/api";
@@ -107,9 +107,9 @@ export function AuthModal() {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={closeAndReset}>
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 p-2.5 sm:items-center sm:p-4" onClick={closeAndReset}>
       <div
-        className="relative w-full max-w-sm rounded-2xl bg-surface p-6 shadow-2xl"
+        className="relative my-auto max-h-[calc(100dvh-1.25rem)] w-full max-w-sm overflow-y-auto overscroll-contain rounded-2xl bg-surface p-4 shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <button
@@ -189,7 +189,7 @@ function LoginView({
           className="mt-5 space-y-4"
           onSubmit={(e) => {
             e.preventDefault();
-            onSubmit(email.trim());
+            onSubmit(email.trim().toLowerCase());
           }}
         >
           <input
@@ -253,7 +253,7 @@ function RegisterView({
           className="mt-5 space-y-4"
           onSubmit={(e) => {
             e.preventDefault();
-            onSubmit({ name: name.trim(), email: email.trim(), phone: toLocalPhone(localPhone), gender, dob });
+            onSubmit({ name: name.trim(), email: email.trim().toLowerCase(), phone: toLocalPhone(localPhone), gender, dob });
           }}
         >
           <div>
@@ -279,7 +279,7 @@ function RegisterView({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <p className="mb-1 text-sm font-medium text-ink">
                 Gender <span className="text-xs font-normal text-muted">(Optional)</span>
@@ -325,6 +325,10 @@ function RegisterView({
 
           {error && <p className="text-sm text-red-600">{error}</p>}
 
+          <Link href="/complaints" onClick={() => useAuthModalStore.getState().close()} className="inline-block text-sm text-muted hover:text-brand-red">
+            Need help?
+          </Link>
+
           <button type="submit" className="w-full rounded-lg bg-brand-red py-3.5 text-sm font-semibold text-white">
             Register
           </button>
@@ -357,6 +361,13 @@ function OtpView({
 }) {
   const [code, setCode] = useState("");
   const [secondsLeft, setSecondsLeft] = useState(RESEND_COOLDOWN_SECONDS);
+  const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
+
+  function updateCode(value: string, focusAfter = value.length) {
+    const digits = value.replace(/\D/g, "").slice(0, 6);
+    setCode(digits);
+    if (focusAfter < 6) inputRefs.current[focusAfter]?.focus();
+  }
 
   useEffect(() => {
     setSecondsLeft(RESEND_COOLDOWN_SECONDS);
@@ -368,7 +379,7 @@ function OtpView({
   return (
     <div>
       <h2 className="text-xl font-bold text-ink">{context.purpose === "LOGIN" ? "Login" : "Register"}</h2>
-      <p className="mt-1 text-sm text-muted">
+      <p className="mt-1 break-words text-sm text-muted">
         Enter the code received on your email address <span className="font-medium text-ink">({context.email})</span>.
       </p>
 
@@ -384,18 +395,48 @@ function OtpView({
             onSubmit(code.trim());
           }}
         >
-          <div className="relative">
-            <input
-              required
-              maxLength={6}
-              value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-              placeholder="Enter your code"
-              className="w-full rounded-lg border border-brand-red bg-surface px-3.5 py-3 pr-16 text-sm tracking-widest text-ink focus:outline-none"
-            />
-            {secondsLeft > 0 && (
-              <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-sm text-muted">({secondsLeft})</span>
-            )}
+          <div className="otp mx-auto grid w-full max-w-xs grid-cols-6 gap-1.5 sm:gap-2" role="group" aria-label="Verification code">
+            {Array.from({ length: 6 }, (_, index) => (
+              <input
+                key={index}
+                ref={(element) => { inputRefs.current[index] = element; }}
+                type="text"
+                inputMode="numeric"
+                autoComplete={index === 0 ? "one-time-code" : "off"}
+                aria-label={`Verification code digit ${index + 1} of 6`}
+                required
+                maxLength={index === 0 ? 6 : 1}
+                value={code[index] ?? ""}
+                onChange={(e) => {
+                  const entered = e.target.value.replace(/\D/g, "");
+                  if (entered.length > 1) {
+                    updateCode(entered, Math.min(entered.length, 5));
+                    return;
+                  }
+                  const next = code.split("");
+                  if (entered) next[index] = entered;
+                  else next.splice(index, 1);
+                  updateCode(next.join(""), entered ? index + 1 : index);
+                }}
+                onPaste={(e) => {
+                  const pasted = e.clipboardData.getData("text").replace(/\D/g, "");
+                  if (pasted) {
+                    e.preventDefault();
+                    updateCode(pasted, Math.min(pasted.length, 5));
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Backspace" && !code[index] && index > 0) {
+                    inputRefs.current[index - 1]?.focus();
+                  } else if (e.key === "ArrowLeft" && index > 0) {
+                    inputRefs.current[index - 1]?.focus();
+                  } else if (e.key === "ArrowRight" && index < 5) {
+                    inputRefs.current[index + 1]?.focus();
+                  }
+                }}
+                className="otp-input h-10 w-full min-w-0 rounded-lg border border-line bg-surface text-center text-lg font-medium text-ink outline-none transition focus:border-brand-red focus:ring-1 focus:ring-brand-red sm:h-[50px]"
+              />
+            ))}
           </div>
 
           {error && <p className="text-sm text-red-600">{error}</p>}

@@ -10,7 +10,7 @@ export type StaffLoginInput = z.infer<typeof staffLoginSchema>;
 export const customerRegisterSchema = z.object({
   name: z.string().trim().min(2).max(100),
   phone: phoneSchema,
-  email: z.string().email(),
+  email: z.string().trim().email().toLowerCase(),
   password: z.string().min(8),
 });
 export type CustomerRegisterInput = z.infer<typeof customerRegisterSchema>;
@@ -28,13 +28,13 @@ export const refreshTokenSchema = z.object({
 // ---------- Email OTP (passwordless customer login/registration) ----------
 
 export const requestEmailOtpSchema = z.object({
-  email: z.string().trim().email(),
+  email: z.string().trim().email().toLowerCase(),
   purpose: z.enum(["LOGIN", "REGISTER"]),
 });
 export type RequestEmailOtpInput = z.infer<typeof requestEmailOtpSchema>;
 
 export const verifyLoginOtpSchema = z.object({
-  email: z.string().trim().email(),
+  email: z.string().trim().email().toLowerCase(),
   code: z.string().trim().length(6),
 });
 export type VerifyLoginOtpInput = z.infer<typeof verifyLoginOtpSchema>;
@@ -42,7 +42,7 @@ export type VerifyLoginOtpInput = z.infer<typeof verifyLoginOtpSchema>;
 const genderSchema = z.enum(["MALE", "FEMALE", "OTHER"]);
 
 export const verifyRegisterOtpSchema = z.object({
-  email: z.string().trim().email(),
+  email: z.string().trim().email().toLowerCase(),
   code: z.string().trim().length(6),
   name: z.string().trim().min(2).max(100),
   phone: phoneSchema,

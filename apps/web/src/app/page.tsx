@@ -4,6 +4,7 @@ import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } f
 import { useRouter } from "next/navigation";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { api } from "../lib/api";
+import { useBranchOpenStatus } from "../lib/useBranchOpenStatus";
 import { slugify } from "../lib/slug";
 import { useLocationStore } from "../store/useLocationStore";
 import type { Category, Deal, Product, WebsiteSection } from "../lib/types";
@@ -31,7 +32,8 @@ import {
 
 export default function HomePage() {
   const router = useRouter();
-  const { branch, isResolved, isBranchOpen } = useLocationStore();
+  const { branch, isResolved } = useLocationStore();
+  const isBranchOpen = useBranchOpenStatus();
   const [activeProduct, setActiveProduct] = useState<Product | null>(null);
   const [activeDeal, setActiveDeal] = useState<Deal | null>(null);
   const [searchQuery, setSearchQuery] = useState("");

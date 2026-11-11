@@ -104,6 +104,11 @@ export type Branch = {
   id: string;
   name: string;
   code: string;
+  status?: string;
+  openingTime?: string;
+  closingTime?: string;
+  breakStart?: string | null;
+  breakEnd?: string | null;
   city: string;
   area: string;
   address: string;

@@ -32,8 +32,23 @@ export class BranchResolutionService {
 
   /** Public so checkout-time flows (order creation) can gate on it independently of location/area eligibility. */
   isBranchOpen(branch: { openingTime: string; closingTime: string; breakStart: string | null; breakEnd: string | null }): boolean {
-    const now = new Date().toLocaleTimeString("en-GB", { timeZone: "Asia/Karachi", hour: "2-digit", minute: "2-digit", hour12: false });
-    const inRange = (start: string, end: string) => (start <= end ? now >= start && now <= end : now >= start || now <= end);
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Karachi",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    }).formatToParts(new Date());
+    const now = Number(parts.find((part) => part.type === "hour")?.value ?? 0) * 60 + Number(parts.find((part) => part.type === "minute")?.value ?? 0);
+    const mins = (time: string) => {
+      const [hours, minutes] = time.split(":").map(Number);
+      return (hours ?? 0) * 60 + (minutes ?? 0);
+    };
+    const inRange = (start: string, end: string) => {
+      const from = mins(start);
+      const to = mins(end);
+      if (from === to) return false;
+      return from < to ? now >= from && now < to : now >= from || now < to;
+    };
 
     if (!inRange(branch.openingTime, branch.closingTime)) return false;
     if (branch.breakStart && branch.breakEnd && inRange(branch.breakStart, branch.breakEnd)) return false;

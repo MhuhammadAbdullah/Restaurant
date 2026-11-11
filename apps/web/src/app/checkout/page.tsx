@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { formatPaisa } from "@restaurant/utils";
 import { api, ApiError } from "../../lib/api";
+import { useBranchOpenStatus } from "../../lib/useBranchOpenStatus";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useAuthModalStore } from "../../store/useAuthModalStore";
 import { useCartStore } from "../../store/useCartStore";
@@ -65,7 +66,8 @@ export default function CheckoutPage() {
   const openAuthModal = useAuthModalStore((s) => s.open);
   const { items, clear, hasHydrated, removeItem } = useCartStore();
   const { reasonFor, hasUnavailable } = useCartAvailability();
-  const { branch, orderType, city, area, isBranchOpen } = useLocationStore();
+  const { branch, orderType, city, area } = useLocationStore();
+  const isBranchOpen = useBranchOpenStatus();
 
   useEffect(() => {
     // Warm up the order-confirmation route's JS bundle while the customer is still filling in

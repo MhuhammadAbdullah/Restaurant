@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Poppins } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { Providers } from "../components/Providers";
 import { Header } from "../components/Header";
@@ -18,9 +18,14 @@ import { NativeAppBridge } from "../components/NativeAppBridge";
 import { applyTitleTemplate, getSite, siteUrlOf } from "../lib/seo";
 import { appIcon } from "../lib/appIcon";
 
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+const poppins = localFont({
+  src: [
+    { path: "./fonts/Poppins-Regular.ttf", weight: "400", style: "normal" },
+    { path: "./fonts/Poppins-Medium.ttf", weight: "500", style: "normal" },
+    { path: "./fonts/Poppins-SemiBold.ttf", weight: "600", style: "normal" },
+    { path: "./fonts/Poppins-Bold.ttf", weight: "700", style: "normal" },
+    { path: "./fonts/Poppins-ExtraBold.ttf", weight: "800", style: "normal" },
+  ],
   variable: "--font-poppins",
   display: "swap",
 });

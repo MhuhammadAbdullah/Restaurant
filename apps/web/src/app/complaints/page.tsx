@@ -227,8 +227,8 @@ export default function ComplaintsPage() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-8">
-      <h1 className="font-poppins text-3xl font-bold text-brand-black">Submit a Complaint</h1>
+    <main className="mx-auto max-w-2xl px-3 py-5 sm:px-4 sm:py-8">
+      <h1 className="font-poppins text-2xl font-bold text-brand-black sm:text-3xl">Submit a Complaint</h1>
       <p className="mt-1 text-sm text-muted">We are sorry something went wrong. Tell us what happened and our team will contact you by phone or email.</p>
 
       {submittedNumber ? (
@@ -255,7 +255,7 @@ export default function ComplaintsPage() {
           </div>
         </div>
       ) : (
-        <form onSubmit={submit} noValidate className="mt-6 rounded-2xl border border-line bg-surface">
+        <form onSubmit={submit} noValidate className="mt-5 rounded-2xl border border-line bg-surface sm:mt-6">
           {/* progress */}
           <div className="border-b border-line px-4 pb-4 pt-5 sm:px-7">
             <ol className="flex items-center">
@@ -297,11 +297,11 @@ export default function ComplaintsPage() {
 
           {/* the current step slides in from the side it was reached from. Only sideways overflow is clipped, so dropdown lists can open past the bottom of the card. */}
           <div className="overflow-x-clip">
-            <div key={step} className={`p-5 sm:p-7 ${direction === "forward" ? "animate-step-forward" : "animate-step-back"}`}>
+            <div key={step} className={`p-4 sm:p-7 ${direction === "forward" ? "animate-step-forward" : "animate-step-back"}`}>
               <h2 className="text-lg font-semibold text-ink">{STEPS[step]!.title}</h2>
               <p className="mt-0.5 text-sm text-muted">{STEPS[step]!.hint}</p>
 
-              <div className="mt-5 space-y-4">
+              <div className="mt-4 space-y-4 sm:mt-5">
                 {step === 0 && (
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
@@ -422,20 +422,20 @@ export default function ComplaintsPage() {
           </div>
 
           {/* navigation */}
-          <div className="flex items-center justify-between gap-3 rounded-b-2xl border-t border-line px-5 py-4 sm:px-7">
+          <div className="flex items-center justify-between gap-3 rounded-b-2xl border-t border-line px-4 py-3 sm:px-7 sm:py-4">
             {step > 0 ? (
-              <button type="button" onClick={back} disabled={submitting} className="flex items-center gap-2 rounded-xl border border-line px-5 py-3 text-sm font-medium text-ink transition hover:border-brand-red hover:text-brand-red disabled:opacity-50">
+              <button type="button" onClick={back} disabled={submitting} className="flex items-center gap-2 rounded-xl border border-line px-4 py-3 text-sm font-medium text-ink transition hover:border-brand-red hover:text-brand-red disabled:opacity-50 sm:px-5">
                 <FaArrowLeft size={12} /> Back
               </button>
             ) : (
               <span />
             )}
             {step < STEPS.length - 1 ? (
-              <button key="next" type="button" onClick={next} className="flex items-center gap-2 rounded-xl bg-brand-red px-7 py-3 text-sm font-semibold text-white transition hover:opacity-90">
+              <button key="next" type="button" onClick={next} className="flex items-center gap-2 rounded-xl bg-brand-red px-6 py-3 text-sm font-semibold text-white transition hover:opacity-90 sm:px-7">
                 Next <FaArrowRight size={12} />
               </button>
             ) : (
-              <button key="submit" type="submit" disabled={submitting} className="rounded-xl bg-brand-red px-7 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60">
+              <button key="submit" type="submit" disabled={submitting} className="rounded-xl bg-brand-red px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60 sm:px-7">
                 {submitting ? <LoadingDots>Submitting</LoadingDots> : "Submit complaint"}
               </button>
             )}
