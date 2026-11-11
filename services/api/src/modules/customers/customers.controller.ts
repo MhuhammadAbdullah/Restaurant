@@ -34,6 +34,13 @@ export class CustomersController {
     return { success: true, data };
   }
 
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
+  @Delete("account")
+  async deleteOwnAccount(@CurrentCustomer() customer: CustomerJwtPayload) {
+    const data = await this.customers.deleteOwnAccount(customer.sub);
+    return { success: true, data };
+  }
+
   @Patch("profile")
   async updateProfile(
     @CurrentCustomer() customer: CustomerJwtPayload,

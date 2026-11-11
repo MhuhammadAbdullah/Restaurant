@@ -3,6 +3,7 @@
 import { LoadingDots } from "../../components/LoadingDots";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import { api, ApiError } from "../../lib/api";
@@ -53,8 +54,10 @@ function Field({ label, optional, error, hint, children }: { label: string; opti
 }
 
 export default function ProfilePage() {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const updateStoredCustomer = useAuthStore((s) => s.updateCustomer);
+  const logout = useAuthStore((s) => s.logout);
   const { data, isLoading } = useQuery({ queryKey: ["me"], queryFn: () => api.get<Me>("/auth/customer/me") });
 
   const [name, setName] = useState("");
@@ -67,7 +70,6 @@ export default function ProfilePage() {
   const [profileImageError, setProfileImageError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [deleteRequested, setDeleteRequested] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const profileImageInput = useRef<HTMLInputElement>(null);
@@ -170,22 +172,21 @@ export default function ProfilePage() {
     setError(null);
   }
 
-  async function requestAccountDeletion() {
+  async function deleteAccount() {
     setDeleting(true);
     try {
-      await api.post("/complaints", {
-        category: "OTHER",
-        contactName: name,
-        contactPhone: toBackendPhone(localPhone),
-        contactEmail: email,
-        subject: "Account Deletion Request",
-        description: "The customer has requested their account and associated data be deleted.",
-        attachmentUrls: [],
-      });
-      setDeleteRequested(true);
+      const result = await api.delete<{ deleted: boolean; confirmationEmailSent: boolean }>("/customers/me/account");
+      queryClient.clear();
+      logout();
       setConfirmingDelete(false);
+      toast.success(
+        result.confirmationEmailSent
+          ? "Your account has been deleted. Confirmation email sent."
+          : "Your account was deleted, but we couldn't send the confirmation email right now.",
+      );
+      router.replace("/");
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Could not send the request. Please try again.");
+      toast.error(err instanceof ApiError ? err.message : "Could not delete your account. Please try again.");
     } finally {
       setDeleting(false);
     }
@@ -301,16 +302,10 @@ export default function ProfilePage() {
         <p className="flex items-center gap-2 text-base font-semibold text-ink">
           <FaTriangleExclamation size={14} className="text-red-600" /> Delete account
         </p>
-        {deleteRequested ? (
-          <p className="mt-2 text-sm text-muted">Your deletion request has been sent. Our team will follow up with you by email.</p>
-        ) : (
-          <>
-            <p className="mt-2 text-sm text-muted">Ask us to permanently delete your account and personal data. Your order history and loyalty points will be lost.</p>
-            <button onClick={() => setConfirmingDelete(true)} className="mt-4 rounded-xl border border-red-300 px-5 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-50 dark:border-red-500/40 dark:hover:bg-red-500/10">
-              Request account deletion
-            </button>
-          </>
-        )}
+        <p className="mt-2 text-sm text-muted">Permanently delete your account, saved addresses, favourites and loyalty data. Historical orders stay in restaurant records but are detached from your account.</p>
+        <button onClick={() => setConfirmingDelete(true)} className="mt-4 rounded-xl border border-red-300 px-5 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-50 dark:border-red-500/40 dark:hover:bg-red-500/10">
+          Delete account
+        </button>
       </div>
 
       {confirmingDelete &&
@@ -321,13 +316,13 @@ export default function ProfilePage() {
                 <FaTriangleExclamation size={18} />
               </span>
               <h3 className="mt-3 text-lg font-semibold">Delete your account?</h3>
-              <p className="mt-1.5 text-sm text-muted">This sends a request to permanently delete your account and data. Our team will confirm with you by email before anything is removed.</p>
+              <p className="mt-1.5 text-sm text-muted">Your account will be deleted immediately. We will email a confirmation to {data.email}. Historical orders will remain in restaurant records without your account link.</p>
               <div className="mt-5 flex gap-3">
                 <button onClick={() => setConfirmingDelete(false)} disabled={deleting} className="flex-1 rounded-xl border border-line py-2.5 text-sm font-medium transition hover:bg-surface-alt">
                   Keep my account
                 </button>
-                <button onClick={requestAccountDeletion} disabled={deleting} className="flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-60">
-                  {deleting ? <LoadingDots>Sending</LoadingDots> : "Yes, request deletion"}
+                <button onClick={deleteAccount} disabled={deleting} className="flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-60">
+                  {deleting ? <LoadingDots>Deleting</LoadingDots> : "Delete my account"}
                 </button>
               </div>
             </div>
