@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { formatPaisa } from "@restaurant/utils";
 import { useCartStore } from "../store/useCartStore";
 import { useLocationStore } from "../store/useLocationStore";
+import { useBranchOpenStatus } from "../lib/useBranchOpenStatus";
 import { useCartDrawerStore } from "../store/useCartDrawerStore";
 import { cartItemLineTotal, type CartItem } from "../lib/types";
 import { CloseIcon, PlusIcon, CalculatorIcon, DollarIcon, TruckIcon } from "./icons";
@@ -21,7 +22,8 @@ export function CartDrawer() {
   const isOpen = useCartDrawerStore((s) => s.isOpen);
   const close = useCartDrawerStore((s) => s.close);
   const { items, updateQuantity, removeItem } = useCartStore();
-  const { branch, orderType, isBranchOpen } = useLocationStore();
+  const { branch, orderType } = useLocationStore();
+  const isBranchOpen = useBranchOpenStatus();
   const router = useRouter();
 
   const { reasonFor, hasUnavailable } = useCartAvailability();

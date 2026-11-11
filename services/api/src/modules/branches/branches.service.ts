@@ -76,9 +76,10 @@ export class BranchesService {
     // which the branch-scoped `some: { isAvailable: true }` catalog filter treats as "nothing
     // available here" — the branch's POS and website menu would show an empty catalog until an
     // admin manually toggled every product and deal available there one by one.
-    const [products, deals] = await Promise.all([
+    const [products, deals, categories] = await Promise.all([
       this.prisma.product.findMany({ where: { restaurantId, status: "ACTIVE" }, select: { id: true } }),
       this.prisma.deal.findMany({ where: { restaurantId }, select: { id: true } }),
+      this.prisma.category.findMany({ where: { restaurantId, status: "ACTIVE" }, select: { id: true } }),
     ]);
     await Promise.all([
       products.length > 0
@@ -89,6 +90,11 @@ export class BranchesService {
       deals.length > 0
         ? this.prisma.dealBranchAvailability.createMany({
             data: deals.map((d) => ({ dealId: d.id, branchId: branch.id, isAvailable: true })),
+          })
+        : undefined,
+      categories.length > 0
+        ? this.prisma.categoryBranchAvailability.createMany({
+            data: categories.map((category) => ({ categoryId: category.id, branchId: branch.id, isAvailable: true })),
           })
         : undefined,
     ]);

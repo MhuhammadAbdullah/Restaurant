@@ -172,6 +172,8 @@ export function LocationModal() {
   const { data: branches } = useQuery({
     queryKey: ["branches"],
     queryFn: () => api.public.get<Branch[]>("/branches"),
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
   });
   const { data: restaurant } = useQuery({
     queryKey: ["cms-restaurant"],

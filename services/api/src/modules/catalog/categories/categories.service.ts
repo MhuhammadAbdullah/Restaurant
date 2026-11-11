@@ -19,7 +19,13 @@ export class CategoriesService {
         restaurantId,
         status: "ACTIVE",
         ...(branchId
-          ? { branchAvailability: { some: { branchId, isAvailable: true } } }
+          ? {
+              // Missing branch rows use the default available state; only an explicit false row hides a category.
+              OR: [
+                { branchAvailability: { none: { branchId } } },
+                { branchAvailability: { some: { branchId, isAvailable: true } } },
+              ],
+            }
           : {}),
       },
       orderBy: { sortOrder: "asc" },
