@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { verifyPassword, hashPassword } from "@restaurant/auth";
 import type { StaffJwtPayload } from "@restaurant/auth";
 import type {
@@ -10,6 +10,7 @@ import type {
 } from "@restaurant/validation";
 import { PrismaService } from "../../common/prisma/prisma.service";
 import { RestaurantContextService } from "../../common/restaurant/restaurant-context.service";
+import { EmailsService } from "../emails/emails.service";
 import { phoneSearchCore } from "./phone-search";
 
 function customerPhoneIdentity(phone: string): string {
@@ -21,9 +22,12 @@ function customerPhoneIdentity(phone: string): string {
 
 @Injectable()
 export class CustomersService {
+  private readonly logger = new Logger(CustomersService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly restaurantContext: RestaurantContextService,
+    private readonly emails?: EmailsService,
   ) {}
 
   // ---------- Profile ----------
@@ -497,19 +501,38 @@ export class CustomersService {
       throw new BadRequestException({ code: "CUSTOMER_ACCOUNT_REQUIRED", message: "This customer has no registered account to delete." });
     }
 
+    await this.removeCustomerAccount(customer.id, customer.restaurantId, customer.email);
+    return { id: customerId, deleted: true };
+  }
+
+  async deleteOwnAccount(customerId: string) {
+    const customer = await this.assertOwnedByRestaurant(customerId);
+    if (customer.isGuest || !customer.email) {
+      throw new BadRequestException({ code: "CUSTOMER_ACCOUNT_REQUIRED", message: "Only a registered account with an email address can be deleted here." });
+    }
+
+    await this.removeCustomerAccount(customer.id, customer.restaurantId, customer.email);
+    let confirmationEmailSent = false;
+    try {
+      confirmationEmailSent = (await this.emails?.sendAccountDeletionConfirmation(customer.restaurantId, customer.email, customer.name)) ?? false;
+    } catch (error) {
+      this.logger.error(`Could not prepare account deletion confirmation for customer ${customer.id}: ${error instanceof Error ? error.message : error}`);
+    }
+    return { deleted: true, confirmationEmailSent };
+  }
+
+  private async removeCustomerAccount(customerId: string, restaurantId: string, email: string | null) {
     await this.prisma.$transaction(async (tx) => {
       // Keep historical orders and financial records, but remove their account link.
       await tx.order.updateMany({ where: { customerId }, data: { customerId: null } });
       await tx.couponRedemption.updateMany({ where: { customerId }, data: { customerId: null } });
       await tx.complaintMessage.updateMany({ where: { senderCustomerId: customerId }, data: { senderCustomerId: null } });
       await tx.notification.updateMany({ where: { recipientCustomerId: customerId }, data: { recipientCustomerId: null } });
-      if (customer.email) {
-        await tx.emailOtp.deleteMany({ where: { restaurantId: customer.restaurantId, email: customer.email } });
+      if (email) {
+        await tx.emailOtp.deleteMany({ where: { restaurantId, email } });
       }
       await tx.customer.delete({ where: { id: customerId } });
     });
-
-    return { id: customerId, deleted: true };
   }
 
   /**

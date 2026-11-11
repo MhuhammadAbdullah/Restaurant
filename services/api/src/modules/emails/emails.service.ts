@@ -195,7 +195,7 @@ export class EmailsService implements OnModuleInit, OnModuleDestroy {
     const byKey = new Map(rows.map((r) => [r.key, r]));
     return TEMPLATE_DEFINITIONS.map((d) => {
       const row = byKey.get(d.key);
-      return { key: d.key, label: d.label, description: d.description, trigger: d.trigger, enabled: row?.enabled ?? true, customized: !!row, canDisable: d.key !== "OTP", updatedAt: row?.updatedAt ?? null };
+      return { key: d.key, label: d.label, description: d.description, trigger: d.trigger, enabled: row?.enabled ?? true, customized: !!row, canDisable: d.key !== "OTP" && d.key !== "ACCOUNT_DELETION", updatedAt: row?.updatedAt ?? null };
     });
   }
 
@@ -211,7 +211,7 @@ export class EmailsService implements OnModuleInit, OnModuleDestroy {
       body: row?.body ?? d.body,
       enabled: row?.enabled ?? true,
       customized: !!row,
-      canDisable: d.key !== "OTP",
+      canDisable: d.key !== "OTP" && d.key !== "ACCOUNT_DELETION",
       defaultSubject: d.subject,
       defaultBody: d.body,
       variables: d.variables,
@@ -225,7 +225,7 @@ export class EmailsService implements OnModuleInit, OnModuleDestroy {
     if (!subject) throw new BadRequestException({ code: "EMAIL_SUBJECT_REQUIRED", message: "The subject cannot be empty" });
     if (!htmlToText(body)) throw new BadRequestException({ code: "EMAIL_BODY_REQUIRED", message: "The email body cannot be empty" });
     // The OTP email must always be able to go out, otherwise nobody can log in.
-    const enabled = d.key === "OTP" ? true : input.enabled;
+    const enabled = d.key === "OTP" || d.key === "ACCOUNT_DELETION" ? true : input.enabled;
     await this.prisma.emailTemplate.upsert({
       where: { restaurantId_key: { restaurantId, key } },
       create: { restaurantId, key, subject, body, enabled, updatedByStaffId: staffId },
@@ -277,7 +277,7 @@ export class EmailsService implements OnModuleInit, OnModuleDestroy {
   /** Renders the (customised or default) template and sends it. Logs every attempt. Disabled templates are skipped (never OTP). */
   async sendTemplate(key: TemplateKey, ctx: SendContext, opts: { throwOnError?: boolean } = {}): Promise<SendResult> {
     const row = await this.prisma.emailTemplate.findUnique({ where: { restaurantId_key: { restaurantId: ctx.restaurantId, key } } });
-    if (row && !row.enabled && key !== "OTP") {
+    if (row && !row.enabled && key !== "OTP" && key !== "ACCOUNT_DELETION") {
       this.logger.log(`${key} email skipped (disabled in Email Templates)`);
       return { sent: false, skipped: "DISABLED" };
     }
@@ -336,6 +336,15 @@ export class EmailsService implements OnModuleInit, OnModuleDestroy {
       { restaurantId, to, values: { otp_code: code, otp_code_box: otpBox(code), otp_heading: purpose === "LOGIN" ? "Your login code" : "Verify your email to finish registering", expires_minutes: "5" } },
       { throwOnError: true },
     );
+  }
+
+  async sendAccountDeletionConfirmation(restaurantId: string, to: string, customerName: string): Promise<boolean> {
+    const result = await this.sendTemplate("ACCOUNT_DELETION", {
+      restaurantId,
+      to,
+      values: { customer_name: customerName },
+    });
+    return result.sent;
   }
 
   async sendOrderConfirmation(orderId: string): Promise<void> {

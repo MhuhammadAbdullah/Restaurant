@@ -7,7 +7,7 @@
  *  - "raw" variables are blocks the server builds itself (tables, buttons) and are inserted as-is.
  */
 
-export type TemplateKey = "OTP" | "ORDER_CONFIRMATION" | "ORDER_REVIEW" | "COMPLAINT_REPLY";
+export type TemplateKey = "OTP" | "ACCOUNT_DELETION" | "ORDER_CONFIRMATION" | "ORDER_REVIEW" | "COMPLAINT_REPLY";
 
 export type TemplateVariable = { name: string; description: string; raw?: boolean };
 
@@ -44,6 +44,19 @@ export const TEMPLATE_DEFINITIONS: TemplateDefinition[] = [
       ...COMMON_VARS,
     ],
     sample: { otp_code: "482915", otp_code_box: "OTP_BOX_SAMPLE", otp_heading: "Your login code", expires_minutes: "5", restaurant_name: "Your Restaurant", support_phone: "+92 300 0000000" },
+  },
+  {
+    key: "ACCOUNT_DELETION",
+    label: "Account deletion confirmation",
+    description: "Required confirmation sent immediately after a customer deletes their account; it cannot be turned off.",
+    trigger: "Immediately after a customer confirms account deletion.",
+    subject: "Your account has been deleted - {{restaurant_name}}",
+    body: `<h2>Account deleted</h2><p>Hi {{customer_name}},</p><p>Your customer account for {{restaurant_name}} has been deleted as requested. Saved addresses, favourites and loyalty data were removed. Historical orders remain in restaurant records but are no longer linked to your account.</p><p>If you did not request this, please contact us at {{support_phone}}.</p>`,
+    variables: [
+      { name: "customer_name", description: "Customer's name" },
+      ...COMMON_VARS,
+    ],
+    sample: { customer_name: "Ali Khan", restaurant_name: "Your Restaurant", support_phone: "+92 300 0000000" },
   },
   {
     key: "ORDER_CONFIRMATION",
