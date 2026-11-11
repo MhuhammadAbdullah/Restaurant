@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { GmailProvider, ResendEmailProvider, type EmailProvider } from "@restaurant/email";
+import { GmailApiProvider, GmailProvider, ResendEmailProvider, type EmailProvider } from "@restaurant/email";
 import type { Env } from "../../config/env.schema";
 
 @Injectable()
@@ -14,6 +14,13 @@ export class EmailService {
       this.provider = new ResendEmailProvider({
         apiKey: this.config.get("RESEND_API_KEY", { infer: true }) ?? "",
         from: this.config.get("RESEND_FROM_EMAIL", { infer: true }) ?? "",
+      });
+    } else if (providerName === "gmail-api") {
+      this.provider = new GmailApiProvider({
+        user: this.config.get("GMAIL_USER", { infer: true }) ?? "",
+        clientId: this.config.get("GMAIL_OAUTH_CLIENT_ID", { infer: true }) ?? "",
+        clientSecret: this.config.get("GMAIL_OAUTH_CLIENT_SECRET", { infer: true }) ?? "",
+        refreshToken: this.config.get("GMAIL_OAUTH_REFRESH_TOKEN", { infer: true }) ?? "",
       });
     } else {
       this.provider = new GmailProvider({

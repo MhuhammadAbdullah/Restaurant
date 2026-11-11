@@ -43,9 +43,12 @@ export const envSchema = z.object({
   // Customer email OTP (login/registration). Both provider configs can sit in .env at once —
   // EMAIL_PROVIDER picks which one is actually used, so switching to the "official" provider
   // later is a one-line config change, not a redeploy of new code.
-  EMAIL_PROVIDER: z.enum(["gmail", "resend"]).default("gmail"),
+  EMAIL_PROVIDER: z.enum(["gmail", "gmail-api", "resend"]).default("gmail"),
   GMAIL_USER: z.string().optional(),
   GMAIL_APP_PASSWORD: z.string().optional(),
+  GMAIL_OAUTH_CLIENT_ID: z.string().optional(),
+  GMAIL_OAUTH_CLIENT_SECRET: z.string().optional(),
+  GMAIL_OAUTH_REFRESH_TOKEN: z.string().optional(),
   RESEND_API_KEY: z.string().optional(),
   RESEND_FROM_EMAIL: z.string().optional(),
 
