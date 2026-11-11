@@ -81,6 +81,7 @@ export function CustomerDetailModal({ id, onClose }: { id: string; onClose: () =
   const canAdjustLoyalty = hasPermission(me, "loyalty.adjust");
   const canBlockCustomers = hasPermission(me, "customers.block");
   const canEditCustomers = hasPermission(me, "customers.edit");
+  const canDeleteCustomers = hasPermission(me, "customers.delete");
 
   const [editingEmail, setEditingEmail] = useState(false);
   const [emailDraft, setEmailDraft] = useState("");
@@ -89,6 +90,7 @@ export function CustomerDetailModal({ id, onClose }: { id: string; onClose: () =
   const [loyaltyNote, setLoyaltyNote] = useState("");
   const [detailOrderId, setDetailOrderId] = useState<string | null>(null);
   const [togglingStatus, setTogglingStatus] = useState(false);
+  const [deletingCustomer, setDeletingCustomer] = useState(false);
 
   const { data: detail } = useQuery({
     queryKey: ["staff-customer", id],
@@ -143,6 +145,30 @@ export function CustomerDetailModal({ id, onClose }: { id: string; onClose: () =
       toast.error(e instanceof ApiError ? e.message : "Could not save the email");
     } finally {
       setSavingEmail(false);
+    }
+  }
+
+  async function deleteCustomer() {
+    if (!detail || detail.isGuest) return;
+    if (!(await confirmDialog({
+      title: "Delete this customer account?",
+      message: `This permanently removes ${detail.name}'s account, saved addresses, favourites and loyalty data. Historical orders are kept but detached from the account.`,
+      confirmLabel: "Delete account",
+      tone: "danger",
+    }))) return;
+
+    setDeletingCustomer(true);
+    try {
+      await api.delete(`/staff/customers/${encodeURIComponent(id)}`);
+      await queryClient.invalidateQueries({ queryKey: ["staff-customers"] });
+      await queryClient.invalidateQueries({ queryKey: ["staff-customer"] });
+      toast.success("Customer account deleted. Historical orders were kept.");
+      onClose();
+      router.refresh();
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.message : "Could not delete the customer account");
+    } finally {
+      setDeletingCustomer(false);
     }
   }
 
@@ -235,6 +261,16 @@ export function CustomerDetailModal({ id, onClose }: { id: string; onClose: () =
                     <div className="flex shrink-0 flex-col items-end gap-1">
                       <BlockToggle status={detail.status} canEdit={canBlockCustomers} busy={togglingStatus} onToggle={toggleStatus} />
                       <span className="text-[11px] text-neutral-400">{detail.status === "INACTIVE" ? "Blocked" : "Active"}</span>
+                      {canDeleteCustomers && !detail.isGuest && (
+                        <button
+                          type="button"
+                          onClick={() => void deleteCustomer()}
+                          disabled={deletingCustomer}
+                          className="mt-2 rounded-lg border border-red-200 px-2.5 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+                        >
+                          {deletingCustomer ? <LoadingDots>Deleting</LoadingDots> : "Delete account"}
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>

@@ -488,6 +488,30 @@ export class CustomersService {
     });
   }
 
+  async deleteForStaff(customerId: string) {
+    if (customerId.startsWith("guest:")) {
+      throw new BadRequestException({ code: "CUSTOMER_ACCOUNT_REQUIRED", message: "Only a registered customer account can be deleted." });
+    }
+    const customer = await this.assertOwnedByRestaurant(customerId);
+    if (customer.isGuest) {
+      throw new BadRequestException({ code: "CUSTOMER_ACCOUNT_REQUIRED", message: "This customer has no registered account to delete." });
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      // Keep historical orders and financial records, but remove their account link.
+      await tx.order.updateMany({ where: { customerId }, data: { customerId: null } });
+      await tx.couponRedemption.updateMany({ where: { customerId }, data: { customerId: null } });
+      await tx.complaintMessage.updateMany({ where: { senderCustomerId: customerId }, data: { senderCustomerId: null } });
+      await tx.notification.updateMany({ where: { recipientCustomerId: customerId }, data: { recipientCustomerId: null } });
+      if (customer.email) {
+        await tx.emailOtp.deleteMany({ where: { restaurantId: customer.restaurantId, email: customer.email } });
+      }
+      await tx.customer.delete({ where: { id: customerId } });
+    });
+
+    return { id: customerId, deleted: true };
+  }
+
   /**
    * A pure guest identity (contactPhone on unlinked orders, never a Customer row) can't be
    * blocked by flipping a status column — there's no row. Blocking it materializes a real

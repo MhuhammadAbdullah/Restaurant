@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, Req, Res, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, Res, UseGuards } from "@nestjs/common";
 import type { Request, Response } from "express";
 import {
   adjustLoyaltySchema,
@@ -74,6 +74,18 @@ export class StaffCustomersController {
   @Get(":id")
   async findOne(@Param("id") id: string) {
     const data = await this.customers.getForStaff(id);
+    return { success: true, data };
+  }
+
+  @RequirePermission("customers.delete")
+  @Delete(":id")
+  async deleteCustomer(
+    @CurrentStaff() staff: StaffJwtPayload,
+    @Param("id") id: string,
+    @Req() req: Request,
+  ) {
+    const data = await this.customers.deleteForStaff(id);
+    await this.auditLogs.recordForStaff(staff, "customer.delete", "Customer", id, { newValue: { deleted: true } }, { ip: req.ip, userAgent: req.headers["user-agent"] });
     return { success: true, data };
   }
 

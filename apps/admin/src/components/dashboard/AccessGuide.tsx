@@ -109,7 +109,7 @@ function buildGuide(me: Me): Guide[] {
       icon: FaUsers,
       href: "/customers",
       intro: "Look up the people who order from you.",
-      can: ["Search customers and see their orders", ...list([["customers.edit", "Add or correct a customer's email"], ["customers.block", "Block or unblock a customer"], ["customers.export", "Download the customer list"]])],
+      can: ["Search customers and see their orders", ...list([["customers.edit", "Add or correct a customer's email"], ["customers.block", "Block or unblock a customer"], ["customers.delete", "Delete a registered customer account"], ["customers.export", "Download the customer list"]])],
     });
   }
   if (has("complaints.view")) {
