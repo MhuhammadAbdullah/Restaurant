@@ -9,6 +9,7 @@ import { api } from "../../lib/api";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useAuthModalStore } from "../../store/useAuthModalStore";
 import { SkeletonAccountLayout } from "../../components/skeletons";
+import { CUSTOMER_PROFILE_FALLBACK_IMAGE } from "@restaurant/utils";
 
 const BASE_NAV = [
   { href: "/account", label: "My Profile", icon: FaRegCircleUser },
@@ -19,11 +20,6 @@ const BASE_NAV = [
 const LOYALTY_NAV_ITEM = { href: "/account/loyalty", label: "Loyalty Points", icon: FaGift };
 
 type RestaurantInfo = { name: string; logoUrl: string | null; loyalty?: { enabled: boolean } };
-
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || "?";
-}
 
 export default function AccountLayout({ children }: { children: React.ReactNode }) {
   const customer = useAuthStore((s) => s.customer);
@@ -71,7 +67,18 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
         {/* Phones and tablets: a swipeable tab row. Desktop: the side panel below. */}
         <div className="lg:hidden">
           <div className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-4">
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand-red text-base font-bold text-white">{initials(customer.name)}</span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={customer.profileImage || CUSTOMER_PROFILE_FALLBACK_IMAGE}
+              alt=""
+              onError={(event) => {
+                if (event.currentTarget.dataset.fallbackApplied !== "true") {
+                  event.currentTarget.dataset.fallbackApplied = "true";
+                  event.currentTarget.src = CUSTOMER_PROFILE_FALLBACK_IMAGE;
+                }
+              }}
+              className="h-12 w-12 shrink-0 rounded-full object-cover"
+            />
             <div className="min-w-0">
               <p className="truncate text-base font-semibold text-ink">{customer.name}</p>
               <p className="truncate text-xs text-muted">{customer.phone}</p>
@@ -98,7 +105,18 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
 
         <aside className="hidden h-fit rounded-2xl border border-line bg-surface p-5 lg:block">
           <div className="flex flex-col items-center border-b border-line pb-5 text-center">
-            <span className="flex h-16 w-16 items-center justify-center rounded-full bg-brand-red text-xl font-bold text-white">{initials(customer.name)}</span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={customer.profileImage || CUSTOMER_PROFILE_FALLBACK_IMAGE}
+              alt=""
+              onError={(event) => {
+                if (event.currentTarget.dataset.fallbackApplied !== "true") {
+                  event.currentTarget.dataset.fallbackApplied = "true";
+                  event.currentTarget.src = CUSTOMER_PROFILE_FALLBACK_IMAGE;
+                }
+              }}
+              className="h-16 w-16 rounded-full object-cover"
+            />
             <p className="mt-3 max-w-full truncate text-base font-semibold text-ink">{customer.name}</p>
             <p className="max-w-full truncate text-xs text-muted">{customer.phone}</p>
             {customer.email && <p className="max-w-full truncate text-xs text-muted">{customer.email}</p>}

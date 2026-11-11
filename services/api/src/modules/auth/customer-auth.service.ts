@@ -102,6 +102,7 @@ export class CustomerAuthService {
       email: customer.email,
       gender: customer.gender,
       dob: customer.dob,
+      profileImage: customer.profileImage,
       loyaltyPoints: customer.loyaltyAccount?.pointsBalance ?? 0,
     };
   }

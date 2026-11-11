@@ -17,6 +17,7 @@ export function SelectField({
   disabled,
   required,
   ariaLabel,
+  suffix,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -25,6 +26,7 @@ export function SelectField({
   disabled?: boolean;
   required?: boolean;
   ariaLabel?: string;
+  suffix?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
@@ -86,8 +88,17 @@ export function SelectField({
     }
   }
 
+  const hasSuffix = !!suffix;
+
   return (
-    <div ref={rootRef} className="relative">
+    <div
+      ref={rootRef}
+      className={
+        hasSuffix
+          ? `relative flex w-full rounded-xl border bg-surface transition-colors focus-within:border-brand-red ${open ? "border-brand-red" : "border-line hover:border-brand-red/50"}`
+          : "relative"
+      }
+    >
       <button
         type="button"
         role="combobox"
@@ -97,13 +108,20 @@ export function SelectField({
         disabled={disabled}
         onClick={() => (open ? setOpen(false) : openList())}
         onKeyDown={onKeyDown}
-        className={`flex w-full items-center justify-between gap-2 rounded-xl border bg-surface px-5 py-3.5 text-left text-sm transition focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 ${
-          open ? "border-brand-red" : "border-line hover:border-brand-red/50 focus:border-brand-red"
+        className={`flex items-center justify-between gap-2 px-5 py-3.5 text-left text-sm transition focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 ${
+          hasSuffix
+            ? "min-w-0 flex-1 rounded-l-xl rounded-r-none border-0 bg-transparent"
+            : `w-full rounded-xl border bg-surface ${open ? "border-brand-red" : "border-line hover:border-brand-red/50 focus:border-brand-red"}`
         }`}
       >
         <span className={`truncate ${selected ? "text-ink" : "text-muted opacity-70"}`}>{selected?.label ?? placeholder}</span>
         <FaChevronDown size={12} className={`shrink-0 text-muted transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
+      {hasSuffix && (
+        <span className="flex max-w-[45%] shrink-0 items-center justify-center rounded-r-[11px] border-l border-line bg-surface-alt px-4 py-3.5 text-center text-sm font-semibold text-ink sm:px-5">
+          <span className="truncate">{suffix}</span>
+        </span>
+      )}
 
       {/* invisible field so the browser's "please fill out this field" check still works */}
       {required && <input tabIndex={-1} aria-hidden="true" required value={value} onChange={() => {}} className="pointer-events-none absolute inset-x-0 bottom-0 h-px w-full opacity-0" />}

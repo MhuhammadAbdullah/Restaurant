@@ -5,7 +5,7 @@ import { SearchInput } from "../../../components/SearchFilterBar";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { formatPaisa } from "@restaurant/utils";
+import { CUSTOMER_PROFILE_FALLBACK_IMAGE, formatPaisa } from "@restaurant/utils";
 import { api, getAccessToken } from "../../../lib/api";
 import { toast } from "../../../store/useToastStore";
 import { confirmDialog } from "../../../store/useConfirmStore";
@@ -27,7 +27,7 @@ type Order = {
   grandTotal: number;
   createdAt: string;
   branch: { name: string };
-  customer: { name: string; phone: string } | null;
+  customer: { name: string; phone: string; profileImage: string | null } | null;
   assignedRider: { name: string } | null;
 };
 
@@ -368,7 +368,13 @@ export default function OrdersPage() {
                   <button onClick={() => setDetailOrderId(o.id)} onMouseEnter={() => void prefetchOrderDetail(queryClient, o.id)} className="hover:text-brand-red hover:underline">{o.orderCode ?? o.orderNumber}</button>
                   <p className="text-[11px] text-neutral-400">Inv {o.orderNumber.replace(/\D/g, "")}</p>
                 </td>
-                <td className="px-4 py-2 text-xs text-neutral-600">{o.customer?.name ?? "Guest"}</td>
+                <td className="px-4 py-2 text-xs text-neutral-600">
+                  <div className="flex items-center gap-2">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={o.customer?.profileImage || CUSTOMER_PROFILE_FALLBACK_IMAGE} alt="" className="h-7 w-7 shrink-0 rounded-full object-cover" />
+                    <span>{o.customer?.name ?? "Guest"}</span>
+                  </div>
+                </td>
                 <td className="px-4 py-2">
                   <span className={`rounded-full px-2 py-0.5 text-xs ${o.source === "POS" ? "bg-blue-50 text-blue-700" : "bg-purple-50 text-purple-700"}`}>{o.source}</span>
                 </td>

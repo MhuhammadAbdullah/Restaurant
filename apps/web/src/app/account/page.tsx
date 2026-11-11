@@ -1,7 +1,7 @@
 "use client";
 
 import { LoadingDots } from "../../components/LoadingDots";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FaTriangleExclamation } from "react-icons/fa6";
@@ -10,6 +10,7 @@ import { useAuthStore } from "../../store/useAuthStore";
 import { toast } from "../../store/useToastStore";
 import { SelectField } from "../../components/SelectField";
 import { SkeletonFieldRow } from "../../components/skeletons";
+import { CUSTOMER_PROFILE_FALLBACK_IMAGE } from "@restaurant/utils";
 
 type Me = {
   name: string;
@@ -17,7 +18,11 @@ type Me = {
   email: string;
   gender: string | null;
   dob: string | null;
+  profileImage: string | null;
 };
+
+type UploadSignature = { timestamp: number; signature: string; apiKey: string; cloudName: string; folder: string; allowedFormats: string };
+const MAX_PROFILE_IMAGE_BYTES = 5 * 1024 * 1024;
 
 const GENDERS = [
   { value: "", label: "Prefer not to say" },
@@ -57,11 +62,15 @@ export default function ProfilePage() {
   const [gender, setGender] = useState("");
   const [dob, setDob] = useState("");
   const [localPhone, setLocalPhone] = useState("");
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [uploadingProfileImage, setUploadingProfileImage] = useState(false);
+  const [profileImageError, setProfileImageError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleteRequested, setDeleteRequested] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const profileImageInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!data) return;
@@ -70,13 +79,14 @@ export default function ProfilePage() {
     setGender(data.gender ?? "");
     setDob(data.dob ? data.dob.slice(0, 10) : "");
     setLocalPhone(toLocalDisplay(data.phone));
+    setProfileImage(data.profileImage ?? null);
   }, [data]);
 
   const saved = useMemo(
-    () => (data ? { name: data.name, email: data.email, gender: data.gender ?? "", dob: data.dob ? data.dob.slice(0, 10) : "", phone: toLocalDisplay(data.phone) } : null),
+    () => (data ? { name: data.name, email: data.email, gender: data.gender ?? "", dob: data.dob ? data.dob.slice(0, 10) : "", phone: toLocalDisplay(data.phone), profileImage: data.profileImage ?? null } : null),
     [data],
   );
-  const dirty = !!saved && (name !== saved.name || email !== saved.email || gender !== saved.gender || dob !== saved.dob || localPhone !== saved.phone);
+  const dirty = !!saved && (name !== saved.name || email !== saved.email || gender !== saved.gender || dob !== saved.dob || localPhone !== saved.phone || profileImage !== saved.profileImage);
 
   const errors = {
     name: name.trim().length < 2 ? "Please enter your full name." : null,
@@ -85,6 +95,40 @@ export default function ProfilePage() {
     dob: dob && dob > today() ? "Date of birth cannot be in the future." : null,
   };
   const valid = !errors.name && !errors.email && !errors.phone && !errors.dob;
+
+  async function uploadProfileImage(file: File) {
+    setProfileImageError(null);
+    if (!file.type.startsWith("image/")) {
+      setProfileImageError("Choose an image file.");
+      return;
+    }
+    if (file.size > MAX_PROFILE_IMAGE_BYTES) {
+      setProfileImageError("Profile photos must be 5MB or smaller.");
+      return;
+    }
+
+    setUploadingProfileImage(true);
+    try {
+      const signature = await api.get<UploadSignature>("/customers/me/profile-image-upload-signature");
+      const body = new FormData();
+      body.append("file", file);
+      body.append("api_key", signature.apiKey);
+      body.append("timestamp", String(signature.timestamp));
+      body.append("signature", signature.signature);
+      body.append("folder", signature.folder);
+      body.append("allowed_formats", signature.allowedFormats);
+
+      const response = await fetch(`https://api.cloudinary.com/v1_1/${signature.cloudName}/image/upload`, { method: "POST", body });
+      const result = (await response.json()) as { secure_url?: string; error?: { message?: string } };
+      if (!response.ok || !result.secure_url) throw new Error(result.error?.message ?? "Could not upload the photo.");
+      setProfileImage(result.secure_url);
+    } catch (e) {
+      setProfileImageError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Could not upload the photo.");
+    } finally {
+      setUploadingProfileImage(false);
+      if (profileImageInput.current) profileImageInput.current.value = "";
+    }
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -102,9 +146,10 @@ export default function ProfilePage() {
         phone,
         gender: gender || undefined,
         dob: dob || undefined,
+        profileImage,
       });
       await queryClient.invalidateQueries({ queryKey: ["me"] });
-      updateStoredCustomer({ name: name.trim(), email: email.trim(), phone });
+      updateStoredCustomer({ name: name.trim(), email: email.trim(), phone, profileImage });
       toast.success("Your profile has been updated");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not update your profile. Please try again.");
@@ -120,6 +165,8 @@ export default function ProfilePage() {
     setGender(saved.gender);
     setDob(saved.dob);
     setLocalPhone(saved.phone);
+    setProfileImage(saved.profileImage);
+    setProfileImageError(null);
     setError(null);
   }
 
@@ -167,6 +214,41 @@ export default function ProfilePage() {
 
       <form onSubmit={submit} className="rounded-2xl border border-line bg-surface p-5 sm:p-6">
         <p className="text-base font-semibold text-ink">Personal details</p>
+        <div className="mt-4 flex flex-wrap items-center gap-4">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={profileImage || CUSTOMER_PROFILE_FALLBACK_IMAGE}
+            alt="Profile"
+            onError={(event) => {
+              // An old or deleted Cloudinary URL should still resolve to the default avatar.
+              if (event.currentTarget.dataset.fallbackApplied !== "true") {
+                event.currentTarget.dataset.fallbackApplied = "true";
+                event.currentTarget.src = CUSTOMER_PROFILE_FALLBACK_IMAGE;
+              }
+            }}
+            className="h-20 w-20 rounded-full border border-line object-cover"
+          />
+          <div>
+            <input
+              ref={profileImageInput}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.currentTarget.files?.[0];
+                if (file) void uploadProfileImage(file);
+              }}
+            />
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => profileImageInput.current?.click()} disabled={uploadingProfileImage} className="rounded-lg border border-line px-3 py-2 text-sm font-medium text-ink hover:bg-surface-alt disabled:opacity-50">
+                {uploadingProfileImage ? <LoadingDots>Uploading</LoadingDots> : profileImage ? "Change photo" : "Add profile photo"}
+              </button>
+              {profileImage && <button type="button" onClick={() => setProfileImage(null)} disabled={uploadingProfileImage} className="rounded-lg px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50">Remove</button>}
+            </div>
+            <p className="mt-1.5 text-xs text-muted">JPG, PNG or WebP, up to 5MB. Changes are saved with your profile.</p>
+            {profileImageError && <p className="mt-1 text-xs text-red-600">{profileImageError}</p>}
+          </div>
+        </div>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
             <Field label="Full name" error={errors.name}>

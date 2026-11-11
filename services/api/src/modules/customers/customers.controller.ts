@@ -1,4 +1,5 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import {
   changePasswordSchema,
   createAddressSchema,
@@ -15,6 +16,7 @@ import { CustomerJwtAuthGuard } from "../auth/guards/customer-jwt-auth.guard";
 import { CurrentCustomer } from "../auth/decorators/current-customer.decorator";
 import { NotificationsService } from "../notifications/notifications.service";
 import { CustomersService } from "./customers.service";
+import { CloudinaryService } from "../media/cloudinary.service";
 
 @Controller("customers/me")
 @UseGuards(CustomerJwtAuthGuard)
@@ -22,7 +24,15 @@ export class CustomersController {
   constructor(
     private readonly customers: CustomersService,
     private readonly notifications: NotificationsService,
+    private readonly cloudinary: CloudinaryService,
   ) {}
+
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Get("profile-image-upload-signature")
+  getProfileImageUploadSignature() {
+    const data = this.cloudinary.getUploadSignature("customer-profiles");
+    return { success: true, data };
+  }
 
   @Patch("profile")
   async updateProfile(
