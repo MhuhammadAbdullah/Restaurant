@@ -12,6 +12,13 @@ import { PrismaService } from "../../common/prisma/prisma.service";
 import { RestaurantContextService } from "../../common/restaurant/restaurant-context.service";
 import { phoneSearchCore } from "./phone-search";
 
+function customerPhoneIdentity(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  if (digits.startsWith("92") && digits.length === 12) return `0${digits.slice(2)}`;
+  if (digits.startsWith("3") && digits.length === 10) return `0${digits}`;
+  return digits;
+}
+
 @Injectable()
 export class CustomersService {
   constructor(
@@ -337,7 +344,17 @@ export class CustomersService {
       return rows;
     }
 
-    const knownPhones = new Set(customers.map((c) => c.phone));
+    const knownPhones = new Set(customers.map((c) => customerPhoneIdentity(c.phone)));
+    // When filtering to guests, the customer query above intentionally excludes registered
+    // accounts. Still include their phones in the de-duplication set so old unlinked orders
+    // for a registered customer don't reappear as a synthetic "Not Registered" row.
+    if (status === "guest") {
+      const registeredCustomers = await this.prisma.customer.findMany({
+        where: { restaurantId, isGuest: false },
+        select: { phone: true },
+      });
+      for (const customer of registeredCustomers) knownPhones.add(customerPhoneIdentity(customer.phone));
+    }
     const guestOrders = await this.prisma.order.findMany({
       where: { restaurantId, customerId: null, contactPhone: { not: null } },
       select: { contactPhone: true, contactName: true, createdAt: true },
@@ -348,13 +365,14 @@ export class CustomersService {
     const guestGroups = new Map<string, { phone: string; name: string; createdAt: Date; orderCount: number }>();
     for (const o of guestOrders) {
       const phone = o.contactPhone!;
-      if (knownPhones.has(phone)) continue; // already represented by a real Customer row above
-      const existing = guestGroups.get(phone);
+      const identity = customerPhoneIdentity(phone);
+      if (knownPhones.has(identity)) continue; // already represented by a real Customer row above
+      const existing = guestGroups.get(identity);
       if (existing) {
         existing.orderCount += 1;
       } else {
         // Orders are already createdAt-desc, so the first one seen per phone is the most recent.
-        guestGroups.set(phone, { phone, name: o.contactName ?? phone, createdAt: o.createdAt, orderCount: 1 });
+        guestGroups.set(identity, { phone, name: o.contactName ?? phone, createdAt: o.createdAt, orderCount: 1 });
       }
     }
 

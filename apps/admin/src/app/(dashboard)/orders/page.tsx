@@ -342,7 +342,7 @@ export default function OrdersPage() {
                   aria-label="Select all orders"
                 />
               </th>
-              {([["orderNumber","Order #"],["customer","Customer"],["source","Source"],["branch","Branch"],["type","Type"],["amount","Amount"],["payment","Payment"],["status","Status"],["rider","Rider"],["date","Date/Time"]] as [string, string][]).map(([key, label]) => {
+              {([["customer","Customer"],["orderNumber","Order #"],["source","Source"],["branch","Branch"],["type","Type"],["amount","Amount"],["payment","Payment"],["status","Status"],["rider","Rider"],["date","Date/Time"]] as [string, string][]).map(([key, label]) => {
                 const active = sort.key === key;
                 return (
                   <th key={key} className="whitespace-nowrap px-4 py-2" aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
@@ -364,16 +364,16 @@ export default function OrdersPage() {
                 <td className="px-4 py-2">
                   <input type="checkbox" checked={selected.has(o.id)} onChange={() => toggleSelected(o.id)} aria-label={`Select order ${o.orderNumber}`} />
                 </td>
-                <td className="px-4 py-2 font-medium">
-                  <button onClick={() => setDetailOrderId(o.id)} onMouseEnter={() => void prefetchOrderDetail(queryClient, o.id)} className="hover:text-brand-red hover:underline">{o.orderCode ?? o.orderNumber}</button>
-                  <p className="text-[11px] text-neutral-400">Inv {o.orderNumber.replace(/\D/g, "")}</p>
-                </td>
                 <td className="px-4 py-2 text-xs text-neutral-600">
                   <div className="flex items-center gap-2">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={o.customer?.profileImage || CUSTOMER_PROFILE_FALLBACK_IMAGE} alt="" className="h-7 w-7 shrink-0 rounded-full object-cover" />
                     <span>{o.customer?.name ?? "Guest"}</span>
                   </div>
+                </td>
+                <td className="px-4 py-2 font-medium">
+                  <button onClick={() => setDetailOrderId(o.id)} onMouseEnter={() => void prefetchOrderDetail(queryClient, o.id)} className="hover:text-brand-red hover:underline">{o.orderCode ?? o.orderNumber}</button>
+                  <p className="text-[11px] text-neutral-400">Inv {o.orderNumber.replace(/\D/g, "")}</p>
                 </td>
                 <td className="px-4 py-2">
                   <span className={`rounded-full px-2 py-0.5 text-xs ${o.source === "POS" ? "bg-blue-50 text-blue-700" : "bg-purple-50 text-purple-700"}`}>{o.source}</span>

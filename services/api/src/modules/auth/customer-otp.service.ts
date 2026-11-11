@@ -104,6 +104,27 @@ export class CustomerOtpService {
       throw new NotFoundException({ code: "EMAIL_NOT_REGISTERED", message: "No account found with this email." });
     }
 
+    // A POS/checkout guest can have an email on their order before they create an account.
+    // Successfully verifying that email for OTP login is the first proof of ownership, so
+    // promote that guest profile once and initialize its registered-customer loyalty account.
+    if (customer.isGuest) {
+      const loyaltyConfig = await this.loyalty.getConfig(restaurantId);
+      await this.prisma.$transaction(async (tx) => {
+        const promoted = await tx.customer.updateMany({
+          where: { id: customer.id, isGuest: true },
+          data: { isGuest: false },
+        });
+        if (promoted.count === 0) return;
+
+        const account = await tx.loyaltyAccount.upsert({
+          where: { customerId: customer.id },
+          create: { customerId: customer.id, pointsBalance: 0 },
+          update: {},
+        });
+        await this.loyalty.awardSignupBonus(tx, account.id, loyaltyConfig);
+      });
+    }
+
     return this.issueSession(customer.id, restaurantId, customer);
   }
 
