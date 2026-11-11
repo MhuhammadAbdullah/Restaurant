@@ -19,6 +19,7 @@ type LocationState = {
   hasHydrated: boolean;
   setHasHydrated: (v: boolean) => void;
   setOrderType: (t: OrderType) => void;
+  setArea: (area: string | null) => void;
   setResolved: (city: string, area: string | null, branch: Branch, isBranchOpen: boolean) => void;
   openChangeModal: () => void;
   closeChangeModal: () => void;
@@ -38,6 +39,7 @@ export const useLocationStore = create<LocationState>()(
       hasHydrated: false,
       setHasHydrated: (hasHydrated) => set({ hasHydrated }),
       setOrderType: (orderType) => set({ orderType }),
+      setArea: (area) => set((state) => (state.area === area ? state : { area })),
       setResolved: (city, area, branch, isBranchOpen) => set({ city, area, branch, isResolved: true, isBranchOpen, isChangeModalOpen: false }),
       openChangeModal: () => set({ isChangeModalOpen: true }),
       closeChangeModal: () => set({ isChangeModalOpen: false }),

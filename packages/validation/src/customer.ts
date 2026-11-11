@@ -25,7 +25,7 @@ export const updateCustomerProfileSchema = z.object({
   phone: phoneSchema.optional(),
   gender: genderSchema.optional(),
   dob: z.coerce.date().optional(),
-  profileImage: z.string().url().optional(),
+  profileImage: z.string().url().nullable().optional(),
 });
 export type UpdateCustomerProfileInput = z.infer<typeof updateCustomerProfileSchema>;
 

@@ -13,6 +13,7 @@ export type UploadSignature = {
 };
 
 const ALLOWED_UPLOAD_FOLDERS = new Set(["restaurant", "products", "categories", "deals", "banners", "complaints", "choices", "addons"]);
+const ALLOWED_SIGNATURE_FOLDERS = new Set([...ALLOWED_UPLOAD_FOLDERS, "customer-profiles"]);
 const ALLOWED_IMAGE_FORMATS = "jpg,jpeg,png,webp";
 
 /**
@@ -82,7 +83,7 @@ export class CloudinaryService {
       });
     }
     // Folder is client-supplied — restrict to a fixed allowlist rather than signing an arbitrary path.
-    const folder = ALLOWED_UPLOAD_FOLDERS.has(requestedFolder) ? requestedFolder : "restaurant";
+    const folder = ALLOWED_SIGNATURE_FOLDERS.has(requestedFolder) ? requestedFolder : "restaurant";
 
     const timestamp = Math.round(Date.now() / 1000);
     const apiSecret = this.config.get("CLOUDINARY_API_SECRET", { infer: true })!;

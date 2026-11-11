@@ -4,7 +4,7 @@ import { LoadingDots } from "../LoadingDots";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { formatPaisa } from "@restaurant/utils";
+import { CUSTOMER_PROFILE_FALLBACK_IMAGE, formatPaisa } from "@restaurant/utils";
 import { api, ApiError } from "../../lib/api";
 import { useMe, hasPermission } from "../../lib/useMe";
 import { toast } from "../../store/useToastStore";
@@ -19,6 +19,7 @@ export type CustomerDetail = {
   name: string;
   email: string | null;
   phone: string;
+  profileImage: string | null;
   isGuest: boolean;
   status: CustomerStatus;
   createdAt: string;
@@ -182,7 +183,10 @@ export function CustomerDetailModal({ id, onClose }: { id: string; onClose: () =
               <>
                 <div className="rounded-lg border border-neutral-200 p-3">
                   <div className="flex items-start justify-between gap-3">
-                    <div>
+                    <div className="flex min-w-0 items-start gap-3">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={detail.profileImage || CUSTOMER_PROFILE_FALLBACK_IMAGE} alt="" className="h-12 w-12 shrink-0 rounded-full object-cover" />
+                      <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="font-semibold text-neutral-900">{detail.name}</p>
                         <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${detail.isGuest ? "bg-amber-50 text-amber-700" : "bg-green-50 text-green-700"}`}>
@@ -226,6 +230,7 @@ export function CustomerDetailModal({ id, onClose }: { id: string; onClose: () =
                         </p>
                       )}
                       <p className="mt-1 text-xs text-neutral-400">{detail.orderCount} total orders · Since {formatDate(detail.createdAt)}</p>
+                      </div>
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-1">
                       <BlockToggle status={detail.status} canEdit={canBlockCustomers} busy={togglingStatus} onToggle={toggleStatus} />

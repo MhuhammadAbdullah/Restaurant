@@ -4,7 +4,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { clearTokens, setTokens } from "../lib/api";
 
-type Customer = { id: string; name: string; phone: string; email: string };
+type Customer = { id: string; name: string; phone: string; email: string; profileImage?: string | null };
 
 type AuthState = {
   customer: Customer | null;

@@ -6,3 +6,4 @@ export * from "./choice-group-rules";
 export * from "./id";
 export * from "./order-timer";
 export * from "./print-parts";
+export * from "./customer-image";

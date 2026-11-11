@@ -4,6 +4,7 @@ import { LoadingDots } from "../../../components/LoadingDots";
 import { SearchInput } from "../../../components/SearchFilterBar";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { CUSTOMER_PROFILE_FALLBACK_IMAGE } from "@restaurant/utils";
 import { api, ApiError } from "../../../lib/api";
 import { toast } from "../../../store/useToastStore";
 import { confirmDialog } from "../../../store/useConfirmStore";
@@ -19,6 +20,7 @@ type CustomerListItem = {
   name: string;
   email: string | null;
   phone: string;
+  profileImage: string | null;
   isGuest: boolean;
   status: CustomerStatus;
   createdAt: string;
@@ -142,7 +144,13 @@ export default function CustomersPage() {
           <tbody className="divide-y divide-neutral-100">
             {customers?.map((c) => (
               <tr key={c.id} onClick={() => setSelectedId(c.id)} className="cursor-pointer hover:bg-neutral-50">
-                <td className="px-4 py-2.5 font-medium text-neutral-900">{c.name}</td>
+                <td className="px-4 py-2.5 font-medium text-neutral-900">
+                  <div className="flex items-center gap-2.5">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={c.profileImage || CUSTOMER_PROFILE_FALLBACK_IMAGE} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover" />
+                    <span>{c.name}</span>
+                  </div>
+                </td>
                 <td className="px-4 py-2.5 text-neutral-600">{c.phone}</td>
                 <td className="px-4 py-2.5">{c.email ? <span className="text-neutral-600">{c.email}</span> : <span className="text-xs italic text-neutral-400">Not added</span>}</td>
                 <td className="px-4 py-2.5">

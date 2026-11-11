@@ -1791,7 +1791,7 @@ export class OrdersService {
   private readonly staffOrderListInclude = {
     branch: true,
     table: true,
-    customer: { select: { name: true, phone: true } },
+    customer: { select: { name: true, phone: true, profileImage: true } },
     assignedRider: { select: { name: true } },
   } as const;
 
@@ -2159,7 +2159,7 @@ export class OrdersService {
     return {
       branch: true,
       table: true,
-      customer: { select: { id: true, name: true, phone: true, email: true } },
+      customer: { select: { id: true, name: true, phone: true, email: true, profileImage: true } },
       assignedRider: { select: { id: true, name: true, phone: true } },
       items: {
         include: {

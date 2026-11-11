@@ -4,7 +4,7 @@ import { SearchInput } from "../SearchFilterBar";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { formatPaisa, minutesForOrderType, orderTimer, printOptionsFor, printPartsParam, type BranchTimes } from "@restaurant/utils";
+import { CUSTOMER_PROFILE_FALLBACK_IMAGE, formatPaisa, minutesForOrderType, orderTimer, printOptionsFor, printPartsParam, type BranchTimes } from "@restaurant/utils";
 import { api, ApiError } from "../../lib/api";
 import { useMe, hasPermission } from "../../lib/useMe";
 import { ProductConfigModal, type ProductDetail, type ProductCartLine } from "../pos/ProductConfigModal";
@@ -184,7 +184,7 @@ export type OrderDetail = {
   estimatedDeliveryAt: string | null;
   branch: { id: string; name: string; address: string | null; city: string; area: string } & BranchTimes;
   table: { number: string; name: string | null } | null;
-  customer: { id: string; name: string; phone: string; email: string | null } | null;
+  customer: { id: string; name: string; phone: string; email: string | null; profileImage: string | null } | null;
   assignedRider: { id: string; name: string; phone: string | null } | null;
   items: OrderItemDetail[];
   payments: { id: string; method: string; provider: string | null; status: string; amount: number; transactionRef: string | null; createdAt: string }[];
@@ -1030,7 +1030,10 @@ export function OrderDetailModal({ orderId, onClose, onNavigateReceipt }: { orde
                         </div>
                       </div>
                     ) : (
-                      <div className="mt-1.5 space-y-0.5 text-xs text-neutral-600">
+                      <div className="mt-1.5 flex items-start gap-2.5 text-xs text-neutral-600">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={order.customer?.profileImage || CUSTOMER_PROFILE_FALLBACK_IMAGE} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover" />
+                        <div className="min-w-0 space-y-0.5">
                         <p className="font-medium text-neutral-900">{order.contactName ?? order.customer?.name ?? "Guest"}</p>
                         <p>
                           {order.contactPhone ?? order.customer?.phone ? (
@@ -1053,6 +1056,7 @@ export function OrderDetailModal({ orderId, onClose, onNavigateReceipt }: { orde
                             )}
                           </div>
                         )}
+                        </div>
                       </div>
                     )}
 

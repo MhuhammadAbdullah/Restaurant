@@ -13,6 +13,7 @@ import { useCartStore } from "../../store/useCartStore";
 import { useLocationStore } from "../../store/useLocationStore";
 import { OPTION_OUT_CART_MESSAGE, SOLD_OUT_CART_MESSAGE, SOLD_OUT_INACTIVE_MESSAGE, useCartAvailability } from "../../lib/outOfStock";
 import type { CartDealItem, CartProductItem } from "../../lib/types";
+import { SelectField } from "../../components/SelectField";
 import { FaCheck, FaFileInvoiceDollar, FaHandHoldingDollar, FaTag } from "react-icons/fa6";
 import { FiShoppingBag } from "react-icons/fi";
 import { ArrowLeftIcon, CalculatorIcon, ChevronDownIcon, GiftIcon, PinIcon, TruckIcon } from "../../components/icons";
@@ -26,7 +27,7 @@ const PICKUP_TILE_ICON_URL = "https://res.cloudinary.com/dgkd8jw6a/image/upload/
 import { toast } from "../../store/useToastStore";
 
 type Address = { id: string; label: string; city: string; area: string; addressLine: string; isDefault: boolean };
-type CustomerMe = { loyaltyPoints: number };
+type CustomerMe = { id: string; name: string; phone: string; email: string | null; loyaltyPoints: number };
 type RestaurantInfo = {
   loyalty?: { enabled: boolean };
   checkout?: {
@@ -42,7 +43,15 @@ type RestaurantInfo = {
   };
 };
 
-const TITLES = ["Mr.", "Mrs.", "Ms.", "Miss", "Dr."];
+const TITLES = ["Mr.", "Mrs.", "Ms.", "Miss"];
+
+function splitCustomerTitle(value: string): { title: string | null; name: string } {
+  const match = value.trim().match(/^(Mrs|Mr|Ms|Miss|Dr)\.?\s+/i);
+  if (!match) return { title: null, name: value.trim() };
+
+  const title = TITLES.find((option) => option.replace(".", "").toLowerCase() === match[1]!.toLowerCase()) ?? null;
+  return { title, name: value.trim().slice(match[0].length).trim() };
+}
 
 /** Backend expects strictly 03XXXXXXXXX — strip dashes/spaces/parens users naturally type. */
 function normalizePhone(value: string): string {
@@ -62,11 +71,12 @@ function describeApiError(e: ApiError): string {
 export default function CheckoutPage() {
   const router = useRouter();
   const customer = useAuthStore((s) => s.customer);
+  const initialCustomerName = splitCustomerTitle(customer?.name ?? "");
   const authHasHydrated = useAuthStore((s) => s.hasHydrated);
   const openAuthModal = useAuthModalStore((s) => s.open);
   const { items, clear, hasHydrated, removeItem } = useCartStore();
   const { reasonFor, hasUnavailable } = useCartAvailability();
-  const { branch, orderType, city, area } = useLocationStore();
+  const { branch, orderType, city, area, setArea } = useLocationStore();
   const isBranchOpen = useBranchOpenStatus();
 
   useEffect(() => {
@@ -77,10 +87,11 @@ export default function CheckoutPage() {
     router.prefetch("/order-confirmation/prefetch");
   }, [router]);
 
-  const [title, setTitle] = useState(TITLES[0]!);
+  const [title, setTitle] = useState(initialCustomerName.title ?? TITLES[0]!);
   const [addressId, setAddressId] = useState<string>("");
+  const prefilledCustomerId = useRef<string | null>(null);
   const [guestAddress, setGuestAddress] = useState({ addressLine: "", landmark: "" });
-  const [contactName, setContactName] = useState(customer?.name ?? "");
+  const [contactName, setContactName] = useState(initialCustomerName.name);
   const [contactPhone, setContactPhone] = useState(customer?.phone ?? "");
   const [contactAlternatePhone, setContactAlternatePhone] = useState("");
   const [contactEmail, setContactEmail] = useState("");
@@ -110,11 +121,23 @@ export default function CheckoutPage() {
     queryFn: () => api.get<Address[]>("/customers/me/addresses"),
     enabled: !!customer,
   });
+  const selectedSavedAddress = addresses?.find((address) => address.id === addressId);
   const { data: me } = useQuery({
     queryKey: ["me"],
     queryFn: () => api.get<CustomerMe>("/auth/customer/me"),
     enabled: !!customer,
   });
+
+  useEffect(() => {
+    if (!customer || !me || prefilledCustomerId.current === customer.id) return;
+    prefilledCustomerId.current = customer.id;
+    const profileName = splitCustomerTitle(me.name || customer.name || "");
+    if (profileName.title) setTitle(profileName.title);
+    setContactName(profileName.name);
+    setContactPhone(me.phone || customer.phone || "");
+    setContactEmail(me.email || customer.email || "");
+  }, [customer, me]);
+
   const { data: restaurantInfo } = useQuery({
     queryKey: ["cms-restaurant"],
     queryFn: () => api.public.get<RestaurantInfo>("/cms/restaurant"),
@@ -167,6 +190,10 @@ export default function CheckoutPage() {
       setAddressId(addresses.find((a) => a.isDefault)?.id ?? addresses[0]!.id);
     }
   }, [addresses, addressId]);
+
+  useEffect(() => {
+    if (selectedSavedAddress) setArea(selectedSavedAddress.area || null);
+  }, [selectedSavedAddress?.id, selectedSavedAddress?.area, setArea]);
 
   useEffect(() => {
     if (isGift) setPaymentMethod("ONLINE");
@@ -453,13 +480,12 @@ export default function CheckoutPage() {
 
           <div className="mt-5 grid gap-4 sm:grid-cols-[110px_1fr]">
             <Field label="Title">
-              <select value={title} onChange={(e) => setTitle(e.target.value)} className="input">
-                {TITLES.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
+              <SelectField
+                value={title}
+                onChange={setTitle}
+                options={TITLES.map((t) => ({ value: t, label: t }))}
+                ariaLabel="Title"
+              />
             </Field>
             <Field label="Full Name" required>
               <input value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder="Full Name" className="input" required />
@@ -489,13 +515,17 @@ export default function CheckoutPage() {
                   {customer && addressesLoading ? (
                     <Skeleton className="h-12 w-full rounded-xl" />
                   ) : customer && addresses && addresses.length > 0 ? (
-                    <select value={addressId} onChange={(e) => setAddressId(e.target.value)} className="input">
-                      {addresses.map((a) => (
-                        <option key={a.id} value={a.id}>
-                          {a.label}: {a.addressLine}
-                        </option>
-                      ))}
-                    </select>
+                    <SelectField
+                      value={addressId}
+                      onChange={setAddressId}
+                      options={addresses.map((a) => ({
+                        value: a.id,
+                        label: `${a.label}: ${a.addressLine}`,
+                      }))}
+                      suffix={selectedSavedAddress?.area || undefined}
+                      ariaLabel="Delivery Address"
+                      required
+                    />
                   ) : needsCustomAddress ? (
                     <p className="text-sm text-muted">
                       No saved addresses. <a href="/account/addresses" className="text-brand-red">Add one</a> before checking out.

@@ -47,6 +47,7 @@ export class CustomersService {
         dob: input.dob,
         profileImage: input.profileImage,
       },
+      select: { id: true, name: true, email: true, phone: true, gender: true, dob: true, profileImage: true },
     });
   }
 
@@ -224,6 +225,7 @@ export class CustomersService {
         name: true,
         phone: true,
         email: true,
+        profileImage: true,
         isGuest: true,
         loyaltyAccount: { select: { pointsBalance: true } },
         addresses: { orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }], take: 5, select: { id: true, label: true, city: true, area: true, addressLine: true, landmark: true, contactNumber: true, isDefault: true } },
@@ -265,6 +267,7 @@ export class CustomersService {
         name: c.name,
         phone: c.phone,
         email: c.email,
+        profileImage: c.profileImage,
         isGuest: c.isGuest,
         loyaltyPoints: c.loyaltyAccount?.pointsBalance ?? 0,
         addresses: last
@@ -277,6 +280,7 @@ export class CustomersService {
       name: o.contactName ?? o.contactPhone!,
       phone: o.contactPhone!,
       email: o.contactEmail,
+      profileImage: null,
       isGuest: true,
       loyaltyPoints: 0,
       addresses: o.deliveryAddressSnapshot
@@ -302,6 +306,7 @@ export class CustomersService {
         id: true,
         name: true,
         email: true,
+        profileImage: true,
         phone: true,
         isGuest: true,
         status: true,
@@ -317,6 +322,7 @@ export class CustomersService {
       id: c.id,
       name: c.name,
       email: c.email,
+      profileImage: c.profileImage,
       phone: c.phone,
       isGuest: c.isGuest,
       status: c.status,
@@ -356,6 +362,7 @@ export class CustomersService {
       id: `guest:${g.phone}`,
       name: g.name,
       email: null as string | null,
+      profileImage: null as string | null,
       phone: g.phone,
       isGuest: true,
       // Synthetic phone-only rows have no Customer record to block — they never authenticate
@@ -425,6 +432,7 @@ export class CustomersService {
         name: latest?.contactName ?? phone,
         email: latest?.contactEmail ?? null,
         phone,
+        profileImage: null,
         isGuest: true,
         status: blockedRow?.status ?? "ACTIVE",
         createdAt: latest?.createdAt ?? new Date(),
