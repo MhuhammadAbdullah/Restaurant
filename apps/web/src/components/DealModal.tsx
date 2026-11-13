@@ -232,7 +232,7 @@ export function DealModal({ deal, onClose }: { deal: Deal; onClose: () => void }
 
   const footerBar = (
     <>
-      <div className="flex shrink-0 items-center gap-1 rounded-full border border-line bg-surface p-1 text-ink sm:gap-3">
+      <div className="flex shrink-0 items-center gap-1 rounded-full border border-line bg-white p-1 text-ink shadow-sm dark:bg-zinc-900 sm:gap-3">
         {quantity > 1 ? (
           <button onClick={() => setQuantity((q) => Math.max(1, q - 1))} aria-label="Decrease quantity" className="flex h-7 w-7 items-center justify-center rounded-full bg-neutral-200 text-neutral-800 dark:bg-neutral-700 dark:text-neutral-100 sm:h-9 sm:w-9">
             <MinusIcon size={14} />
@@ -366,9 +366,9 @@ export function DealModal({ deal, onClose }: { deal: Deal; onClose: () => void }
                   if (hasImages) {
                     return (
                       <div key={section.key}>
-                        <div className="flex items-center justify-between gap-2 rounded-2xl border border-emerald-300 bg-emerald-100 px-3 py-2.5 shadow-sm shadow-emerald-900/10 dark:border-emerald-800 dark:bg-emerald-950/60 sm:gap-3 sm:px-4 sm:py-3.5">
-                          <span className="line-clamp-2 min-w-0 text-sm font-semibold text-emerald-900 dark:text-emerald-200 sm:text-base">{section.slot.label}: {section.choiceGroup.name}</span>
-                          {rules.isRequired && (satisfied ? <span className="shrink-0 rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-semibold text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200 sm:px-3 sm:text-xs">✓ Done</span> : <RequiredChip />)}
+                        <div className="flex items-center justify-between gap-2 rounded-2xl border border-line bg-white px-3 py-2.5 dark:bg-zinc-900 sm:gap-3 sm:px-4 sm:py-3.5">
+                          <span className="line-clamp-2 min-w-0 text-sm font-semibold text-ink sm:text-base">{section.slot.label}: {section.choiceGroup.name}</span>
+                          {rules.isRequired && (satisfied ? <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold leading-none text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200 sm:px-3 sm:text-xs">✓ Done</span> : <RequiredChip />)}
                         </div>
                         {optionsGrid}
                       </div>
@@ -439,10 +439,10 @@ export function DealModal({ deal, onClose }: { deal: Deal; onClose: () => void }
             </div>
           </div>
 
-        <div className="sticky bottom-0 mt-auto hidden items-center gap-4 border-t border-line bg-surface-alt p-4 sm:flex sm:px-8 sm:py-5">{footerBar}</div>
+        <div className="sticky bottom-0 mt-auto hidden items-center gap-4 border-t border-line bg-white p-4 sm:flex sm:px-8 sm:py-5 dark:bg-zinc-950">{footerBar}</div>
         </div>
         </div>
-        <div className="flex shrink-0 items-center gap-2.5 border-t border-line bg-surface-alt px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:hidden">{footerBar}</div>
+        <div className="flex shrink-0 items-center gap-2.5 border-t border-line bg-white px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 dark:bg-zinc-950 sm:hidden">{footerBar}</div>
       </div>
     </div>,
     document.body,

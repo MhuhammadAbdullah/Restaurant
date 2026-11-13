@@ -78,14 +78,14 @@ export function CartDrawer() {
         aria-modal="true"
         aria-label="Shopping cart"
       >
-        <div className="flex items-center justify-between bg-brand-red px-5 py-4">
-          <h2 className="flex items-center gap-2.5 text-lg font-bold text-white">
+        <div className="flex items-center justify-between bg-brand-red px-5 py-3.5">
+          <h2 className="flex items-center gap-2.5 text-base font-bold text-white">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={CART_ICON_URL} alt="" className="h-5 w-5 object-contain" />
+            <img src={CART_ICON_URL} alt="" className="h-[18px] w-[18px] object-contain" />
             Your Cart
           </h2>
-          <button onClick={close} aria-label="Close cart" className="rounded-full p-2 text-white transition hover:bg-white/15">
-            <CloseIcon size={20} />
+          <button onClick={close} aria-label="Close cart" className="rounded-full p-1.5 text-white transition hover:bg-white/15">
+            <CloseIcon size={18} />
           </button>
         </div>
 

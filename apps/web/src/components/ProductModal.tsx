@@ -280,9 +280,9 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
                 if (hasImages) {
                   return (
                     <div key={sectionKey}>
-                      <div className="flex items-center justify-between gap-2 rounded-2xl border border-emerald-300 bg-emerald-100 px-3 py-2.5 shadow-sm shadow-emerald-900/10 dark:border-emerald-800 dark:bg-emerald-950/60 sm:gap-3 sm:px-4 sm:py-3.5">
-                        <span className="line-clamp-2 min-w-0 text-sm font-semibold text-emerald-900 dark:text-emerald-200 sm:text-base">{g.name}</span>
-                        {rules.isRequired && (isSatisfied ? <span className="shrink-0 rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-semibold text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200 sm:px-3 sm:text-xs">✓ Done</span> : <RequiredChip />)}
+                      <div className="flex items-center justify-between gap-2 rounded-2xl border border-line bg-white px-3 py-2.5 dark:bg-zinc-900 sm:gap-3 sm:px-4 sm:py-3.5">
+                        <span className="line-clamp-2 min-w-0 text-sm font-semibold text-ink sm:text-base">{g.name}</span>
+                        {rules.isRequired && (isSatisfied ? <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold leading-none text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200 sm:px-3 sm:text-xs">✓ Done</span> : <RequiredChip />)}
                       </div>
                       {optionsGrid}
                     </div>
@@ -370,8 +370,8 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
             </div>
           </div>
 
-          <div className="sticky bottom-0 mt-auto hidden items-center gap-4 border-t border-line bg-surface-alt p-4 sm:flex sm:px-8 sm:py-5">
-            <div className="flex shrink-0 items-center gap-1.5 rounded-full border border-line bg-surface p-1 text-ink sm:gap-3">
+          <div className="sticky bottom-0 mt-auto hidden items-center gap-4 border-t border-line bg-white p-4 sm:flex sm:px-8 sm:py-5 dark:bg-zinc-950">
+            <div className="flex shrink-0 items-center gap-1.5 rounded-full border border-line bg-white p-1 text-ink shadow-sm dark:bg-zinc-900 sm:gap-3">
               {quantity > 1 ? (
                 <button
                   onClick={() => setQuantity((q) => Math.max(1, q - 1))}
@@ -415,8 +415,8 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
           </div>
         </div>
         </div>
-        <div className="flex shrink-0 items-center gap-2 border-t border-line bg-surface-alt px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2.5 sm:hidden">
-            <div className="flex shrink-0 items-center gap-1 rounded-full border border-line bg-surface p-1 text-ink sm:gap-3">
+        <div className="flex shrink-0 items-center gap-2 border-t border-line bg-white px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2.5 dark:bg-zinc-950 sm:hidden">
+            <div className="flex shrink-0 items-center gap-1 rounded-full border border-line bg-white p-1 text-ink shadow-sm dark:bg-zinc-900 sm:gap-3">
               {quantity > 1 ? (
                 <button
                   onClick={() => setQuantity((q) => Math.max(1, q - 1))}
