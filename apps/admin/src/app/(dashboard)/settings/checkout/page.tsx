@@ -52,23 +52,27 @@ export default function CheckoutSettingsPage() {
   const [showCoupon, setShowCoupon] = useState(true);
   const [showTip, setShowTip] = useState(true);
   const [showGift, setShowGift] = useState(true);
+  const [freeDeliveryMinimum, setFreeDeliveryMinimum] = useState("0");
+  const [showCartRecommendations, setShowCartRecommendations] = useState(true);
   const [presets, setPresets] = useState<string[]>(["100", "200", "500"]);
   const [defaultTip, setDefaultTip] = useState("0");
   const [payments, setPayments] = useState<Payments>(DEFAULT_PAYMENTS);
   const [saved, setSaved] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const snapshot = useMemo(() => JSON.stringify({ showCoupon, showTip, showGift, presets, defaultTip, payments }), [showCoupon, showTip, showGift, presets, defaultTip, payments]);
+  const snapshot = useMemo(() => JSON.stringify({ showCoupon, showTip, showGift, presets, defaultTip, payments, freeDeliveryMinimum, showCartRecommendations }), [showCoupon, showTip, showGift, presets, defaultTip, payments, freeDeliveryMinimum, showCartRecommendations]);
   const dirty = saved !== "" && snapshot !== saved;
 
   useEffect(() => {
     if (!restaurant) return;
     const c = restaurant.checkout;
-    const next = { showCoupon: c.showCoupon, showTip: c.showTip, showGift: c.showGift, presets: c.tipPresets.map(String), defaultTip: String(c.defaultTip), payments: c.payments };
+    const next = { showCoupon: c.showCoupon, showTip: c.showTip, showGift: c.showGift, presets: c.tipPresets.map(String), defaultTip: String(c.defaultTip), payments: c.payments, freeDeliveryMinimum: String(c.freeDeliveryMinimum), showCartRecommendations: c.showCartRecommendations };
     setPayments(next.payments);
     setShowCoupon(next.showCoupon);
     setShowTip(next.showTip);
     setShowGift(next.showGift);
+    setFreeDeliveryMinimum(next.freeDeliveryMinimum);
+    setShowCartRecommendations(next.showCartRecommendations);
     setPresets(next.presets);
     setDefaultTip(next.defaultTip);
     setSaved(JSON.stringify(next));
@@ -76,11 +80,13 @@ export default function CheckoutSettingsPage() {
 
   function reset() {
     if (!saved) return;
-    const s = JSON.parse(saved) as { showCoupon: boolean; showTip: boolean; showGift: boolean; presets: string[]; defaultTip: string; payments: Payments };
+    const s = JSON.parse(saved) as { showCoupon: boolean; showTip: boolean; showGift: boolean; presets: string[]; defaultTip: string; payments: Payments; freeDeliveryMinimum: string; showCartRecommendations: boolean };
     setPayments(s.payments);
     setShowCoupon(s.showCoupon);
     setShowTip(s.showTip);
     setShowGift(s.showGift);
+    setFreeDeliveryMinimum(s.freeDeliveryMinimum);
+    setShowCartRecommendations(s.showCartRecommendations);
     setPresets(s.presets);
     setDefaultTip(s.defaultTip);
   }
@@ -90,17 +96,20 @@ export default function CheckoutSettingsPage() {
   const duplicates = new Set(amounts).size !== amounts.length;
   const defaultNum = Number(defaultTip || 0);
   const defaultValid = Number.isInteger(defaultNum) && defaultNum >= 0 && defaultNum <= MAX_AMOUNT;
+  const freeDeliveryNum = Number(freeDeliveryMinimum || 0);
+  const freeDeliveryValid = Number.isInteger(freeDeliveryNum) && freeDeliveryNum >= 0 && freeDeliveryNum <= 1_000_000;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!presetsValid) return toast.error(`Tip amounts must be whole numbers between 1 and ${MAX_AMOUNT.toLocaleString()}`);
     if (duplicates) return toast.error("Two tip buttons have the same amount");
     if (!defaultValid) return toast.error("The default tip must be 0 or a whole number");
+    if (!freeDeliveryValid) return toast.error("Free delivery minimum must be 0 or a whole number of rupees");
     if (!payments.cod.enabled && !payments.online.enabled) return toast.error("Keep at least one payment method on");
     if (!payments.cod.label.trim() || !payments.cod.pickupLabel.trim() || !payments.online.label.trim()) return toast.error("Payment method names cannot be empty");
     setSaving(true);
     try {
-      await api.patch("/cms/restaurant", { checkout: { showCoupon, showTip, showGift, tipPresets: amounts, defaultTip: defaultNum, payments } });
+      await api.patch("/cms/restaurant", { checkout: { showCoupon, showTip, showGift, tipPresets: amounts, defaultTip: defaultNum, payments, freeDeliveryMinimum: freeDeliveryNum, showCartRecommendations } });
       await queryClient.invalidateQueries({ queryKey: ["cms-restaurant"] });
       toast.success("Saved.");
     } catch (err) {
@@ -126,6 +135,13 @@ export default function CheckoutSettingsPage() {
       <form onSubmit={submit} className="mt-4">
         <fieldset disabled={!canManage} className="grid grid-cols-1 gap-5 disabled:opacity-70 xl:grid-cols-[minmax(0,1fr)_380px]">
           <div className="space-y-4">
+            <Card n={5} title="Free delivery" description="Customers get free delivery when their item subtotal reaches this amount. The progress message appears above View Cart, in the cart, and at checkout.">
+              <label className="block max-w-xs text-xs font-medium text-neutral-600">Minimum order amount (Rs.)<input type="number" min={0} max={1_000_000} step={1} inputMode="numeric" value={freeDeliveryMinimum} onChange={(e) => setFreeDeliveryMinimum(e.target.value)} className="input mt-1 w-full" aria-label="Free delivery minimum order amount in rupees" /></label>
+              <p className="text-xs text-neutral-500">Set to 0 to disable free delivery. Current setting: {freeDeliveryNum > 0 ? `free delivery from Rs. ${freeDeliveryNum.toLocaleString()}` : "offer disabled"}.</p>
+            </Card>
+            <Card n={6} title="Cart recommendations" description="Show or hide the Popular with your order section in the cart." right={<Switch checked={showCartRecommendations} onCheckedChange={setShowCartRecommendations} aria-label="Show Popular with your order in cart" />}>
+              <StatusPill on={showCartRecommendations} onText="Popular with your order shown" offText="Cart recommendations hidden" />
+            </Card>
             <Card
               n={1}
               title="Coupon code"

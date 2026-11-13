@@ -130,6 +130,13 @@ export function MarketingPopup() {
 
   useEffect(() => {
     if (!active) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = previous; };
+  }, [active]);
+
+  useEffect(() => {
+    if (!active) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setActive(null);
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

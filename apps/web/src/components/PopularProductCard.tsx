@@ -65,36 +65,19 @@ export function PopularProductCard({ product, onClick }: { product: Product; onC
   return (
     <div className="group relative z-0 flex flex-col">
       <ProductTagBadge tag={product.tag} />
-      <button
-        onClick={open}
-        aria-label={product.name}
-        className="relative block aspect-square w-full overflow-hidden rounded-3xl bg-surface-alt"
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={image}
-          alt={product.name}
-          className={`h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105 ${soldOut ? "opacity-40 grayscale" : ""}`}
-        />
-        {soldOut && <SoldOutStamp />}
-      </button>
-
-      <div className="relative mt-3 flex items-end justify-between gap-2 px-1">
-        <div className={`min-w-0 flex-1 ${soldOut ? "opacity-60" : ""}`}>
-          <button onClick={open} className="block w-full text-left">
-            <p className="truncate font-poppins text-[12px] font-bold uppercase leading-[16px] text-ink sm:text-[14px] lg:text-[16px]">
-              {product.name}
-            </p>
-          </button>
-          <p className="mt-1 font-poppins text-[11px] font-semibold uppercase leading-[14px] text-muted sm:text-[12px] lg:text-[14px]">
-            {product.discountPrice != null && <span className="mr-1.5 text-[10px] font-normal line-through opacity-70">{formatPaisa(product.basePrice)}</span>}
-            {formatPaisa(price)}
-          </p>
-        </div>
-
-        <div className="shrink-0">
+      <div className="relative aspect-square w-full overflow-hidden rounded-3xl bg-surface-alt">
+        <button onClick={open} aria-label={product.name} className="absolute inset-0 block h-full w-full">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={image}
+            alt={product.name}
+            className={`h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105 ${soldOut ? "opacity-40 grayscale" : ""}`}
+          />
+          {soldOut && <SoldOutStamp />}
+        </button>
+        <div className="absolute bottom-3 right-3 z-10">
           {soldOut ? (
-            <span className="flex h-6 shrink-0 items-center rounded-md bg-surface-alt px-2 text-[10px] font-semibold uppercase tracking-wide text-muted sm:h-7 sm:text-[11px]">Sold out</span>
+            <span className="flex h-8 items-center rounded-full bg-surface px-3 text-[10px] font-semibold uppercase tracking-wide text-muted shadow sm:h-9 sm:text-[11px]">Sold out</span>
           ) : quantity > 0 && simpleLine ? (
             <QtyStepper
               quantity={quantity}
@@ -103,21 +86,30 @@ export function PopularProductCard({ product, onClick }: { product: Product; onC
               onDecrement={() => updateQuantity(simpleLine.cartItemId, quantity - 1)}
               onRemove={() => removeItem(simpleLine.cartItemId)}
               compact
-              className="!py-0 h-6 sm:h-7 lg:h-8"
+              tone="neutral"
+              className="h-8 !px-1 sm:h-9"
             />
           ) : (
             <button
               onClick={handleAdd}
               disabled={checking}
               aria-label="Add to cart"
-              className="flex h-6 w-6 items-center justify-center rounded-md bg-brand-red text-white transition hover:opacity-90 disabled:opacity-60 sm:h-7 sm:w-7 sm:rounded-lg lg:h-8 lg:w-8"
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-red text-white shadow-lg transition hover:opacity-90 disabled:opacity-60"
             >
-              <PlusIcon size={10} className="sm:hidden" />
-              <PlusIcon size={12} className="hidden sm:block lg:hidden" />
-              <PlusIcon size={14} className="hidden lg:block" />
+              <PlusIcon size={18} />
             </button>
           )}
         </div>
+      </div>
+
+      <div className={`mt-3 space-y-1 px-1 ${soldOut ? "opacity-60" : ""}`}>
+        <button onClick={open} className="block w-full text-left">
+          <p className="truncate font-poppins text-[15px] font-bold leading-5 text-ink sm:text-base">{product.name}</p>
+        </button>
+        <p className="w-fit rounded-lg bg-surface-alt px-2 py-1 font-poppins text-xs font-semibold leading-4 text-muted sm:text-sm">
+          {product.discountPrice != null && <span className="mr-1.5 font-normal line-through opacity-70">{formatPaisa(product.basePrice)}</span>}
+          {formatPaisa(price)}
+        </p>
       </div>
     </div>
   );

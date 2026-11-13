@@ -12,6 +12,7 @@ export function QtyStepper({
   onRemove,
   className = "",
   compact = false,
+  tone = "brand",
 }: {
   quantity: number;
   itemName?: string;
@@ -21,22 +22,24 @@ export function QtyStepper({
   className?: string;
   /** Smaller buttons and spacing, for product / deal cards. */
   compact?: boolean;
+  /** Neutral cart control styling, independent of the primary brand buttons elsewhere. */
+  tone?: "brand" | "neutral" | "soft";
 }) {
-  const btn = compact ? "h-5 w-5 sm:h-6 sm:w-6" : "h-6 w-6";
+  const btn = compact ? "h-5 w-5 sm:h-6 sm:w-6" : tone === "neutral" ? "h-8 w-8" : "h-6 w-6";
   const icon = compact ? 12 : 14;
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   return (
     <>
       <div
-        className={`flex items-center justify-between rounded-lg bg-brand-red text-white ${compact ? "gap-1.5 px-1 py-1 sm:gap-2" : "gap-2.5 px-1.5 py-1.5"} ${className}`}
+        className={`flex items-center justify-between rounded-full border ${tone === "neutral" ? `${compact ? "" : "min-w-[124px]"} border-[#c6d0d2] bg-[#f1f4f4] text-[#16464b]` : tone === "soft" ? "border-brand-red/25 bg-brand-red/10 text-ink" : "border-transparent bg-brand-red text-white"} ${compact ? "gap-1.5 px-1 py-1 sm:gap-2" : tone === "neutral" ? "gap-1 px-2 py-1" : "gap-2.5 px-1.5 py-1.5"} ${className}`}
         onClick={(e) => e.stopPropagation()}
       >
         {quantity <= 1 ? (
           <button
             onClick={() => setConfirmOpen(true)}
             aria-label="Remove item"
-            className={`flex ${btn} shrink-0 items-center justify-center rounded-md transition hover:bg-white/20`}
+            className={`flex ${btn} shrink-0 items-center justify-center rounded-full transition ${tone === "neutral" ? "text-red-500 hover:bg-white" : tone === "soft" ? "bg-brand-red/15 text-brand-red hover:bg-brand-red/25" : "hover:bg-white/20"}`}
           >
             <TrashIcon size={icon} />
           </button>
@@ -44,7 +47,7 @@ export function QtyStepper({
           <button
             onClick={onDecrement}
             aria-label="Decrease quantity"
-            className={`flex ${btn} shrink-0 items-center justify-center rounded-md transition hover:bg-white/20`}
+            className={`flex ${btn} shrink-0 items-center justify-center rounded-full transition ${tone === "neutral" ? "hover:bg-white" : tone === "soft" ? "bg-brand-red/15 text-brand-red hover:bg-brand-red/25" : "hover:bg-white/20"}`}
           >
             <MinusIcon size={icon} />
           </button>
@@ -55,7 +58,7 @@ export function QtyStepper({
         <button
           onClick={onIncrement}
           aria-label="Increase quantity"
-          className={`flex ${btn} shrink-0 items-center justify-center rounded-md transition hover:bg-white/20`}
+          className={`flex ${btn} shrink-0 items-center justify-center rounded-full transition ${tone === "neutral" ? "hover:bg-white" : tone === "soft" ? "bg-brand-red text-white hover:bg-brand-red/90" : "hover:bg-white/20"}`}
         >
           <PlusIcon size={icon} />
         </button>

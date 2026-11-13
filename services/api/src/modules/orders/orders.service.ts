@@ -275,7 +275,8 @@ export class OrdersService {
     const restaurant = await this.prisma.restaurant.findUniqueOrThrow({ where: { id: restaurantId } });
     const loyaltyConfig = resolveLoyaltyConfig(restaurant.settings);
     const taxAmount = Math.round(subtotal * (Number(restaurant.defaultTaxPct) / 100));
-    const deliveryFee = input.type === "ONLINE_DELIVERY" ? branch.deliveryFee : 0;
+    const freeDeliveryMinimum = Number((restaurant.settings as any)?.checkout?.freeDeliveryMinimum ?? 0) * 100;
+    const deliveryFee = input.type === "ONLINE_DELIVERY" && !(freeDeliveryMinimum > 0 && subtotal >= freeDeliveryMinimum) ? branch.deliveryFee : 0;
     const discountAmount = 0;
 
     // 13: coupon validation (server-priced, never trusted from client)
@@ -615,7 +616,8 @@ export class OrdersService {
 
     const loyaltyConfig = resolveLoyaltyConfig(restaurant.settings);
     const taxAmount = Math.round(subtotal * (Number(restaurant.defaultTaxPct) / 100));
-    const deliveryFee = input.type === "DELIVERY" ? branch.deliveryFee : 0;
+    const freeDeliveryMinimum = Number((restaurant.settings as any)?.checkout?.freeDeliveryMinimum ?? 0) * 100;
+    const deliveryFee = input.type === "DELIVERY" && !(freeDeliveryMinimum > 0 && subtotal >= freeDeliveryMinimum) ? branch.deliveryFee : 0;
 
     let couponPricing: { couponId: string; code: string; discountAmount: number } | null = null;
     if (input.couponCode) {
@@ -801,7 +803,8 @@ export class OrdersService {
     const subtotal = this.sumLineItems(pricedLines);
     const taxPct = Number(restaurant.defaultTaxPct);
     const taxAmount = Math.round(subtotal * (taxPct / 100));
-    const deliveryFee = input.type === "DELIVERY" ? branch.deliveryFee : 0;
+    const freeDeliveryMinimum = Number((restaurant.settings as any)?.checkout?.freeDeliveryMinimum ?? 0) * 100;
+    const deliveryFee = input.type === "DELIVERY" && !(freeDeliveryMinimum > 0 && subtotal >= freeDeliveryMinimum) ? branch.deliveryFee : 0;
 
     let couponDiscountAmount = 0;
     let couponError: string | undefined;
