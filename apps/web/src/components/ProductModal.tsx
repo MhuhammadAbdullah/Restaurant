@@ -280,7 +280,7 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
                 if (hasImages) {
                   return (
                     <div key={sectionKey}>
-                      <div className="flex items-center justify-between gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 dark:border-emerald-900 dark:bg-emerald-950/40 sm:gap-3 sm:px-4 sm:py-3.5">
+                      <div className="flex items-center justify-between gap-2 rounded-2xl border border-emerald-300 bg-emerald-100/80 px-3 py-2.5 shadow-sm shadow-emerald-900/10 dark:border-emerald-800 dark:bg-emerald-950/60 sm:gap-3 sm:px-4 sm:py-3.5">
                         <span className="line-clamp-2 min-w-0 text-sm font-semibold text-emerald-900 dark:text-emerald-200 sm:text-base">{g.name}</span>
                         {rules.isRequired && (isSatisfied ? <span className="shrink-0 rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-semibold text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200 sm:px-3 sm:text-xs">✓ Done</span> : <RequiredChip />)}
                       </div>
