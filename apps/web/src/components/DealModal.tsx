@@ -231,18 +231,18 @@ export function DealModal({ deal, onClose }: { deal: Deal; onClose: () => void }
 
   const footerBar = (
     <>
-      <div className="flex shrink-0 items-center gap-1.5 rounded-full border border-[#c6d0d2] bg-[#f1f4f4] p-1 text-[#16464b] sm:gap-3">
+      <div className="flex shrink-0 items-center gap-1.5 rounded-full border border-line bg-surface p-1 text-ink sm:gap-3">
         {quantity > 1 ? (
-          <button onClick={() => setQuantity((q) => Math.max(1, q - 1))} aria-label="Decrease quantity" className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-200 text-[#16464b] sm:h-9 sm:w-9">
+          <button onClick={() => setQuantity((q) => Math.max(1, q - 1))} aria-label="Decrease quantity" className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-200 text-neutral-800 dark:bg-neutral-700 dark:text-neutral-100 sm:h-9 sm:w-9">
             <MinusIcon size={14} />
           </button>
         ) : (
-          <button onClick={onClose} aria-label="Discard item" className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-200 text-red-500 sm:h-9 sm:w-9">
+          <button onClick={onClose} aria-label="Discard item" className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-200 text-red-500 dark:bg-neutral-700 sm:h-9 sm:w-9">
             <TrashIcon size={14} />
           </button>
         )}
         <span className="w-5 text-center text-sm font-semibold text-ink sm:w-6">{quantity}</span>
-        <button onClick={() => setQuantity((q) => q + 1)} aria-label="Increase quantity" className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-300 text-[#16464b] sm:h-9 sm:w-9">
+        <button onClick={() => setQuantity((q) => q + 1)} aria-label="Increase quantity" className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-300 text-neutral-800 dark:bg-neutral-600 dark:text-neutral-100 sm:h-9 sm:w-9">
           <PlusIcon size={14} />
         </button>
       </div>
@@ -269,7 +269,7 @@ export function DealModal({ deal, onClose }: { deal: Deal; onClose: () => void }
 
   return createPortal(
     <div className="modal-backdrop-enter fixed inset-0 z-[70] flex items-end justify-center bg-black/70 sm:items-center sm:p-4">
-      <div className="modal-panel-enter relative flex h-[90dvh] max-h-[90dvh] w-full max-w-[1100px] flex-col overflow-hidden rounded-t-3xl bg-white sm:h-[580px] sm:max-h-[calc(100dvh-2rem)] sm:flex-row sm:rounded-3xl">
+      <div className="modal-panel-enter relative flex h-[90dvh] max-h-[90dvh] w-full max-w-[1100px] flex-col overflow-hidden rounded-t-3xl bg-surface sm:h-[580px] sm:max-h-[calc(100dvh-2rem)] sm:flex-row sm:rounded-3xl">
         <button
           onClick={onClose}
           aria-label="Close"
@@ -296,7 +296,7 @@ export function DealModal({ deal, onClose }: { deal: Deal; onClose: () => void }
           </div>
         </div>
 
-        <div className="flex flex-col bg-white sm:min-w-0 sm:flex-1 sm:overflow-y-auto">
+        <div className="flex flex-col bg-surface sm:min-w-0 sm:flex-1 sm:overflow-y-auto">
           <div className="p-6 sm:p-8">
             <p className="pr-14 font-poppins text-3xl font-bold text-ink sm:text-4xl">
               {deal.originalPrice != null && <span className="mr-2 text-xl font-normal text-muted line-through">{formatPaisa(deal.originalPrice)}</span>}
@@ -365,9 +365,9 @@ export function DealModal({ deal, onClose }: { deal: Deal; onClose: () => void }
                   if (hasImages) {
                     return (
                       <div key={section.key}>
-                        <div className="flex items-center justify-between gap-3 rounded-2xl border border-brand-red/25 bg-[#f4f7f4] px-4 py-3.5">
+                        <div className="flex items-center justify-between gap-3 rounded-2xl border border-brand-red/25 bg-surface-alt px-4 py-3.5">
                           <span className="font-semibold text-brand-red">{section.slot.label}: {section.choiceGroup.name}</span>
-                          {rules.isRequired && <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${satisfied ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-brand-red"}`}>{satisfied ? "✓ Done" : "Required"}</span>}
+                          {rules.isRequired && <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${satisfied ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300" : "bg-red-100 text-brand-red dark:bg-brand-red/20 dark:text-red-300"}`}>{satisfied ? "✓ Done" : "Required"}</span>}
                         </div>
                         {optionsGrid}
                       </div>
@@ -398,7 +398,7 @@ export function DealModal({ deal, onClose }: { deal: Deal; onClose: () => void }
                             <button
                               onClick={() => setAddonQty(section.slot.id, a.id, qty - 1, a.maxQuantity)}
                               aria-label="Decrease quantity"
-                              className="flex h-7 w-7 items-center justify-center rounded-full bg-neutral-200 text-neutral-700"
+                              className="flex h-7 w-7 items-center justify-center rounded-full bg-neutral-200 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-100"
                             >
                               <MinusIcon size={12} />
                             </button>
@@ -406,7 +406,7 @@ export function DealModal({ deal, onClose }: { deal: Deal; onClose: () => void }
                             <button
                               onClick={() => setAddonQty(section.slot.id, a.id, qty + 1, a.maxQuantity)}
                               aria-label="Increase quantity"
-                              className="flex h-7 w-7 items-center justify-center rounded-full bg-neutral-300 text-neutral-800"
+                              className="flex h-7 w-7 items-center justify-center rounded-full bg-neutral-300 text-neutral-800 dark:bg-neutral-600 dark:text-neutral-100"
                             >
                               <PlusIcon size={12} />
                             </button>
@@ -422,7 +422,7 @@ export function DealModal({ deal, onClose }: { deal: Deal; onClose: () => void }
             {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
 
             {preview && preview.youSave > 0 && (
-              <p className="mt-4 text-sm font-medium text-green-700">You Save {formatPaisa(preview.youSave)}</p>
+              <p className="mt-4 text-sm font-medium text-green-700 dark:text-green-400">You Save {formatPaisa(preview.youSave)}</p>
             )}
 
             <div className="mt-5 border-t pt-4">
@@ -431,17 +431,17 @@ export function DealModal({ deal, onClose }: { deal: Deal; onClose: () => void }
                 value={specialInstructions}
                 onChange={(e) => setSpecialInstructions(e.target.value.slice(0, 500))}
                 placeholder="Please enter instructions about this item"
-                className="mt-2 w-full rounded-lg border px-3 py-2 text-sm"
+                className="mt-2 w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-muted focus:border-brand-red focus:outline-none"
                 rows={2}
               />
               <p className="mt-1 text-right text-xs text-muted">{specialInstructions.length}/500</p>
             </div>
           </div>
 
-        <div className="sticky bottom-0 mt-auto hidden items-center gap-4 bg-neutral-100 p-4 sm:flex sm:px-8 sm:py-5">{footerBar}</div>
+        <div className="sticky bottom-0 mt-auto hidden items-center gap-4 border-t border-line bg-surface-alt p-4 sm:flex sm:px-8 sm:py-5">{footerBar}</div>
         </div>
         </div>
-        <div className="flex shrink-0 items-center gap-2.5 border-t border-line bg-neutral-100 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:hidden">{footerBar}</div>
+        <div className="flex shrink-0 items-center gap-2.5 border-t border-line bg-surface-alt px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:hidden">{footerBar}</div>
       </div>
     </div>,
     document.body,
