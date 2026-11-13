@@ -13,7 +13,7 @@ export function DealCard({ deal, onClick }: { deal: Deal; onClick: () => void })
   return (
     <button
       onClick={() => (soldOut ? soldOutToast(deal.name) : onClick())}
-      className={`group relative z-0 flex flex-col overflow-hidden rounded-2xl border bg-surface text-left transition duration-200 ease-out hover:z-10 hover:shadow-lg ${soldOut ? "border-line" : "border-brand-red"}`}
+      className="group relative z-0 flex flex-col overflow-hidden rounded-2xl bg-surface text-left shadow-[0_0_16px_rgba(15,23,42,0.12)] transition duration-200 ease-out hover:z-10 hover:shadow-[0_0_22px_rgba(15,23,42,0.18)]"
     >
       <div className="p-1.5">
         {deal.image ? (

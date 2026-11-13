@@ -56,7 +56,7 @@ export function CartRecommendationCard({ product, onClick }: { product: Product;
   }
 
   return (
-    <div className="w-28 shrink-0">
+    <div className="w-24 shrink-0">
       <div className="relative aspect-square overflow-hidden rounded-2xl bg-surface-alt shadow-sm">
         <button onClick={onClick} className="absolute inset-0" aria-label={product.name}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -71,6 +71,7 @@ export function CartRecommendationCard({ product, onClick }: { product: Product;
               onIncrement={() => updateQuantity(simpleLine.cartItemId, quantity + 1)}
               onDecrement={() => updateQuantity(simpleLine.cartItemId, quantity - 1)}
               onRemove={() => removeItem(simpleLine.cartItemId)}
+              tone="neutral"
               className="gap-1.5 px-1 py-1"
             />
           ) : (

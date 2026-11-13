@@ -95,6 +95,8 @@ export class CmsService {
       showGift: stored.showGift ?? d.showGift,
       tipPresets: stored.tipPresets ?? d.tipPresets,
       defaultTip: stored.defaultTip ?? d.defaultTip,
+      freeDeliveryMinimum: stored.freeDeliveryMinimum ?? d.freeDeliveryMinimum,
+      showCartRecommendations: stored.showCartRecommendations ?? d.showCartRecommendations,
       payments: {
         cod: { ...d.payments.cod, ...stripUndefined(stored.payments?.cod) },
         online: { ...d.payments.online, ...stripUndefined(stored.payments?.online) },

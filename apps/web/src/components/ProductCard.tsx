@@ -63,7 +63,7 @@ export function ProductCard({ product, onClick }: { product: Product; onClick: (
   }
 
   return (
-    <div className={`group relative z-0 flex flex-col rounded-2xl border bg-surface transition duration-200 ease-out hover:z-10 hover:shadow-lg ${soldOut ? "border-line" : "border-brand-red"}`}>
+    <div className="group relative z-0 flex flex-col rounded-2xl bg-surface shadow-[0_0_16px_rgba(15,23,42,0.12)] transition duration-200 ease-out hover:z-10 hover:shadow-[0_0_22px_rgba(15,23,42,0.18)]">
       <ProductTagBadge tag={product.tag} />
       <button onClick={open} className="p-1.5 text-left">
         {image && (
@@ -104,6 +104,7 @@ export function ProductCard({ product, onClick }: { product: Product; onClick: (
               onDecrement={() => updateQuantity(simpleLine.cartItemId, quantity - 1)}
               onRemove={() => removeItem(simpleLine.cartItemId)}
               compact
+              tone="neutral"
               className="!py-0 h-6 sm:h-7 lg:h-8"
             />
           ) : (

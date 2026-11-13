@@ -264,6 +264,9 @@ export const checkoutConfigSchema = z
     tipPresets: z.array(z.number().int().min(1).max(100_000)).max(4),
     /** Tip already selected when the checkout opens (0 = none). */
     defaultTip: z.number().int().min(0).max(100_000),
+    /** Minimum item subtotal in whole rupees for free delivery; 0 disables the offer. */
+    freeDeliveryMinimum: z.number().int().min(0).max(1_000_000),
+    showCartRecommendations: z.boolean(),
     payments: z
       .object({
         /** Pay with cash: "Cash on Delivery" for delivery orders, "Pay at Pickup" for pickup orders. */
@@ -281,6 +284,8 @@ export type ResolvedCheckoutConfig = {
   showGift: boolean;
   tipPresets: number[];
   defaultTip: number;
+  freeDeliveryMinimum: number;
+  showCartRecommendations: boolean;
   payments: {
     cod: { enabled: boolean; label: string; pickupLabel: string; iconUrl: string | null };
     online: { enabled: boolean; label: string; iconUrl: string | null };
@@ -293,6 +298,8 @@ export const DEFAULT_CHECKOUT_CONFIG: ResolvedCheckoutConfig = {
   showGift: true,
   tipPresets: [100, 200, 500],
   defaultTip: 0,
+  freeDeliveryMinimum: 2500,
+  showCartRecommendations: true,
   payments: {
     cod: { enabled: true, label: "Cash on Delivery", pickupLabel: "Pay at Pickup", iconUrl: null },
     online: { enabled: true, label: "Online Payment", iconUrl: null },

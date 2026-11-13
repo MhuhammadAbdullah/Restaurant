@@ -37,7 +37,7 @@ export function CartRecommendations({ items }: { items: CartItem[] }) {
   }
 
   function scroll(direction: "prev" | "next") {
-    scrollRef.current?.scrollBy({ left: direction === "next" ? 140 : -140, behavior: "smooth" });
+    scrollRef.current?.scrollBy({ left: direction === "next" ? 108 : -108, behavior: "smooth" });
   }
 
   const shown = (products ?? []).slice(0, MAX_RECOMMENDATIONS);

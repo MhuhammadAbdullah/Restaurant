@@ -18,6 +18,7 @@ import { FaCheck, FaFileInvoiceDollar, FaHandHoldingDollar, FaTag } from "react-
 import { FiShoppingBag } from "react-icons/fi";
 import { ArrowLeftIcon, CalculatorIcon, ChevronDownIcon, GiftIcon, PinIcon, TruckIcon } from "../../components/icons";
 import { Skeleton } from "../../components/skeletons";
+import { FreeDeliveryBanner } from "../../components/FreeDeliveryBanner";
 
 const DELIVERY_BIKE_ICON_URL = "https://res.cloudinary.com/dgkd8jw6a/image/upload/v1791459488/Delivery-Bike_l7f4t9.webp";
 const CASH_ICON_URL = "https://res.cloudinary.com/dgkd8jw6a/image/upload/v1791460707/cash-icon_pirfsz.webp";
@@ -34,6 +35,7 @@ type RestaurantInfo = {
     showCoupon?: boolean;
     showTip?: boolean;
     showGift?: boolean;
+    freeDeliveryMinimum?: number;
     tipPresets?: number[];
     defaultTip?: number;
     payments?: {
@@ -241,7 +243,9 @@ export default function CheckoutPage() {
   // Sold-out lines are shown (so they can be removed) but never charged.
   const subtotal = items.reduce((s, i) => (reasonFor(i) ? s : s + (i.kind === "product" ? i.unitPrice * i.quantity : i.dealPrice * i.quantity)), 0);
   const estimatedTax = Math.round(subtotal * 0.15);
-  const deliveryFee = orderType === "DELIVERY" ? (branch?.deliveryFee ?? 0) : 0;
+  const freeDeliveryMinimum = (restaurantInfo?.checkout?.freeDeliveryMinimum ?? 0) * 100;
+  const freeDelivery = orderType === "DELIVERY" && freeDeliveryMinimum > 0 && subtotal >= freeDeliveryMinimum;
+  const deliveryFee = orderType === "DELIVERY" && !freeDelivery ? (branch?.deliveryFee ?? 0) : 0;
   const couponDiscount = appliedCoupon?.discountAmount ?? 0;
   // Bills are settled in whole rupees, same as the server.
   const estimatedGrandTotal = Math.round(Math.max(0, subtotal + estimatedTax + deliveryFee - couponDiscount) / 100) * 100;
@@ -362,8 +366,8 @@ export default function CheckoutPage() {
   const guestAddressIncomplete = !customer && !guestAddress.addressLine.trim();
 
   return (
-    <main className="mx-auto max-w-6xl px-3 py-5 sm:px-8 sm:py-8">
-      <div className="grid gap-4 sm:gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
+    <main className="mx-auto max-w-7xl px-3 py-5 sm:px-8 sm:py-8">
+      <div className="grid gap-4 sm:gap-6 lg:grid-cols-[minmax(0,1fr)_440px]">
         <div className="min-w-0 rounded-2xl border border-line bg-surface p-4 sm:p-6">
           <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
             <h1 className="text-xl font-semibold text-ink">Checkout</h1>
@@ -651,15 +655,15 @@ export default function CheckoutPage() {
         <div className="h-fit min-w-0 rounded-2xl border border-line bg-surface p-4 sm:p-5 lg:sticky lg:top-6">
           <div className="space-y-3">
             {(showAllItems ? items : items.slice(0, 3)).map((i) => (
-              <div key={i.cartItemId} className={`flex items-center gap-3 rounded-xl border p-3 transition duration-200 hover:shadow-lg ${reasonFor(i) ? "border-brand-red/40 bg-brand-red/5" : "border-line hover:border-brand-red/30"}`}>
-                <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-surface-alt">
+              <div key={i.cartItemId} className={`flex items-center gap-3 rounded-2xl border p-2.5 transition duration-200 hover:shadow-lg ${reasonFor(i) ? "border-brand-red/40 bg-brand-red/5" : "border-line hover:border-brand-red/30"}`}>
+                <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-surface-alt sm:h-16 sm:w-16">
                   {i.image && (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={i.image} alt={i.name} className={`h-full w-full object-cover ${reasonFor(i) ? "opacity-40 grayscale" : ""}`} />
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className={`text-[15px] font-semibold ${reasonFor(i) ? "text-muted" : "text-ink"}`}>
+                  <p className={`text-sm font-semibold ${reasonFor(i) ? "text-muted" : "text-ink"}`}>
                     <span className="mr-1.5 text-xs font-semibold text-muted">{i.quantity} x</span>
                     {i.name}
                     {reasonFor(i) && <span className="ml-2 inline-block -rotate-3 rounded-md border-2 border-brand-red bg-white px-1.5 py-0.5 align-middle text-[10px] font-extrabold uppercase tracking-widest text-brand-red">{reasonFor(i) === "OPTION_OUT" ? "Not available" : "Sold out"}</span>}
@@ -672,7 +676,7 @@ export default function CheckoutPage() {
                       </button>
                     </>
                   ) : (
-                    <p className="mt-1 font-semibold text-brand-red">
+                    <p className="mt-1 text-sm font-bold text-black">
                       {formatPaisa(i.kind === "product" ? i.unitPrice * i.quantity : i.dealPrice * i.quantity)}
                     </p>
                   )}
@@ -790,26 +794,26 @@ export default function CheckoutPage() {
           </div>
           )}
 
-          <div className="mt-5 rounded-xl border border-line bg-surface-alt p-5">
-            <div className="space-y-4 text-sm font-medium text-ink">
+          <div className="mt-5 rounded-2xl border border-line bg-[#f8f9fa] p-5 shadow-[0_4px_16px_rgba(15,23,42,0.05)] sm:p-6">
+            <div className="space-y-4 text-sm font-medium text-slate-700">
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-3">
-                  <CalculatorIcon size={17} className="text-brand-red" /> Total
+                  <CalculatorIcon size={19} className="text-slate-500" /> Total
                 </span>
                 <span className="font-semibold">{formatPaisa(subtotal)}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-3">
-                  <FaFileInvoiceDollar size={17} className="text-brand-red" /> Tax (15%)
+                    <FaFileInvoiceDollar size={17} className="text-slate-500" /> Tax (15%)
                 </span>
                 <span className="font-semibold">{formatPaisa(estimatedTax)}</span>
               </div>
               {orderType === "DELIVERY" && (
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-3">
-                    <TruckIcon size={17} className="text-brand-red" /> Delivery Fee
+                    <TruckIcon size={17} className="text-slate-500" /> Delivery Fee
                   </span>
-                  <span className="font-semibold">{formatPaisa(deliveryFee)}</span>
+                  <span className="font-semibold">{freeDelivery ? "FREE" : formatPaisa(deliveryFee)}</span>
                 </div>
               )}
               {appliedCoupon && (
@@ -829,18 +833,19 @@ export default function CheckoutPage() {
                 <span className="font-semibold">+{formatPaisa(tipPaisa)}</span>
               </div>
             )}
-            <div className="mt-5 flex items-center justify-between border-t border-line pt-5">
-              <span className="text-base font-bold text-ink">Grand Total</span>
-              <span className="text-xl font-bold text-brand-red">{formatPaisa(estimatedGrandTotal + tipPaisa)}</span>
+            <div className="mt-5 flex items-center justify-between border-t border-slate-200 pt-5">
+              <span className="text-base font-bold text-slate-900">Grand Total</span>
+              <span className="text-xl font-bold text-black">{formatPaisa(estimatedGrandTotal + tipPaisa)}</span>
             </div>
           </div>
+          {orderType === "DELIVERY" && <FreeDeliveryBanner subtotal={subtotal} minimum={freeDeliveryMinimum} className="mt-3" />}
           <p className="mt-2 text-[11px] text-muted">Final total incl. any discounts is calculated when you place the order.</p>
 
           <div className="mt-5 border-t border-line pt-5">
             <button
               onClick={placeOrder}
               disabled={submitting || hasUnavailable || (orderType === "DELIVERY" && (needsCustomAddress || guestAddressIncomplete))}
-              className="flex w-full items-center justify-center gap-2.5 rounded-lg bg-brand-red py-3.5 font-semibold text-white shadow-md transition hover:opacity-95 disabled:opacity-60"
+              className="flex w-full items-center justify-center gap-2.5 rounded-xl bg-brand-red py-4 font-bold text-white shadow-md transition hover:opacity-95 disabled:opacity-60"
             >
               <FiShoppingBag size={20} />
               {submitting ? <LoadingDots>Placing Order</LoadingDots> : hasUnavailable ? "Remove sold-out items first" : "Place Order"}

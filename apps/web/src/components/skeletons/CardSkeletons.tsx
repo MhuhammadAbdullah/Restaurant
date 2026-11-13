@@ -12,7 +12,7 @@ export function SkeletonGrid({ count, render }: { count: number; render: (i: num
 /** Mirrors ProductCard.tsx / DealCard.tsx — same border/radius/padding so nothing shifts when real content mounts. */
 export function SkeletonProductCard() {
   return (
-    <div className="flex flex-col overflow-hidden rounded-2xl border border-brand-red bg-surface">
+    <div className="flex flex-col overflow-hidden rounded-2xl bg-surface shadow-[0_0_16px_rgba(15,23,42,0.12)]">
       <div className="p-2">
         <Skeleton className="aspect-square w-full rounded-2xl" />
       </div>
@@ -47,7 +47,7 @@ export function SkeletonPopularCard() {
 /** Mirrors CartRecommendationCard.tsx — square image, price + title below it (not overlaid). */
 export function SkeletonCartRecommendationCard() {
   return (
-    <div className="w-28 shrink-0">
+    <div className="w-24 shrink-0">
       <Skeleton className="aspect-square w-full rounded-2xl" />
       <Skeleton className="mt-1.5 h-4 w-3/4 rounded-md" />
       <Skeleton className="mt-1 h-3 w-4/5 rounded-md" />

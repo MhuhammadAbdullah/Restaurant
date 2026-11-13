@@ -231,18 +231,18 @@ export function DealModal({ deal, onClose }: { deal: Deal; onClose: () => void }
 
   const footerBar = (
     <>
-      <div className="flex shrink-0 items-center gap-1.5 rounded-full border border-brand-red/25 bg-brand-red/10 p-1 sm:gap-3">
+      <div className="flex shrink-0 items-center gap-1.5 rounded-full border border-[#c6d0d2] bg-[#f1f4f4] p-1 text-[#16464b] sm:gap-3">
         {quantity > 1 ? (
-          <button onClick={() => setQuantity((q) => Math.max(1, q - 1))} aria-label="Decrease quantity" className="flex h-8 w-8 items-center justify-center rounded-full bg-surface text-brand-red sm:h-9 sm:w-9">
+          <button onClick={() => setQuantity((q) => Math.max(1, q - 1))} aria-label="Decrease quantity" className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-200 text-[#16464b] sm:h-9 sm:w-9">
             <MinusIcon size={14} />
           </button>
         ) : (
-          <button onClick={onClose} aria-label="Discard item" className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-red/15 text-brand-red sm:h-9 sm:w-9">
+          <button onClick={onClose} aria-label="Discard item" className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-200 text-red-500 sm:h-9 sm:w-9">
             <TrashIcon size={14} />
           </button>
         )}
         <span className="w-5 text-center text-sm font-semibold text-ink sm:w-6">{quantity}</span>
-        <button onClick={() => setQuantity((q) => q + 1)} aria-label="Increase quantity" className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-red text-white sm:h-9 sm:w-9">
+        <button onClick={() => setQuantity((q) => q + 1)} aria-label="Increase quantity" className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-300 text-[#16464b] sm:h-9 sm:w-9">
           <PlusIcon size={14} />
         </button>
       </div>
@@ -268,8 +268,8 @@ export function DealModal({ deal, onClose }: { deal: Deal; onClose: () => void }
   );
 
   return createPortal(
-    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/70 sm:items-center sm:p-4">
-      <div className="relative flex h-[90dvh] max-h-[90dvh] w-full max-w-4xl flex-col overflow-hidden rounded-t-3xl bg-surface sm:h-auto sm:max-h-[85vh] sm:flex-row sm:rounded-3xl">
+    <div className="modal-backdrop-enter fixed inset-0 z-[70] flex items-end justify-center bg-black/70 sm:items-center sm:p-4">
+      <div className="modal-panel-enter relative flex h-[90dvh] max-h-[90dvh] w-full max-w-[1100px] flex-col overflow-hidden rounded-t-3xl bg-white sm:h-[580px] sm:max-h-[calc(100dvh-2rem)] sm:flex-row sm:rounded-3xl">
         <button
           onClick={onClose}
           aria-label="Close"
@@ -296,7 +296,7 @@ export function DealModal({ deal, onClose }: { deal: Deal; onClose: () => void }
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-1 sm:overflow-y-auto">
+        <div className="flex flex-col bg-white sm:min-w-0 sm:flex-1 sm:overflow-y-auto">
           <div className="p-6 sm:p-8">
             <p className="pr-14 font-poppins text-3xl font-bold text-ink sm:text-4xl">
               {deal.originalPrice != null && <span className="mr-2 text-xl font-normal text-muted line-through">{formatPaisa(deal.originalPrice)}</span>}
@@ -398,7 +398,7 @@ export function DealModal({ deal, onClose }: { deal: Deal; onClose: () => void }
                             <button
                               onClick={() => setAddonQty(section.slot.id, a.id, qty - 1, a.maxQuantity)}
                               aria-label="Decrease quantity"
-                              className="flex h-6 w-6 items-center justify-center rounded-md bg-surface-alt text-ink"
+                              className="flex h-7 w-7 items-center justify-center rounded-full bg-neutral-200 text-neutral-700"
                             >
                               <MinusIcon size={12} />
                             </button>
@@ -406,7 +406,7 @@ export function DealModal({ deal, onClose }: { deal: Deal; onClose: () => void }
                             <button
                               onClick={() => setAddonQty(section.slot.id, a.id, qty + 1, a.maxQuantity)}
                               aria-label="Increase quantity"
-                              className="flex h-6 w-6 items-center justify-center rounded-md bg-brand-red text-white"
+                              className="flex h-7 w-7 items-center justify-center rounded-full bg-neutral-300 text-neutral-800"
                             >
                               <PlusIcon size={12} />
                             </button>
@@ -438,10 +438,10 @@ export function DealModal({ deal, onClose }: { deal: Deal; onClose: () => void }
             </div>
           </div>
 
-          <div className="sticky bottom-0 mt-auto hidden items-center gap-4 bg-surface p-4 sm:flex sm:px-8 sm:py-5">{footerBar}</div>
+        <div className="sticky bottom-0 mt-auto hidden items-center gap-4 bg-neutral-100 p-4 sm:flex sm:px-8 sm:py-5">{footerBar}</div>
         </div>
         </div>
-        <div className="flex shrink-0 items-center gap-2.5 border-t border-line bg-surface px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:hidden">{footerBar}</div>
+        <div className="flex shrink-0 items-center gap-2.5 border-t border-line bg-neutral-100 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:hidden">{footerBar}</div>
       </div>
     </div>,
     document.body,

@@ -30,7 +30,6 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
   const optAdj = (group: { priceReplacesBase?: boolean }, opt: { priceAdjustment: number; discountPriceAdjustment: number | null }) =>
     choiceOptionAdjustment(group, opt, basePrice, product.basePrice).adjustment;
   const hasFullPriceSection = choiceAssignments.some((c) => c.choiceGroup.priceReplacesBase);
-
   const branchId = useLocationStore((s) => s.branch?.id);
   const optionOut = (opt: { outOfStock?: { branchId: string }[] }) => isOptionUnavailableAt(opt, branchId);
 
@@ -182,8 +181,8 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
 
   // Portalled to <body> and above the floating search / cart buttons, so nothing from the page shows through the sheet.
   return createPortal(
-    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/70 sm:items-center sm:p-4">
-      <div className="relative flex h-[90dvh] max-h-[90dvh] w-full max-w-4xl flex-col overflow-hidden rounded-t-3xl bg-surface sm:h-auto sm:max-h-[85vh] sm:flex-row sm:rounded-3xl">
+    <div className="modal-backdrop-enter fixed inset-0 z-[70] flex items-end justify-center bg-black/70 sm:items-center sm:p-4">
+      <div className="modal-panel-enter relative flex h-[90dvh] max-h-[90dvh] w-full max-w-[1100px] flex-col overflow-hidden rounded-t-3xl bg-white sm:h-[580px] sm:max-h-[calc(100dvh-2rem)] sm:flex-row sm:rounded-3xl">
         {/* Share / close stay pinned to the top corner while the content scrolls. */}
         <div className="absolute right-4 top-4 z-20">
           <div className="flex gap-3">
@@ -216,7 +215,7 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-1 sm:overflow-y-auto">
+        <div className="flex flex-col bg-white sm:min-w-0 sm:flex-1 sm:overflow-y-auto">
           <div className="p-6 sm:p-8">
             <p className="pr-28 font-poppins text-3xl font-bold text-ink sm:text-4xl">
               {product.discountPrice != null && !hasFullPriceSection && <span className="mr-2 text-xl font-normal text-muted line-through">{formatPaisa(product.basePrice)}</span>}
@@ -333,7 +332,7 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
                             <button
                               onClick={() => setAddonQty(a.id, qty - 1, a.maxQuantity)}
                               aria-label="Decrease quantity"
-                              className="flex h-6 w-6 items-center justify-center rounded-md bg-surface-alt text-ink"
+                              className="flex h-7 w-7 items-center justify-center rounded-full bg-neutral-200 text-neutral-700"
                             >
                               <MinusIcon size={12} />
                             </button>
@@ -341,7 +340,7 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
                             <button
                               onClick={() => setAddonQty(a.id, qty + 1, a.maxQuantity)}
                               aria-label="Increase quantity"
-                              className="flex h-6 w-6 items-center justify-center rounded-md bg-brand-red text-white"
+                              className="flex h-7 w-7 items-center justify-center rounded-full bg-neutral-300 text-neutral-800"
                             >
                               <PlusIcon size={12} />
                             </button>
@@ -370,13 +369,13 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
             </div>
           </div>
 
-          <div className="sticky bottom-0 mt-auto hidden items-center gap-4 bg-surface p-4 sm:flex sm:px-8 sm:py-5">
-            <div className="flex shrink-0 items-center gap-1.5 rounded-full border border-brand-red/25 bg-brand-red/10 p-1 sm:gap-3">
+          <div className="sticky bottom-0 mt-auto hidden items-center gap-4 bg-neutral-100 p-4 sm:flex sm:px-8 sm:py-5">
+            <div className="flex shrink-0 items-center gap-1.5 rounded-full border border-[#c6d0d2] bg-[#f1f4f4] p-1 text-[#16464b] sm:gap-3">
               {quantity > 1 ? (
                 <button
                   onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                   aria-label="Decrease quantity"
-                  className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-surface text-brand-red"
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-200 text-[#16464b] sm:h-9 sm:w-9"
                 >
                   <MinusIcon size={14} />
                 </button>
@@ -384,7 +383,7 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
                 <button
                   onClick={onClose}
                   aria-label="Discard item"
-                  className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-brand-red/15 text-brand-red"
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-200 text-red-500 sm:h-9 sm:w-9"
                 >
                   <TrashIcon size={14} />
                 </button>
@@ -393,7 +392,7 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
               <button
                 onClick={() => setQuantity((q) => q + 1)}
                 aria-label="Increase quantity"
-                className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-brand-red text-white"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-300 text-[#16464b] sm:h-9 sm:w-9"
               >
                 <PlusIcon size={14} />
               </button>
@@ -415,13 +414,13 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
           </div>
         </div>
         </div>
-        <div className="flex shrink-0 items-center gap-2.5 border-t border-line bg-surface px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:hidden">
-            <div className="flex shrink-0 items-center gap-1.5 rounded-full border border-brand-red/25 bg-brand-red/10 p-1 sm:gap-3">
+        <div className="flex shrink-0 items-center gap-2.5 border-t border-line bg-neutral-100 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:hidden">
+            <div className="flex shrink-0 items-center gap-1.5 rounded-full border border-[#c6d0d2] bg-[#f1f4f4] p-1 text-[#16464b] sm:gap-3">
               {quantity > 1 ? (
                 <button
                   onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                   aria-label="Decrease quantity"
-                  className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-surface text-brand-red"
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-200 text-[#16464b] sm:h-9 sm:w-9"
                 >
                   <MinusIcon size={14} />
                 </button>
@@ -429,7 +428,7 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
                 <button
                   onClick={onClose}
                   aria-label="Discard item"
-                  className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-brand-red/15 text-brand-red"
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-200 text-red-500 sm:h-9 sm:w-9"
                 >
                   <TrashIcon size={14} />
                 </button>
@@ -438,7 +437,7 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
               <button
                 onClick={() => setQuantity((q) => q + 1)}
                 aria-label="Increase quantity"
-                className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-brand-red text-white"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-300 text-[#16464b] sm:h-9 sm:w-9"
               >
                 <PlusIcon size={14} />
               </button>
