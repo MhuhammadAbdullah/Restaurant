@@ -87,16 +87,16 @@ export function PopularProductCard({ product, onClick }: { product: Product; onC
               onRemove={() => removeItem(simpleLine.cartItemId)}
               compact
               tone="neutral"
-              className="h-8 !px-1 sm:h-9"
+              className="h-7 !gap-1 !px-0.5 sm:h-9 sm:!gap-2 sm:!px-1"
             />
           ) : (
             <button
               onClick={handleAdd}
               disabled={checking}
               aria-label="Add to cart"
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-red text-white shadow-lg transition hover:opacity-90 disabled:opacity-60"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-red text-white shadow-lg transition hover:opacity-90 disabled:opacity-60 sm:h-11 sm:w-11"
             >
-              <PlusIcon size={18} />
+              <PlusIcon size={15} className="sm:!h-[18px] sm:!w-[18px]" />
             </button>
           )}
         </div>

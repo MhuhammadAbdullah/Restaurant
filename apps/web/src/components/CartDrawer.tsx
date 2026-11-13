@@ -212,28 +212,28 @@ function CartLine({
 }) {
   const soldOut = unavailable !== null;
   return (
-    <div className={`flex min-h-[96px] items-center gap-3 rounded-2xl border px-3 py-2.5 ${soldOut ? "border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40" : "border-line bg-surface"}`}>
+    <div className={`flex min-h-[76px] items-center gap-2 rounded-2xl border px-2.5 py-2 sm:min-h-[96px] sm:gap-3 sm:px-3 sm:py-2.5 ${soldOut ? "border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40" : "border-line bg-surface"}`}>
       {item.image && (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={item.image} alt={item.name} className={`h-[72px] w-[72px] shrink-0 rounded-2xl border border-neutral-200 object-cover ${soldOut ? "opacity-40 grayscale" : ""}`} />
+        <img src={item.image} alt={item.name} className={`h-14 w-14 shrink-0 rounded-xl border border-neutral-200 object-cover sm:h-[72px] sm:w-[72px] sm:rounded-2xl ${soldOut ? "opacity-40 grayscale" : ""}`} />
       )}
       <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <p className={`truncate text-[15px] font-semibold ${soldOut ? "text-muted" : "text-ink"}`}>{item.name}</p>
+            <p className={`truncate text-[13px] font-semibold sm:text-[15px] ${soldOut ? "text-muted" : "text-ink"}`}>{item.name}</p>
             {soldOut && <span className="shrink-0 rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-amber-800 dark:bg-amber-900/50 dark:text-amber-200">{unavailable === "OPTION_OUT" ? "Not available" : "Sold out"}</span>}
           </div>
-          <p className={`mt-1 text-sm font-bold ${soldOut ? "text-muted line-through" : "text-ink"}`}>
+          <p className={`mt-0.5 text-xs font-bold sm:mt-1 sm:text-sm ${soldOut ? "text-muted line-through" : "text-ink"}`}>
             {formatPaisa(item.kind === "product" ? item.unitPrice * item.quantity : item.dealPrice * item.quantity)}
           </p>
           {soldOut && <p className="mt-1 text-xs font-medium text-amber-800 dark:text-amber-200">{unavailable === "INACTIVE" ? SOLD_OUT_INACTIVE_MESSAGE : unavailable === "OPTION_OUT" ? OPTION_OUT_CART_MESSAGE : SOLD_OUT_CART_MESSAGE}</p>}
           {item.kind === "product" ? (
             <>
-              {item.choices.length > 0 && <p className="text-xs text-muted">{item.choices.map((c) => c.name).join(", ")}</p>}
-              {item.addons.length > 0 && <p className="text-xs text-muted">{item.addons.map((a) => `${a.name} x${a.quantity}`).join(", ")}</p>}
+              {item.choices.length > 0 && <p className="text-[10px] leading-4 text-muted sm:text-xs">{item.choices.map((c) => c.name).join(", ")}</p>}
+              {item.addons.length > 0 && <p className="text-[10px] leading-4 text-muted sm:text-xs">{item.addons.map((a) => `${a.name} x${a.quantity}`).join(", ")}</p>}
             </>
           ) : (
-            <div className="text-xs text-muted">
+            <div className="text-[10px] leading-4 text-muted sm:text-xs">
               {item.slots.map((s) => (
                 <p key={s.dealSlotId}><strong>{s.slotLabel}:</strong> {s.productName}{s.choices.length > 0 && ` (${s.choices.map((c) => c.name).join(", ")})`}</p>
               ))}
@@ -244,7 +244,7 @@ function CartLine({
           {soldOut ? (
             <button onClick={onRemove} className="rounded-full border border-line px-3 py-2 text-xs font-semibold text-muted hover:bg-surface-alt">Remove</button>
           ) : (
-            <QtyStepper quantity={item.quantity} itemName={item.name} onIncrement={onIncrement} onDecrement={onDecrement} onRemove={onRemove} tone="neutral" />
+            <QtyStepper quantity={item.quantity} itemName={item.name} onIncrement={onIncrement} onDecrement={onDecrement} onRemove={onRemove} tone="neutral" compact />
           )}
         </div>
       </div>

@@ -48,10 +48,10 @@ export function ChoiceOptionCard({
           </span>
           {unavailable && <span className="absolute inset-x-0 bottom-0 bg-surface/90 px-2 py-1 text-center text-[10px] font-bold uppercase text-brand-red">Not available</span>}
         </div>
-        <span className="min-w-0 flex-1 p-2.5 sm:p-3">
-          <span className="block truncate font-poppins text-[13px] font-semibold leading-5 text-ink sm:text-sm">{name}</span>
-          {priceLabel && <span className="mt-0.5 block text-xs font-bold text-ink">{oldPriceLabel && <span className="mr-1 font-normal text-muted line-through">{oldPriceLabel}</span>}{priceLabel}</span>}
-          {description && <span className="mt-1 line-clamp-2 block text-[10px] leading-[14px] text-muted">{description}</span>}
+        <span className="min-w-0 flex-1 p-2 sm:p-3">
+          <span className="line-clamp-2 block whitespace-normal break-words font-poppins text-xs font-semibold leading-4 text-ink sm:text-sm sm:leading-5">{name}</span>
+          {priceLabel && <span className="mt-0.5 block text-[11px] font-bold leading-4 text-ink sm:text-xs">{oldPriceLabel && <span className="mr-1 font-normal text-muted line-through">{oldPriceLabel}</span>}{priceLabel}</span>}
+          {description && <span className="mt-1 line-clamp-2 block text-[9px] leading-3 text-muted sm:text-[10px] sm:leading-[14px]">{description}</span>}
         </span>
       </label>
     );
@@ -71,9 +71,9 @@ export function ChoiceOptionCard({
         {checked && <FaCheck size={9} />}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block font-poppins text-[14px] font-semibold leading-[18px] text-ink">{name}</span>
+        <span className="block font-poppins text-[13px] font-semibold leading-[17px] text-ink sm:text-[14px] sm:leading-[18px]">{name}</span>
         {priceLabel && (
-          <span className="mt-0.5 block font-poppins text-[12px] font-bold leading-[16px] text-ink">
+          <span className="mt-0.5 block font-poppins text-[11px] font-bold leading-[15px] text-ink sm:text-[12px] sm:leading-[16px]">
             {oldPriceLabel && <span className="mr-1 font-normal text-muted line-through">{oldPriceLabel}</span>}
             {priceLabel}
           </span>
