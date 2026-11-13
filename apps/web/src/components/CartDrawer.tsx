@@ -132,7 +132,8 @@ export function CartDrawer() {
               {orderType === "DELIVERY" && <FreeDeliveryBanner subtotal={subtotal} minimum={freeMinimum} onAddMore={close} className="mt-4" />}
               {restaurant?.checkout?.showCartRecommendations !== false && <CartRecommendations items={items} />}
 
-            <div className="mt-4 border-t border-line pt-4">
+            </div>
+            <div className="max-h-[45dvh] shrink-0 overflow-y-auto border-t border-line bg-surface p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
               <div className="space-y-2.5 rounded-xl border border-line p-4 text-sm">
                 <Row icon={CalculatorIcon} label="Total" value={formatPaisa(subtotal)} />
                 <Row icon={DollarIcon} label="Tax (15%)" value={formatPaisa(estimatedTax)} />
@@ -162,7 +163,6 @@ export function CartDrawer() {
                 {!isBranchOpen ? "Branch Closed" : hasUnavailable ? "Remove sold-out items" : "Proceed to Checkout"}
               </button>
               {eta && <div className="mt-4 text-center text-sm text-muted"><p>Your order will be {orderType === "DELIVERY" ? "delivered" : "ready for pickup"} approximately in {etaMinutes} minutes on</p><div className="mt-2 flex flex-wrap items-center justify-center gap-2 font-semibold text-ink"><span className="rounded-xl bg-surface-alt px-3 py-2">{ordinalDate(eta)}</span><span className="text-muted">at</span><span className="rounded-xl bg-surface-alt px-3 py-2 text-ink">{eta.toLocaleTimeString("en-US", { timeZone: "Asia/Karachi", hour: "2-digit", minute: "2-digit" })}</span></div></div>}
-            </div>
             </div>
           </>
         )}

@@ -78,7 +78,7 @@ export default function CheckoutPage() {
   const openAuthModal = useAuthModalStore((s) => s.open);
   const { items, clear, hasHydrated, removeItem } = useCartStore();
   const { reasonFor, hasUnavailable } = useCartAvailability();
-  const { branch, orderType, city, area, setArea } = useLocationStore();
+  const { branch, orderType, city, area, setArea, hasHydrated: locationHasHydrated } = useLocationStore();
   const isBranchOpen = useBranchOpenStatus();
 
   useEffect(() => {
@@ -212,10 +212,10 @@ export default function CheckoutPage() {
   useEffect(() => {
     // Direct navigation (or a stale tab) could land here after the branch has closed —
     // the backend rejects the order anyway, but bounce back with a clear reason instead.
-    if (hasHydrated && items.length > 0 && !isBranchOpen) {
+    if (hasHydrated && locationHasHydrated && items.length > 0 && !isBranchOpen) {
       router.push("/");
     }
-  }, [hasHydrated, items.length, isBranchOpen, router]);
+  }, [hasHydrated, locationHasHydrated, items.length, isBranchOpen, router]);
 
   // Once the order is accepted the cart is cleared, which would otherwise collapse this page to
   // nothing until the next route (receipt / payment gateway) finishes loading. Cover that gap.

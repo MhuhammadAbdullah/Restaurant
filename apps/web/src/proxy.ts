@@ -23,9 +23,16 @@ async function getRules(): Promise<Map<string, Redirect>> {
 }
 
 export async function proxy(req: NextRequest) {
+  // CMS SEO redirects are for public content pages. Keep transactional routes reachable even
+  // if an old or accidental redirect rule maps one of them to the homepage.
+  const pathname = normalize(req.nextUrl.pathname);
+  if (pathname === "/checkout" || pathname.startsWith("/order-confirmation/")) {
+    return NextResponse.next();
+  }
+
   const rules = await getRules();
   if (rules.size === 0) return NextResponse.next();
-  const rule = rules.get(normalize(req.nextUrl.pathname));
+  const rule = rules.get(pathname);
   if (!rule) return NextResponse.next();
   const target = /^https?:\/\//.test(rule.to) ? new URL(rule.to) : new URL(rule.to, req.url);
   if (target.pathname === req.nextUrl.pathname && target.origin === req.nextUrl.origin) return NextResponse.next(); // never loop
