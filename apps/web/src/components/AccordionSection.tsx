@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronDownIcon } from "./icons";
+import { RequiredChip } from "./RequiredChip";
 
 /** Collapsible section — red/left-border until satisfied, green once something's selected. */
 export function AccordionSection({
@@ -23,9 +24,7 @@ export function AccordionSection({
       <button type="button" onClick={onToggle} className="flex w-full items-center justify-between gap-2 px-3 py-3 text-left sm:gap-3 sm:px-4 sm:py-3.5">
         <span className="flex min-w-0 items-center gap-2 sm:gap-2.5">
           <span className="line-clamp-2 min-w-0 text-sm font-semibold text-emerald-900 dark:text-emerald-200 sm:text-base">{title}</span>
-          {requiredBadge && !satisfied && (
-            <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200">Required</span>
-          )}
+          {requiredBadge && !satisfied && <RequiredChip />}
         </span>
         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-neutral-300 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-200">
           <ChevronDownIcon size={16} className={`transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`} />

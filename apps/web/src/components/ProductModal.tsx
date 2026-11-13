@@ -16,6 +16,7 @@ import { PopularComboBanner } from "./PopularComboBanner";
 import { useLocationStore } from "../store/useLocationStore";
 import { isOptionUnavailableAt } from "../lib/outOfStock";
 import { AccordionSection } from "./AccordionSection";
+import { RequiredChip } from "./RequiredChip";
 import { toast } from "../store/useToastStore";
 
 export function ProductModal({ product, onClose }: { product: Product; onClose: () => void }) {
@@ -281,7 +282,7 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
                     <div key={sectionKey}>
                       <div className="flex items-center justify-between gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 dark:border-emerald-900 dark:bg-emerald-950/40 sm:gap-3 sm:px-4 sm:py-3.5">
                         <span className="line-clamp-2 min-w-0 text-sm font-semibold text-emerald-900 dark:text-emerald-200 sm:text-base">{g.name}</span>
-                        {rules.isRequired && <span className="shrink-0 rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-semibold text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200 sm:px-3 sm:text-xs">{isSatisfied ? "✓ Done" : "Required"}</span>}
+                        {rules.isRequired && (isSatisfied ? <span className="shrink-0 rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-semibold text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200 sm:px-3 sm:text-xs">✓ Done</span> : <RequiredChip />)}
                       </div>
                       {optionsGrid}
                     </div>
