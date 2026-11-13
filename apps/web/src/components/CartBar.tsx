@@ -28,11 +28,11 @@ function FreeDeliveryProgress({ subtotal }: { subtotal: number }) {
   if (remaining === 0) return <FreeDeliveryUnlocked floating className="pointer-events-auto mb-2 w-full" />;
 
   return (
-    <div className="pointer-events-auto mb-2 w-full rounded-full border border-white/85 bg-white/85 px-3 py-2 text-center text-[11px] text-neutral-600 shadow-[0_8px_24px_rgba(15,23,42,0.14)] backdrop-blur-xl sm:px-5 sm:py-2.5 sm:text-xs">
+    <div className="pointer-events-auto mb-2 w-full rounded-full border border-white/85 bg-white/85 px-3 py-2 text-center text-[11px] text-neutral-700 shadow-[0_8px_24px_rgba(15,23,42,0.14)] backdrop-blur-xl dark:border-neutral-700/90 dark:bg-neutral-900/90 dark:text-neutral-200 sm:px-5 sm:py-2.5 sm:text-xs">
       <div>
-        <>Add items worth <b className="text-neutral-900">Rs. {Math.ceil(remaining / 100)}</b> to get <b className="text-neutral-900">FREE Delivery</b></>
+        <>Add items worth <b className="text-neutral-900 dark:text-white">Rs. {Math.ceil(remaining / 100)}</b> to get <b className="text-neutral-900 dark:text-white">FREE Delivery</b></>
       </div>
-      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-neutral-200 sm:mt-2 sm:h-2">
+      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700 sm:mt-2 sm:h-2">
         <div className="h-full rounded-full bg-gradient-to-r from-[#00d39a] to-[#009f70] transition-[width] duration-300" style={{ width: `${progress}%` }} />
       </div>
     </div>

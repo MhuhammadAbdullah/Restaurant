@@ -377,7 +377,7 @@ export default function CheckoutPage() {
               aria-pressed={isGift}
               aria-disabled={!onlineEnabled && !isGift}
               className={`flex shrink-0 items-center gap-2.5 rounded-full border px-5 py-2.5 text-sm font-medium transition ${
-                isGift ? "border-green-600 bg-green-50 text-green-700" : "border-line bg-surface text-ink hover:border-green-600"
+                isGift ? "border-green-600 bg-green-50 text-green-700 dark:border-green-500 dark:bg-green-950/40 dark:text-green-300" : "border-line bg-surface text-ink hover:border-green-600"
               } ${!onlineEnabled && !isGift ? "opacity-60" : ""}`}
             >
               <GiftIcon size={18} className="shrink-0 animate-gift-bounce text-green-600" />
@@ -386,7 +386,7 @@ export default function CheckoutPage() {
           </div>
           {showGift && !onlineEnabled && <p className="mt-2 text-xs text-muted">Gifts are paid online, and Online Payment is switched off right now.</p>}
           {showGift && isGift && (
-            <div ref={giftRef} className="mt-4 scroll-mt-24 space-y-3 rounded-lg border border-green-600/30 bg-green-50/40 p-3">
+            <div ref={giftRef} className="mt-4 scroll-mt-24 space-y-3 rounded-lg border border-green-600/30 bg-green-50/40 p-3 dark:border-green-700 dark:bg-green-950/20">
               <input placeholder="Recipient Name" value={gift.recipientName} onChange={(e) => setGift({ ...gift, recipientName: e.target.value })} className="input" />
               <input placeholder="Recipient Mobile" value={gift.recipientPhone} onChange={(e) => setGift({ ...gift, recipientPhone: e.target.value })} className="input" />
               <input placeholder="Recipient Address" value={gift.recipientAddress} onChange={(e) => setGift({ ...gift, recipientAddress: e.target.value })} className="input" />
@@ -666,7 +666,7 @@ export default function CheckoutPage() {
                   <p className={`text-sm font-semibold ${reasonFor(i) ? "text-muted" : "text-ink"}`}>
                     <span className="mr-1.5 text-xs font-semibold text-muted">{i.quantity} x</span>
                     {i.name}
-                    {reasonFor(i) && <span className="ml-2 inline-block -rotate-3 rounded-md border-2 border-brand-red bg-white px-1.5 py-0.5 align-middle text-[10px] font-extrabold uppercase tracking-widest text-brand-red">{reasonFor(i) === "OPTION_OUT" ? "Not available" : "Sold out"}</span>}
+                    {reasonFor(i) && <span className="ml-2 inline-block -rotate-3 rounded-md border-2 border-brand-red bg-surface-alt px-1.5 py-0.5 align-middle text-[10px] font-extrabold uppercase tracking-widest text-brand-red">{reasonFor(i) === "OPTION_OUT" ? "Not available" : "Sold out"}</span>}
                   </p>
                   {reasonFor(i) ? (
                     <>
@@ -676,7 +676,7 @@ export default function CheckoutPage() {
                       </button>
                     </>
                   ) : (
-                    <p className="mt-1 text-sm font-bold text-black">
+                    <p className="mt-1 text-sm font-bold text-ink">
                       {formatPaisa(i.kind === "product" ? i.unitPrice * i.quantity : i.dealPrice * i.quantity)}
                     </p>
                   )}
@@ -699,9 +699,9 @@ export default function CheckoutPage() {
           <div className="mt-4 border-t border-line pt-4">
             <p className="text-sm font-medium text-ink">Coupon Code</p>
             {appliedCoupon ? (
-              <div className="mt-2 flex items-center justify-between rounded-lg border border-green-600 bg-green-50 px-3 py-2 text-sm">
-                <span className="font-medium text-green-800">{appliedCoupon.code} applied</span>
-                <button type="button" onClick={removeCoupon} className="text-xs font-medium text-green-800 underline">
+              <div className="mt-2 flex items-center justify-between rounded-lg border border-green-600 bg-green-50 px-3 py-2 text-sm dark:border-green-700 dark:bg-green-950/40">
+                <span className="font-medium text-green-800 dark:text-green-300">{appliedCoupon.code} applied</span>
+                <button type="button" onClick={removeCoupon} className="text-xs font-medium text-green-800 underline dark:text-green-300">
                   Remove
                 </button>
               </div>
@@ -794,30 +794,30 @@ export default function CheckoutPage() {
           </div>
           )}
 
-          <div className="mt-5 rounded-2xl border border-line bg-[#f8f9fa] p-5 shadow-[0_4px_16px_rgba(15,23,42,0.05)] sm:p-6">
-            <div className="space-y-4 text-sm font-medium text-slate-700">
+          <div className="mt-5 rounded-2xl border border-line bg-surface-alt p-5 shadow-[0_4px_16px_rgba(15,23,42,0.05)] sm:p-6">
+            <div className="space-y-4 text-sm font-medium text-ink">
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-3">
-                  <CalculatorIcon size={19} className="text-slate-500" /> Total
+                  <CalculatorIcon size={19} className="text-muted" /> Total
                 </span>
                 <span className="font-semibold">{formatPaisa(subtotal)}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-3">
-                    <FaFileInvoiceDollar size={17} className="text-slate-500" /> Tax (15%)
+                    <FaFileInvoiceDollar size={17} className="text-muted" /> Tax (15%)
                 </span>
                 <span className="font-semibold">{formatPaisa(estimatedTax)}</span>
               </div>
               {orderType === "DELIVERY" && (
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-3">
-                    <TruckIcon size={17} className="text-slate-500" /> Delivery Fee
+                    <TruckIcon size={17} className="text-muted" /> Delivery Fee
                   </span>
                   <span className="font-semibold">{freeDelivery ? "FREE" : formatPaisa(deliveryFee)}</span>
                 </div>
               )}
               {appliedCoupon && (
-                <div className="flex items-center justify-between text-green-700">
+                <div className="flex items-center justify-between text-green-700 dark:text-green-300">
                   <span className="flex items-center gap-3">
                     <FaTag size={16} /> Discount ({appliedCoupon.code})
                   </span>
@@ -833,9 +833,9 @@ export default function CheckoutPage() {
                 <span className="font-semibold">+{formatPaisa(tipPaisa)}</span>
               </div>
             )}
-            <div className="mt-5 flex items-center justify-between border-t border-slate-200 pt-5">
-              <span className="text-base font-bold text-slate-900">Grand Total</span>
-              <span className="text-xl font-bold text-black">{formatPaisa(estimatedGrandTotal + tipPaisa)}</span>
+            <div className="mt-5 flex items-center justify-between border-t border-line pt-5">
+              <span className="text-base font-bold text-ink">Grand Total</span>
+              <span className="text-xl font-bold text-ink">{formatPaisa(estimatedGrandTotal + tipPaisa)}</span>
             </div>
           </div>
           {orderType === "DELIVERY" && <FreeDeliveryBanner subtotal={subtotal} minimum={freeDeliveryMinimum} className="mt-3" />}

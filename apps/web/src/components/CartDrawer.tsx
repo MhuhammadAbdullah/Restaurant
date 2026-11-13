@@ -149,7 +149,7 @@ export function CartDrawer() {
               )}
 
               {!isBranchOpen && (
-                <p className="mt-3 text-center text-xs font-medium text-amber-700">
+                <p className="mt-3 text-center text-xs font-medium text-amber-700 dark:text-amber-300">
                   {branch?.name} is currently closed, so checkout is unavailable until it reopens.
                 </p>
               )}
@@ -161,7 +161,7 @@ export function CartDrawer() {
               >
                 {!isBranchOpen ? "Branch Closed" : hasUnavailable ? "Remove sold-out items" : "Proceed to Checkout"}
               </button>
-              {eta && <div className="mt-4 text-center text-sm text-neutral-600"><p>Your order will be {orderType === "DELIVERY" ? "delivered" : "ready for pickup"} approximately in {etaMinutes} minutes on</p><div className="mt-2 flex flex-wrap items-center justify-center gap-2 font-semibold text-neutral-800"><span className="rounded-xl bg-neutral-100 px-3 py-2">{ordinalDate(eta)}</span><span className="text-neutral-500">at</span><span className="rounded-xl bg-neutral-200 px-3 py-2 text-[#16464b]">{eta.toLocaleTimeString("en-US", { timeZone: "Asia/Karachi", hour: "2-digit", minute: "2-digit" })}</span></div></div>}
+              {eta && <div className="mt-4 text-center text-sm text-muted"><p>Your order will be {orderType === "DELIVERY" ? "delivered" : "ready for pickup"} approximately in {etaMinutes} minutes on</p><div className="mt-2 flex flex-wrap items-center justify-center gap-2 font-semibold text-ink"><span className="rounded-xl bg-surface-alt px-3 py-2">{ordinalDate(eta)}</span><span className="text-muted">at</span><span className="rounded-xl bg-surface-alt px-3 py-2 text-ink">{eta.toLocaleTimeString("en-US", { timeZone: "Asia/Karachi", hour: "2-digit", minute: "2-digit" })}</span></div></div>}
             </div>
             </div>
           </>
@@ -183,16 +183,16 @@ function Row({
   icon?: (props: { size?: number; className?: string }) => React.ReactElement;
 }) {
   return (
-    <div className={`flex items-center justify-between ${bold ? "text-base font-bold text-neutral-900" : "font-medium text-neutral-800"}`}>
+    <div className={`flex items-center justify-between ${bold ? "text-base font-bold text-ink" : "font-medium text-ink"}`}>
       <span className="flex items-center gap-2">
         {Icon && (
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-neutral-100 text-neutral-500">
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-surface-alt text-muted">
             <Icon size={12} />
           </span>
         )}
         {label}
       </span>
-      <span className={bold ? "text-neutral-900" : "font-medium text-neutral-900"}>{value}</span>
+      <span className={bold ? "text-ink" : "font-medium text-ink"}>{value}</span>
     </div>
   );
 }
@@ -212,7 +212,7 @@ function CartLine({
 }) {
   const soldOut = unavailable !== null;
   return (
-    <div className={`flex min-h-[96px] items-center gap-3 rounded-2xl border px-3 py-2.5 ${soldOut ? "border-amber-300 bg-amber-50" : "border-neutral-200 bg-white"}`}>
+    <div className={`flex min-h-[96px] items-center gap-3 rounded-2xl border px-3 py-2.5 ${soldOut ? "border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40" : "border-line bg-surface"}`}>
       {item.image && (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={item.image} alt={item.name} className={`h-[72px] w-[72px] shrink-0 rounded-2xl border border-neutral-200 object-cover ${soldOut ? "opacity-40 grayscale" : ""}`} />
@@ -221,12 +221,12 @@ function CartLine({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <p className={`truncate text-[15px] font-semibold ${soldOut ? "text-muted" : "text-ink"}`}>{item.name}</p>
-            {soldOut && <span className="shrink-0 rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-amber-800">{unavailable === "OPTION_OUT" ? "Not available" : "Sold out"}</span>}
+            {soldOut && <span className="shrink-0 rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-amber-800 dark:bg-amber-900/50 dark:text-amber-200">{unavailable === "OPTION_OUT" ? "Not available" : "Sold out"}</span>}
           </div>
-          <p className={`mt-1 text-sm font-bold ${soldOut ? "text-muted line-through" : "text-[#16464b]"}`}>
+          <p className={`mt-1 text-sm font-bold ${soldOut ? "text-muted line-through" : "text-ink"}`}>
             {formatPaisa(item.kind === "product" ? item.unitPrice * item.quantity : item.dealPrice * item.quantity)}
           </p>
-          {soldOut && <p className="mt-1 text-xs font-medium text-amber-800">{unavailable === "INACTIVE" ? SOLD_OUT_INACTIVE_MESSAGE : unavailable === "OPTION_OUT" ? OPTION_OUT_CART_MESSAGE : SOLD_OUT_CART_MESSAGE}</p>}
+          {soldOut && <p className="mt-1 text-xs font-medium text-amber-800 dark:text-amber-200">{unavailable === "INACTIVE" ? SOLD_OUT_INACTIVE_MESSAGE : unavailable === "OPTION_OUT" ? OPTION_OUT_CART_MESSAGE : SOLD_OUT_CART_MESSAGE}</p>}
           {item.kind === "product" ? (
             <>
               {item.choices.length > 0 && <p className="text-xs text-muted">{item.choices.map((c) => c.name).join(", ")}</p>}
@@ -242,7 +242,7 @@ function CartLine({
         </div>
         <div className="shrink-0">
           {soldOut ? (
-            <button onClick={onRemove} className="rounded-full border border-neutral-300 px-3 py-2 text-xs font-semibold text-neutral-600 hover:bg-neutral-100">Remove</button>
+            <button onClick={onRemove} className="rounded-full border border-line px-3 py-2 text-xs font-semibold text-muted hover:bg-surface-alt">Remove</button>
           ) : (
             <QtyStepper quantity={item.quantity} itemName={item.name} onIncrement={onIncrement} onDecrement={onDecrement} onRemove={onRemove} tone="neutral" />
           )}
