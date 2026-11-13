@@ -43,7 +43,7 @@ export function FreeDeliveryBanner({
         </Link>
       </div>
       <div className="mt-2 h-2 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">
-        <div className="h-full rounded-full bg-gradient-to-r from-[#00d39a] to-[#009f70]" style={{ width: `${progress}%` }} />
+        <div className="h-full rounded-full bg-gradient-to-r from-[#00d39a] to-[#009f70] transition-[width] duration-500 ease-in-out motion-reduce:transition-none" style={{ width: `${progress}%` }} />
       </div>
     </div>
   );

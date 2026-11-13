@@ -43,8 +43,8 @@ export function ChoiceOptionCard({
         <div className="relative aspect-square w-full overflow-hidden bg-surface">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={image} alt={name} className="h-full w-full object-cover" />
-          <span aria-hidden="true" className={`absolute right-2.5 top-2.5 flex h-6 w-6 items-center justify-center rounded-full border shadow-sm ${checked && !unavailable ? "border-brand-red !bg-brand-red text-white" : "border-slate-400 bg-surface/95 text-transparent"}`}>
-            {checked && !unavailable && <FaCheck size={11} className="text-white" />}
+          <span aria-hidden="true" className={`absolute right-2 top-2 flex h-[18px] w-[18px] items-center justify-center rounded-full border shadow-sm sm:right-2.5 sm:top-2.5 sm:h-6 sm:w-6 ${checked && !unavailable ? "border-brand-red !bg-brand-red text-white" : "border-slate-400 bg-surface/95 text-transparent"}`}>
+            {checked && !unavailable && <FaCheck size={10} className="h-2 w-2 text-white sm:h-[10px] sm:w-[10px]" />}
           </span>
           {unavailable && <span className="absolute inset-x-0 bottom-0 bg-surface/90 px-2 py-1 text-center text-[10px] font-bold uppercase text-brand-red">Not available</span>}
         </div>

@@ -33,7 +33,7 @@ function FreeDeliveryProgress({ subtotal }: { subtotal: number }) {
         <>Add items worth <b className="text-neutral-900 dark:text-white">Rs. {Math.ceil(remaining / 100)}</b> to get <b className="text-neutral-900 dark:text-white">FREE Delivery</b></>
       </div>
       <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700 sm:mt-2 sm:h-2">
-        <div className="h-full rounded-full bg-gradient-to-r from-[#00d39a] to-[#009f70] transition-[width] duration-300" style={{ width: `${progress}%` }} />
+        <div className="h-full rounded-full bg-gradient-to-r from-[#00d39a] to-[#009f70] transition-[width] duration-500 ease-in-out motion-reduce:transition-none" style={{ width: `${progress}%` }} />
       </div>
     </div>
   );

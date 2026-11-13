@@ -20,13 +20,13 @@ export function AccordionSection({
   children: React.ReactNode;
 }) {
   return (
-    <div className={`overflow-hidden rounded-2xl border-l-4 bg-emerald-100 shadow-sm shadow-emerald-900/10 transition-colors duration-300 dark:bg-emerald-950/60 ${satisfied ? "border-emerald-600 dark:border-emerald-700" : "border-emerald-500 dark:border-emerald-800"}`}>
+    <div className={`overflow-hidden rounded-2xl border border-line border-l-4 bg-white transition-colors duration-300 dark:bg-zinc-900 ${satisfied ? "border-l-emerald-500" : "border-l-emerald-400"}`}>
       <button type="button" onClick={onToggle} className="flex w-full items-center justify-between gap-2 px-3 py-3 text-left sm:gap-3 sm:px-4 sm:py-3.5">
         <span className="flex min-w-0 items-center gap-2 sm:gap-2.5">
-          <span className="line-clamp-2 min-w-0 text-sm font-semibold text-emerald-900 dark:text-emerald-200 sm:text-base">{title}</span>
+          <span className="line-clamp-2 min-w-0 text-sm font-semibold text-ink sm:text-base">{title}</span>
           {requiredBadge && !satisfied && <RequiredChip />}
         </span>
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-neutral-300 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-200">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-line bg-white text-neutral-700 shadow-sm dark:bg-zinc-800 dark:text-neutral-200">
           <ChevronDownIcon size={16} className={`transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`} />
         </span>
       </button>
