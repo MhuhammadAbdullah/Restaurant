@@ -72,7 +72,8 @@ export function CartRecommendationCard({ product, onClick }: { product: Product;
               onDecrement={() => updateQuantity(simpleLine.cartItemId, quantity - 1)}
               onRemove={() => removeItem(simpleLine.cartItemId)}
               tone="neutral"
-              className="gap-1.5 px-1 py-1"
+              compact
+              className="gap-1 px-1 py-0.5"
             />
           ) : (
             <button

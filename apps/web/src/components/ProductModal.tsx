@@ -177,14 +177,14 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
   }, []);
 
   const glowButton =
-    "flex h-11 w-11 items-center justify-center rounded-full bg-brand-red text-white shadow-[0_0_16px_rgba(237,35,32,0.55)] transition hover:opacity-90";
+    "flex h-9 w-9 items-center justify-center rounded-full bg-brand-red text-white shadow-[0_0_16px_rgba(237,35,32,0.55)] transition hover:opacity-90 sm:h-11 sm:w-11";
 
   // Portalled to <body> and above the floating search / cart buttons, so nothing from the page shows through the sheet.
   return createPortal(
     <div className="modal-backdrop-enter fixed inset-0 z-[70] flex items-end justify-center bg-black/70 sm:items-center sm:p-4">
       <div className="modal-panel-enter relative flex h-[90dvh] max-h-[90dvh] w-full max-w-[1100px] flex-col overflow-hidden rounded-t-3xl bg-surface sm:h-[580px] sm:max-h-[calc(100dvh-2rem)] sm:flex-row sm:rounded-3xl">
         {/* Share / close stay pinned to the top corner while the content scrolls. */}
-        <div className="absolute right-4 top-4 z-20">
+        <div className="absolute right-3 top-3 z-20 sm:right-4 sm:top-4">
           <div className="flex gap-3">
             <button onClick={handleShare} aria-label="Share" className={glowButton}>
               <FaShareNodes size={16} />
@@ -201,7 +201,7 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={image} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full scale-110 object-cover opacity-70 blur-2xl" />
           {/* the picture itself is always a square that fills the panel width, with the same gentle zoom the menu cards have */}
-          <div className="group relative aspect-square w-full overflow-hidden">
+          <div className="group relative aspect-[4/3] w-full overflow-hidden sm:aspect-square">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={image}
@@ -209,16 +209,16 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
               className="absolute inset-0 h-full w-full scale-[1.04] object-cover transition-transform duration-500 ease-out group-hover:scale-110"
             />
             <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/80 to-transparent" />
-            <h2 className="absolute inset-x-0 bottom-0 p-5 font-poppins text-2xl font-bold uppercase leading-tight text-white sm:p-6 sm:text-3xl">
+            <h2 className="absolute inset-x-0 bottom-0 p-4 font-poppins text-xl font-bold uppercase leading-tight text-white sm:p-6 sm:text-3xl">
               {product.name}
             </h2>
           </div>
         </div>
 
         <div className="flex flex-col bg-surface sm:min-w-0 sm:flex-1 sm:overflow-y-auto">
-          <div className="p-6 sm:p-8">
-            <p className="pr-28 font-poppins text-3xl font-bold text-ink sm:text-4xl">
-              {product.discountPrice != null && !hasFullPriceSection && <span className="mr-2 text-xl font-normal text-muted line-through">{formatPaisa(product.basePrice)}</span>}
+          <div className="p-4 sm:p-8">
+            <p className="pr-24 font-poppins text-2xl font-bold text-ink sm:pr-28 sm:text-4xl">
+              {product.discountPrice != null && !hasFullPriceSection && <span className="mr-2 text-sm font-normal text-muted line-through sm:text-xl">{formatPaisa(product.basePrice)}</span>}
               {formatPaisa(
                 hasFullPriceSection
                   ? basePrice + choiceAssignments.reduce((sum, c) => sum + (selectedChoices[c.choiceGroupId] ?? []).reduce((s2, id) => {
@@ -228,14 +228,14 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
                   : basePrice,
               )}
             </p>
-            {product.description && <p className="mt-3 text-[15px] leading-relaxed text-muted">{product.description}</p>}
+            {product.description && <p className="mt-2 text-sm leading-relaxed text-muted sm:mt-3 sm:text-[15px]">{product.description}</p>}
             <div className="mt-4 border-t border-line" />
 
             <div className="mt-4">
               <PopularComboBanner options={popularCombo.map(({ option }) => ({ name: option.name, image: option.image }))} selected={popularComboSelected} onSelect={selectPopularCombo} />
             </div>
 
-            <div className="mt-5 space-y-3">
+            <div className="mt-4 space-y-2.5 sm:mt-5 sm:space-y-3">
               {choiceAssignments.map((assignment) => {
                 const g = assignment.choiceGroup;
                 const rules = resolveChoiceGroupRules(g, assignment);
@@ -243,7 +243,7 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
                 const isSatisfied = (selectedChoices[assignment.choiceGroupId]?.length ?? 0) > 0;
                 const hasImages = g.options.some((o) => o.image);
                 const optionsGrid = (
-                  <div className={`${hasImages ? "grid grid-cols-3 gap-2 py-2" : "grid grid-cols-1 gap-2 py-2"}`}>
+                  <div className={`${hasImages ? "grid grid-cols-3 gap-1.5 py-1.5 sm:gap-2 sm:py-2" : "grid grid-cols-1 gap-1.5 py-1.5 sm:gap-2 sm:py-2"}`}>
                     {g.options.map((opt) => {
                       const optPrice = effectivePrice(opt.priceAdjustment, opt.discountPriceAdjustment);
                       const showPrice = opt.showPrice !== false;
@@ -279,9 +279,9 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
                 if (hasImages) {
                   return (
                     <div key={sectionKey}>
-                      <div className="flex items-center justify-between gap-3 rounded-2xl border border-brand-red/25 bg-surface-alt px-4 py-3.5">
-                        <span className="font-semibold text-brand-red">{g.name}</span>
-                        {rules.isRequired && <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${isSatisfied ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300" : "bg-red-100 text-brand-red dark:bg-brand-red/20 dark:text-red-300"}`}>{isSatisfied ? "✓ Done" : "Required"}</span>}
+                      <div className="flex items-center justify-between gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 dark:border-emerald-900 dark:bg-emerald-950/40 sm:gap-3 sm:px-4 sm:py-3.5">
+                        <span className="line-clamp-2 min-w-0 text-sm font-semibold text-emerald-900 dark:text-emerald-200 sm:text-base">{g.name}</span>
+                        {rules.isRequired && <span className="shrink-0 rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-semibold text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200 sm:px-3 sm:text-xs">{isSatisfied ? "✓ Done" : "Required"}</span>}
                       </div>
                       {optionsGrid}
                     </div>
@@ -375,7 +375,7 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
                 <button
                   onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                   aria-label="Decrease quantity"
-                  className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-200 text-neutral-800 dark:bg-neutral-700 dark:text-neutral-100 sm:h-9 sm:w-9"
+                  className="flex h-7 w-7 items-center justify-center rounded-full bg-neutral-200 text-neutral-800 dark:bg-neutral-700 dark:text-neutral-100 sm:h-9 sm:w-9"
                 >
                   <MinusIcon size={14} />
                 </button>
@@ -383,16 +383,16 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
                 <button
                   onClick={onClose}
                   aria-label="Discard item"
-                  className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-200 text-red-500 dark:bg-neutral-700 sm:h-9 sm:w-9"
+                  className="flex h-7 w-7 items-center justify-center rounded-full bg-neutral-200 text-red-500 dark:bg-neutral-700 sm:h-9 sm:w-9"
                 >
                   <TrashIcon size={14} />
                 </button>
               )}
-              <span className="w-5 text-center text-sm font-semibold text-ink sm:w-6">{quantity}</span>
+              <span className="w-4 text-center text-xs font-semibold text-ink sm:w-6 sm:text-sm">{quantity}</span>
               <button
                 onClick={() => setQuantity((q) => q + 1)}
                 aria-label="Increase quantity"
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-300 text-neutral-800 dark:bg-neutral-600 dark:text-neutral-100 sm:h-9 sm:w-9"
+                className="flex h-7 w-7 items-center justify-center rounded-full bg-neutral-300 text-neutral-800 dark:bg-neutral-600 dark:text-neutral-100 sm:h-9 sm:w-9"
               >
                 <PlusIcon size={14} />
               </button>
@@ -400,27 +400,27 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
             <button
               onClick={handleAdd}
               disabled={!isValid}
-              className="relative flex min-w-0 flex-1 items-center justify-center gap-2.5 overflow-hidden whitespace-nowrap rounded-2xl bg-brand-red px-3 py-3.5 font-poppins text-[13px] font-bold leading-[16px] text-white sm:gap-4 sm:px-5 sm:py-4 sm:text-[15px] shadow-[0_6px_20px_rgba(237,35,32,0.4)] disabled:opacity-50"
+              className="relative flex min-w-0 flex-1 items-center justify-center gap-2 overflow-hidden whitespace-nowrap rounded-2xl bg-brand-red px-3 py-3 font-poppins text-xs font-bold leading-4 text-white shadow-[0_6px_20px_rgba(237,35,32,0.4)] disabled:opacity-50 sm:gap-4 sm:px-5 sm:py-4 sm:text-[15px]"
             >
               {isValid && (
                 <span className="pointer-events-none absolute inset-y-0 left-0 w-1/3 -translate-x-full animate-cart-shine bg-gradient-to-r from-transparent via-white/40 to-transparent" />
               )}
               <span>{formatPaisa(unitPrice * quantity)}</span>
               <span aria-hidden="true" className="h-4 w-px bg-white/70" />
-              <span className="flex items-center gap-2">
-                Add to Cart <ArrowRightIcon size={14} className="animate-ride" />
+              <span className="flex items-center gap-1.5 sm:gap-2">
+                Add to Cart <ArrowRightIcon size={12} className="animate-ride sm:!h-[14px] sm:!w-[14px]" />
               </span>
             </button>
           </div>
         </div>
         </div>
-        <div className="flex shrink-0 items-center gap-2.5 border-t border-line bg-surface-alt px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:hidden">
-            <div className="flex shrink-0 items-center gap-1.5 rounded-full border border-line bg-surface p-1 text-ink sm:gap-3">
+        <div className="flex shrink-0 items-center gap-2 border-t border-line bg-surface-alt px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2.5 sm:hidden">
+            <div className="flex shrink-0 items-center gap-1 rounded-full border border-line bg-surface p-1 text-ink sm:gap-3">
               {quantity > 1 ? (
                 <button
                   onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                   aria-label="Decrease quantity"
-                  className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-200 text-neutral-800 dark:bg-neutral-700 dark:text-neutral-100 sm:h-9 sm:w-9"
+                  className="flex h-7 w-7 items-center justify-center rounded-full bg-neutral-200 text-neutral-800 dark:bg-neutral-700 dark:text-neutral-100 sm:h-9 sm:w-9"
                 >
                   <MinusIcon size={14} />
                 </button>
@@ -428,16 +428,16 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
                 <button
                   onClick={onClose}
                   aria-label="Discard item"
-                  className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-200 text-red-500 dark:bg-neutral-700 sm:h-9 sm:w-9"
+                  className="flex h-7 w-7 items-center justify-center rounded-full bg-neutral-200 text-red-500 dark:bg-neutral-700 sm:h-9 sm:w-9"
                 >
                   <TrashIcon size={14} />
                 </button>
               )}
-              <span className="w-5 text-center text-sm font-semibold text-ink sm:w-6">{quantity}</span>
+              <span className="w-4 text-center text-xs font-semibold text-ink sm:w-6 sm:text-sm">{quantity}</span>
               <button
                 onClick={() => setQuantity((q) => q + 1)}
                 aria-label="Increase quantity"
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-300 text-neutral-800 dark:bg-neutral-600 dark:text-neutral-100 sm:h-9 sm:w-9"
+                className="flex h-7 w-7 items-center justify-center rounded-full bg-neutral-300 text-neutral-800 dark:bg-neutral-600 dark:text-neutral-100 sm:h-9 sm:w-9"
               >
                 <PlusIcon size={14} />
               </button>
@@ -445,15 +445,15 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
             <button
               onClick={handleAdd}
               disabled={!isValid}
-              className="relative flex min-w-0 flex-1 items-center justify-center gap-2.5 overflow-hidden whitespace-nowrap rounded-2xl bg-brand-red px-3 py-3.5 font-poppins text-[13px] font-bold leading-[16px] text-white sm:gap-4 sm:px-5 sm:py-4 sm:text-[15px] shadow-[0_6px_20px_rgba(237,35,32,0.4)] disabled:opacity-50"
+              className="relative flex min-w-0 flex-1 items-center justify-center gap-2 overflow-hidden whitespace-nowrap rounded-2xl bg-brand-red px-3 py-3 font-poppins text-xs font-bold leading-4 text-white shadow-[0_6px_20px_rgba(237,35,32,0.4)] disabled:opacity-50 sm:gap-4 sm:px-5 sm:py-4 sm:text-[15px]"
             >
               {isValid && (
                 <span className="pointer-events-none absolute inset-y-0 left-0 w-1/3 -translate-x-full animate-cart-shine bg-gradient-to-r from-transparent via-white/40 to-transparent" />
               )}
               <span>{formatPaisa(unitPrice * quantity)}</span>
               <span aria-hidden="true" className="h-4 w-px bg-white/70" />
-              <span className="flex items-center gap-2">
-                Add to Cart <ArrowRightIcon size={14} className="animate-ride" />
+              <span className="flex items-center gap-1.5 sm:gap-2">
+                Add to Cart <ArrowRightIcon size={12} className="animate-ride sm:!h-[14px] sm:!w-[14px]" />
               </span>
             </button>
         </div>
