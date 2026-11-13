@@ -50,6 +50,7 @@ import {
   FaXmark,
 } from "react-icons/fa6";
 import type { IconType } from "react-icons";
+import { PopularComboIcon } from "@restaurant/ui";
 import { useMe, hasPermission } from "../lib/useMe";
 import { useSidebarStore } from "../store/useSidebarStore";
 import { api } from "../lib/api";
@@ -78,6 +79,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/products", label: "Products", permission: "products.view", icon: FaBurger },
       { href: "/deals", label: "Deals", permission: "deals.view", icon: FaTags },
       { href: "/choice-sections", label: "Choice Sections", permission: "choiceGroups.view", icon: FaListCheck },
+      { href: "/settings/popular-combo", label: "Popular Combo", permission: "settings.view", icon: PopularComboIcon as IconType },
       { href: "/addons", label: "Add-ons", permission: "addonGroups.view", icon: FaCirclePlus },
       { href: "/coupons", label: "Coupons", permission: "coupons.view", icon: FaTicket },
       { href: "/inventory", label: "Inventory", permission: "inventoryStock.view,inventoryRecipes.view,inventoryPurchases.view,inventorySuppliers.view,inventoryTransfers.view,inventoryHistory.view,inventoryReports.view", icon: FaBoxesStacked },

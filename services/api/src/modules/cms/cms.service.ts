@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import {
   DEFAULT_ABOUT_CONTENT_CONFIG,
   DEFAULT_APP_PROMO_CONFIG,
+  DEFAULT_POPULAR_COMBO_CONFIG,
   DEFAULT_FOOTER_CONFIG,
   DEFAULT_HEADER_CONFIG,
   DEFAULT_LOCATION_POPUP_CONFIG,
@@ -10,6 +11,7 @@ import {
   resolveLoyaltyConfig,
   type AboutContentConfig,
   type AppPromoConfig,
+  type PopularComboConfig,
   type CheckoutConfig,
   type ResolvedCheckoutConfig,
   DEFAULT_CHECKOUT_CONFIG,
@@ -76,6 +78,11 @@ export class CmsService {
   private resolveAppPromoConfig(settings: unknown): Required<AppPromoConfig> {
     const stored = (settings as { appPromo?: AppPromoConfig } | null | undefined)?.appPromo ?? {};
     return { ...DEFAULT_APP_PROMO_CONFIG, ...stored };
+  }
+
+  private resolvePopularComboConfig(settings: unknown): Required<PopularComboConfig> {
+    const stored = (settings as { popularCombo?: PopularComboConfig } | null | undefined)?.popularCombo ?? {};
+    return { ...DEFAULT_POPULAR_COMBO_CONFIG, ...stored };
   }
 
   /** Same pattern, for settings.checkout (coupon / tip boxes on the checkout page). */
@@ -198,6 +205,7 @@ export class CmsService {
       locationPopup: this.resolveLocationPopupConfig(settings),
       loyalty: resolveLoyaltyConfig(settings),
       appPromo: this.resolveAppPromoConfig(settings),
+      popularCombo: this.resolvePopularComboConfig(settings),
       checkout: this.resolveCheckoutConfig(settings),
       aboutContent: this.resolveAboutContentConfig(settings),
       receiptMessages: this.resolveReceiptMessages(settings),
@@ -217,6 +225,7 @@ export class CmsService {
       input.locationPopup !== undefined ||
       input.loyalty !== undefined ||
       input.appPromo !== undefined ||
+      input.popularCombo !== undefined ||
       input.checkout !== undefined ||
       input.aboutContent !== undefined ||
       input.receiptMessages !== undefined ||
@@ -276,6 +285,10 @@ export class CmsService {
       if (input.appPromo !== undefined) {
         const currentAppPromo = (currentSettings.appPromo as AppPromoConfig | undefined) ?? {};
         settingsPatch.appPromo = { ...currentAppPromo, ...input.appPromo };
+      }
+      if (input.popularCombo !== undefined) {
+        const currentPopularCombo = (currentSettings.popularCombo as PopularComboConfig | undefined) ?? {};
+        settingsPatch.popularCombo = { ...currentPopularCombo, ...input.popularCombo };
       }
       if (input.receiptMessages !== undefined) {
         const currentMessages = (currentSettings.receiptMessages as Record<string, string> | undefined) ?? {};
@@ -347,6 +360,7 @@ export class CmsService {
       locationPopup: this.resolveLocationPopupConfig(settings),
       loyalty: resolveLoyaltyConfig(settings),
       appPromo: this.resolveAppPromoConfig(settings),
+      popularCombo: this.resolvePopularComboConfig(settings),
       checkout: this.resolveCheckoutConfig(settings),
       aboutContent: this.resolveAboutContentConfig(settings),
       receiptMessages: this.resolveReceiptMessages(settings),

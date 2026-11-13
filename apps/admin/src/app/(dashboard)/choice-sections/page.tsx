@@ -21,6 +21,7 @@ type ChoiceOption = {
   name: string;
   description: string | null;
   image: string | null;
+  isPopularCombo?: boolean;
   priceAdjustment: number;
   discountPriceAdjustment: number | null;
   useListingPrice?: boolean;
@@ -50,6 +51,7 @@ type OptionForm = {
   name: string;
   description: string;
   image: string;
+  isPopularCombo: boolean;
   priceAdjustment: number;
   discountPriceAdjustment: string;
   useListingPrice: boolean;
@@ -57,7 +59,7 @@ type OptionForm = {
   status: "ACTIVE" | "INACTIVE";
 };
 
-const EMPTY_OPTION: OptionForm = { name: "", description: "", image: "", priceAdjustment: 0, discountPriceAdjustment: "", useListingPrice: false, showPrice: true, status: "ACTIVE" };
+const EMPTY_OPTION: OptionForm = { name: "", description: "", image: "", isPopularCombo: false, priceAdjustment: 0, discountPriceAdjustment: "", useListingPrice: false, showPrice: true, status: "ACTIVE" };
 
 const EMPTY_FORM = {
   name: "",
@@ -142,6 +144,7 @@ export default function ChoiceSectionsPage() {
         name: o.name,
         description: o.description ?? "",
         image: o.image ?? "",
+        isPopularCombo: o.isPopularCombo ?? false,
         priceAdjustment: o.priceAdjustment / 100,
         discountPriceAdjustment: o.discountPriceAdjustment != null ? String(o.discountPriceAdjustment / 100) : "",
         useListingPrice: o.useListingPrice ?? false,
@@ -158,7 +161,7 @@ export default function ChoiceSectionsPage() {
   }
 
   function updateOption(index: number, patch: Partial<OptionForm>) {
-    setForm((f) => ({ ...f, options: f.options.map((o, i) => (i === index ? { ...o, ...patch } : o)) }));
+    setForm((f) => ({ ...f, options: f.options.map((o, i) => ({ ...o, ...(i === index ? patch : {}), ...(patch.isPopularCombo && i !== index ? { isPopularCombo: false } : {}) })) }));
   }
   function addOption() {
     setForm((f) => ({ ...f, options: [...f.options, { ...EMPTY_OPTION }] }));
@@ -209,6 +212,7 @@ export default function ChoiceSectionsPage() {
           name: o.name,
           description: o.description.trim() || undefined,
           image: o.image || undefined,
+          isPopularCombo: o.isPopularCombo,
           priceAdjustment: o.useListingPrice ? 0 : Math.round(o.priceAdjustment * 100),
           discountPriceAdjustment: !o.useListingPrice && o.discountPriceAdjustment.trim() ? Math.round(Number(o.discountPriceAdjustment) * 100) : null,
           useListingPrice: o.useListingPrice,
@@ -384,6 +388,7 @@ export default function ChoiceSectionsPage() {
                         o.priceAdjustment > 0 && <span className="text-neutral-400">{g.priceReplacesBase ? "" : "+"}{formatPaisa(o.discountPriceAdjustment ?? o.priceAdjustment)}</span>
                       )}
                       {o.showPrice === false && <span className="rounded bg-neutral-100 px-1 text-[9px] font-medium uppercase text-neutral-500">Price hidden</span>}
+                      {o.isPopularCombo && <span className="rounded bg-rose-100 px-1.5 py-0.5 text-[9px] font-bold text-rose-700">Most Popular Combo</span>}
                       {canEdit && (
                         <button
                           type="button"
@@ -577,6 +582,10 @@ export default function ChoiceSectionsPage() {
                           <label className="flex items-center gap-2 text-xs text-neutral-600">
                             <StatusToggle active={o.showPrice} onClick={() => updateOption(i, { showPrice: !o.showPrice })} onLabel="Price shown: click to hide" offLabel="Price hidden: click to show" />
                             {o.showPrice ? "Show this option's price to customers" : "Hide this option's price from customers"}
+                          </label>
+                          <label className="flex items-center gap-2 text-xs font-medium text-neutral-700">
+                            <input type="checkbox" checked={o.isPopularCombo} onChange={(e) => updateOption(i, { isPopularCombo: e.target.checked })} className="h-4 w-4 accent-brand-red" />
+                            Use in Most Popular Combo quick selection
                           </label>
                           <label className="flex items-center gap-2 text-xs text-neutral-600">
                             <StatusToggle active={o.status === "ACTIVE"} onClick={() => updateOption(i, { status: o.status === "ACTIVE" ? "INACTIVE" : "ACTIVE" })} />

@@ -617,6 +617,8 @@ model ChoiceOption {
   /// Short text shown under the option name on the storefront.
   description             String?
   image                   String?
+  /// Included in the storefront's one-tap Most Popular Combo selection.
+  isPopularCombo          Boolean      @default(false)
   priceAdjustment         Int          @default(0) // paisa
   discountPriceAdjustment Int? // paisa, optional discounted additional price
   /// "No price change": picking this option uses the product's own listing price (nothing added, nothing replaced).

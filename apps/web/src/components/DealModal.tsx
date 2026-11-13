@@ -12,6 +12,7 @@ import { useCartStore, makeCartItemId } from "../store/useCartStore";
 import { useFallbackProductImage } from "../lib/image";
 import { ArrowRightIcon, CloseIcon, MinusIcon, PlusIcon, TrashIcon } from "./icons";
 import { ChoiceOptionCard } from "./ChoiceOptionCard";
+import { PopularComboBanner } from "./PopularComboBanner";
 import { useLocationStore } from "../store/useLocationStore";
 import { isOptionUnavailableAt } from "../lib/outOfStock";
 import { AccordionSection } from "./AccordionSection";
@@ -93,6 +94,12 @@ export function DealModal({ deal, onClose }: { deal: Deal; onClose: () => void }
   const [specialInstructions, setSpecialInstructions] = useState("");
 
   const sections = useMemo(() => buildSections(deal), [deal]);
+  const branchId = useLocationStore((s) => s.branch?.id);
+  const popularCombo = deal.slots.flatMap((slot) => slot.choiceGroups.flatMap(({ choiceGroupId, choiceGroup }) => {
+    const option = choiceGroup.options.find((o) => o.isPopularCombo && !isOptionUnavailableAt(o, branchId));
+    return option ? [{ slotId: slot.id, choiceGroupId, choiceGroup, option }] : [];
+  }));
+  const popularComboSelected = popularCombo.length > 0 && popularCombo.every(({ slotId, choiceGroupId, option }) => (selections[slotId]?.choices[choiceGroupId] ?? []).includes(option.id));
 
   const [openSection, setOpenSection] = useState<string | null>(() => {
     const initialSelections = buildInitialSelections(deal);
@@ -149,6 +156,22 @@ export function DealModal({ deal, onClose }: { deal: Deal; onClose: () => void }
 
   function updateSlot(slotId: string, update: Partial<SlotSelection>) {
     setSelections((prev) => ({ ...prev, [slotId]: { ...prev[slotId]!, ...update } }));
+  }
+
+  function selectPopularCombo() {
+    setSelections((prev) => {
+      const alreadySelected = popularCombo.every(({ slotId, choiceGroupId, option }) => (prev[slotId]?.choices[choiceGroupId] ?? []).includes(option.id));
+      const next = { ...prev };
+      for (const { slotId, choiceGroupId, choiceGroup, option } of popularCombo) {
+        const current = next[slotId]!.choices[choiceGroupId] ?? [];
+        const rules = resolveChoiceGroupRules(choiceGroup);
+        const selected = alreadySelected
+          ? current.filter((id) => id !== option.id)
+          : rules.selectionType === "SINGLE" ? [option.id] : [...new Set([...current, option.id])].slice(0, rules.maxSelect);
+        next[slotId] = { ...next[slotId]!, choices: { ...next[slotId]!.choices, [choiceGroupId]: selected } };
+      }
+      return next;
+    });
   }
 
   function toggleChoice(slotId: string, group: { id: string; selectionType: string; maxSelect: number }, optionId: string) {
@@ -281,6 +304,10 @@ export function DealModal({ deal, onClose }: { deal: Deal; onClose: () => void }
             </p>
             {deal.description && <p className="mt-3 text-[15px] leading-relaxed text-muted">{deal.description}</p>}
 
+            <div className="mt-4">
+              <PopularComboBanner options={popularCombo.map(({ option }) => ({ name: option.name, image: option.image }))} selected={popularComboSelected} onSelect={selectPopularCombo} />
+            </div>
+
             <div className="mt-5 space-y-3">
               {sections.map((section) => {
                 const sel = selections[section.slot.id]!;
@@ -309,36 +336,46 @@ export function DealModal({ deal, onClose }: { deal: Deal; onClose: () => void }
 
                 if (section.kind === "choice") {
                   const rules = resolveChoiceGroupRules(section.choiceGroup);
-                  return (
-                    <AccordionSection
-                      key={section.key}
-                      title={`${section.slot.label}: ${section.choiceGroup.name}`}
-                      satisfied={satisfied}
-                      requiredBadge={rules.isRequired}
-                      isOpen={isOpen}
-                      onToggle={onToggle}
-                    >
-                      <div className="grid grid-cols-1 gap-2 py-2">
-                        {section.choiceGroup.options.map((opt) => (
-                          <ChoiceOptionCard
-                            key={opt.id}
-                            name={opt.name}
-                            groupName={section.key}
-                            type={rules.selectionType === "SINGLE" ? "radio" : "checkbox"}
-                            checked={(sel.choices[section.choiceGroupId] ?? []).includes(opt.id)}
-                            onChange={() =>
-                              toggleChoice(
-                                section.slot.id,
-                                { id: section.choiceGroupId, selectionType: rules.selectionType, maxSelect: rules.maxSelect },
-                                opt.id,
-                              )
-                            }
-                            priceLabel={opt.showPrice !== false && !opt.useListingPrice && opt.priceAdjustment > 0 ? `${section.choiceGroup.priceReplacesBase ? "" : "+ "}${formatPaisa(opt.priceAdjustment)}` : undefined}
-                            description={opt.description}
-                            unavailable={isOptionUnavailableAt(opt, useLocationStore.getState().branch?.id)}
-                          />
-                        ))}
+                  const hasImages = section.choiceGroup.options.some((o) => o.image);
+                  const optionsGrid = (
+                    <div className={`${hasImages ? "grid grid-cols-3 gap-2 py-2" : "grid grid-cols-1 gap-2 py-2"}`}>
+                      {section.choiceGroup.options.map((opt) => (
+                        <ChoiceOptionCard
+                          key={opt.id}
+                          name={opt.name}
+                          groupName={section.key}
+                          type={rules.selectionType === "SINGLE" ? "radio" : "checkbox"}
+                          checked={(sel.choices[section.choiceGroupId] ?? []).includes(opt.id)}
+                          onChange={() =>
+                            toggleChoice(
+                              section.slot.id,
+                              { id: section.choiceGroupId, selectionType: rules.selectionType, maxSelect: rules.maxSelect },
+                              opt.id,
+                            )
+                          }
+                          priceLabel={opt.showPrice !== false && !opt.useListingPrice && opt.priceAdjustment > 0 ? `${section.choiceGroup.priceReplacesBase ? "" : "+ "}${formatPaisa(opt.priceAdjustment)}` : undefined}
+                          description={opt.description}
+                          unavailable={isOptionUnavailableAt(opt, useLocationStore.getState().branch?.id)}
+                          image={opt.image}
+                          className={hasImages && !opt.image ? "col-span-full" : ""}
+                        />
+                      ))}
+                    </div>
+                  );
+                  if (hasImages) {
+                    return (
+                      <div key={section.key}>
+                        <div className="flex items-center justify-between gap-3 rounded-2xl border border-brand-red/25 bg-[#f4f7f4] px-4 py-3.5">
+                          <span className="font-semibold text-brand-red">{section.slot.label}: {section.choiceGroup.name}</span>
+                          {rules.isRequired && <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${satisfied ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-brand-red"}`}>{satisfied ? "✓ Done" : "Required"}</span>}
+                        </div>
+                        {optionsGrid}
                       </div>
+                    );
+                  }
+                  return (
+                    <AccordionSection key={section.key} title={`${section.slot.label}: ${section.choiceGroup.name}`} satisfied={satisfied} requiredBadge={rules.isRequired} isOpen={isOpen} onToggle={onToggle}>
+                      {optionsGrid}
                     </AccordionSection>
                   );
                 }

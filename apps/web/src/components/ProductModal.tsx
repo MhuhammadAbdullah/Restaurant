@@ -12,6 +12,7 @@ import { resolveProductImage, useFallbackProductImage } from "../lib/image";
 import { FaShareNodes } from "react-icons/fa6";
 import { ArrowRightIcon, CloseIcon, MinusIcon, PlusIcon, TrashIcon } from "./icons";
 import { ChoiceOptionCard } from "./ChoiceOptionCard";
+import { PopularComboBanner } from "./PopularComboBanner";
 import { useLocationStore } from "../store/useLocationStore";
 import { isOptionUnavailableAt } from "../lib/outOfStock";
 import { AccordionSection } from "./AccordionSection";
@@ -42,6 +43,11 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
     }
     return initial;
   });
+  const popularCombo = choiceAssignments.flatMap((assignment) => {
+    const option = assignment.choiceGroup.options.find((o) => o.isPopularCombo && !isOptionUnavailableAt(o, branchId));
+    return option ? [{ assignment, option }] : [];
+  });
+  const popularComboSelected = popularCombo.length > 0 && popularCombo.every(({ assignment, option }) => (selectedChoices[assignment.choiceGroupId] ?? []).includes(option.id));
   const [selectedAddons, setSelectedAddons] = useState<Record<string, number>>({});
   const [quantity, setQuantity] = useState(1);
   const [specialInstructions, setSpecialInstructions] = useState("");
@@ -91,6 +97,21 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
       const next = exists ? current.filter((id) => id !== optionId) : [...current, optionId];
       if (!exists && next.length > rules.maxSelect) return prev;
       return { ...prev, [assignment.choiceGroupId]: next };
+    });
+  }
+
+  function selectPopularCombo() {
+    setSelectedChoices((prev) => {
+      const alreadySelected = popularCombo.every(({ assignment, option }) => (prev[assignment.choiceGroupId] ?? []).includes(option.id));
+      const next = { ...prev };
+      for (const { assignment, option } of popularCombo) {
+        const rules = resolveChoiceGroupRules(assignment.choiceGroup, assignment);
+        const current = next[assignment.choiceGroupId] ?? [];
+        next[assignment.choiceGroupId] = alreadySelected
+          ? current.filter((id) => id !== option.id)
+          : rules.selectionType === "SINGLE" ? [option.id] : [...new Set([...current, option.id])].slice(0, rules.maxSelect);
+      }
+      return next;
     });
   }
 
@@ -211,12 +232,62 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
             {product.description && <p className="mt-3 text-[15px] leading-relaxed text-muted">{product.description}</p>}
             <div className="mt-4 border-t border-line" />
 
+            <div className="mt-4">
+              <PopularComboBanner options={popularCombo.map(({ option }) => ({ name: option.name, image: option.image }))} selected={popularComboSelected} onSelect={selectPopularCombo} />
+            </div>
+
             <div className="mt-5 space-y-3">
               {choiceAssignments.map((assignment) => {
                 const g = assignment.choiceGroup;
                 const rules = resolveChoiceGroupRules(g, assignment);
                 const sectionKey = `choice:${assignment.choiceGroupId}`;
                 const isSatisfied = (selectedChoices[assignment.choiceGroupId]?.length ?? 0) > 0;
+                const hasImages = g.options.some((o) => o.image);
+                const optionsGrid = (
+                  <div className={`${hasImages ? "grid grid-cols-3 gap-2 py-2" : "grid grid-cols-1 gap-2 py-2"}`}>
+                    {g.options.map((opt) => {
+                      const optPrice = effectivePrice(opt.priceAdjustment, opt.discountPriceAdjustment);
+                      const showPrice = opt.showPrice !== false;
+                      const label = !showPrice
+                        ? undefined
+                        : opt.useListingPrice
+                          ? g.priceReplacesBase
+                            ? formatPaisa(basePrice)
+                            : undefined
+                          : optPrice > 0
+                            ? `${g.priceReplacesBase ? "" : "+ "}${formatPaisa(optPrice)}`
+                            : undefined;
+                      return (
+                        <ChoiceOptionCard
+                          key={opt.id}
+                          name={opt.name}
+                          groupName={assignment.choiceGroupId}
+                          type={rules.selectionType === "SINGLE" ? "radio" : "checkbox"}
+                          checked={(selectedChoices[assignment.choiceGroupId] ?? []).includes(opt.id)}
+                          onChange={() => toggleChoice(assignment, opt.id)}
+                          priceLabel={label}
+                          oldPriceLabel={showPrice && !opt.useListingPrice && optPrice > 0 && opt.discountPriceAdjustment != null ? `${g.priceReplacesBase ? "" : "+ "}${formatPaisa(opt.priceAdjustment)}` : undefined}
+                          description={opt.description}
+                          unavailable={optionOut(opt)}
+                          image={opt.image}
+                          className={hasImages && !opt.image ? "col-span-full" : ""}
+                        />
+                      );
+                    })}
+                  </div>
+                );
+
+                if (hasImages) {
+                  return (
+                    <div key={sectionKey}>
+                      <div className="flex items-center justify-between gap-3 rounded-2xl border border-brand-red/25 bg-[#f4f7f4] px-4 py-3.5">
+                        <span className="font-semibold text-brand-red">{g.name}</span>
+                        {rules.isRequired && <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${isSatisfied ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-brand-red"}`}>{isSatisfied ? "✓ Done" : "Required"}</span>}
+                      </div>
+                      {optionsGrid}
+                    </div>
+                  );
+                }
 
                 return (
                   <AccordionSection
@@ -227,36 +298,7 @@ export function ProductModal({ product, onClose }: { product: Product; onClose: 
                     isOpen={openSection === sectionKey}
                     onToggle={() => setOpenSection(openSection === sectionKey ? null : sectionKey)}
                   >
-                    <div className="grid grid-cols-1 gap-2 py-2">
-                      {g.options.map((opt) => {
-                        const optPrice = effectivePrice(opt.priceAdjustment, opt.discountPriceAdjustment);
-                        const showPrice = opt.showPrice !== false;
-                        // Listing-price options show the product's own price (in "full price" sections) or nothing (extras).
-                        const label = !showPrice
-                          ? undefined
-                          : opt.useListingPrice
-                            ? g.priceReplacesBase
-                              ? formatPaisa(basePrice)
-                              : undefined
-                            : optPrice > 0
-                              ? `${g.priceReplacesBase ? "" : "+ "}${formatPaisa(optPrice)}`
-                              : undefined;
-                        return (
-                          <ChoiceOptionCard
-                            key={opt.id}
-                            name={opt.name}
-                            groupName={assignment.choiceGroupId}
-                            type={rules.selectionType === "SINGLE" ? "radio" : "checkbox"}
-                            checked={(selectedChoices[assignment.choiceGroupId] ?? []).includes(opt.id)}
-                            onChange={() => toggleChoice(assignment, opt.id)}
-                            priceLabel={label}
-                            oldPriceLabel={showPrice && !opt.useListingPrice && optPrice > 0 && opt.discountPriceAdjustment != null ? `${g.priceReplacesBase ? "" : "+ "}${formatPaisa(opt.priceAdjustment)}` : undefined}
-                            description={opt.description}
-                            unavailable={optionOut(opt)}
-                          />
-                        );
-                      })}
-                    </div>
+                    {optionsGrid}
                   </AccordionSection>
                 );
               })}

@@ -44,6 +44,7 @@ export default function HomePage() {
   const scrollSpyObserverRef = useRef<IntersectionObserver | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
+  const openDetailRequest = useRef(0);
 
   // Category sections mount at different times (each fetches its own products), so a section can
   // easily finish loading and mount only *after* a one-time "observe everything" effect already
@@ -208,24 +209,28 @@ export default function HomePage() {
   }
 
   async function openProduct(id: string) {
-    // The menu is already loaded with everything the popup needs, so it opens on the click. The request is only a fallback.
+    const request = ++openDetailRequest.current;
     const cached = allProducts?.find((p) => p.id === id);
-    if (cached?.choiceGroups) {
-      setActiveProduct(cached);
-      return;
+    if (cached?.choiceGroups) setActiveProduct(cached);
+    try {
+      // Refresh cached option flags so admin changes to Popular Combo appear without reloading the menu.
+      const detail = await api.public.get<Product>(`/catalog/products/${id}`);
+      if (request === openDetailRequest.current) setActiveProduct(detail);
+    } catch {
+      if (!cached?.choiceGroups && request === openDetailRequest.current) setActiveProduct(null);
     }
-    const detail = await api.public.get<Product>(`/catalog/products/${id}`);
-    setActiveProduct(detail);
   }
 
   async function openDeal(id: string) {
+    const request = ++openDetailRequest.current;
     const cached = deals?.find((d) => d.id === id);
-    if (cached?.slots) {
-      setActiveDeal(cached);
-      return;
+    if (cached?.slots) setActiveDeal(cached);
+    try {
+      const detail = await api.public.get<Deal>(`/deals/${id}`);
+      if (request === openDetailRequest.current) setActiveDeal(detail);
+    } catch {
+      if (!cached?.slots && request === openDetailRequest.current) setActiveDeal(null);
     }
-    const detail = await api.public.get<Deal>(`/deals/${id}`);
-    setActiveDeal(detail);
   }
 
   return (
@@ -347,8 +352,8 @@ export default function HomePage() {
 
       <HomeFooterPromo />
 
-      {activeProduct && <ProductModal product={activeProduct} onClose={() => setActiveProduct(null)} />}
-      {activeDeal && <DealModal deal={activeDeal} onClose={() => setActiveDeal(null)} />}
+      {activeProduct && <ProductModal product={activeProduct} onClose={() => { openDetailRequest.current++; setActiveProduct(null); }} />}
+      {activeDeal && <DealModal deal={activeDeal} onClose={() => { openDetailRequest.current++; setActiveDeal(null); }} />}
     </main>
   );
 }
