@@ -20,7 +20,7 @@ export function AccordionSection({
   children: React.ReactNode;
 }) {
   return (
-    <div className={`overflow-hidden rounded-2xl border-l-4 bg-emerald-100/80 shadow-sm shadow-emerald-900/10 transition-colors duration-300 dark:bg-emerald-950/60 ${satisfied ? "border-emerald-600 dark:border-emerald-700" : "border-emerald-500 dark:border-emerald-800"}`}>
+    <div className={`overflow-hidden rounded-2xl border-l-4 bg-emerald-100 shadow-sm shadow-emerald-900/10 transition-colors duration-300 dark:bg-emerald-950/60 ${satisfied ? "border-emerald-600 dark:border-emerald-700" : "border-emerald-500 dark:border-emerald-800"}`}>
       <button type="button" onClick={onToggle} className="flex w-full items-center justify-between gap-2 px-3 py-3 text-left sm:gap-3 sm:px-4 sm:py-3.5">
         <span className="flex min-w-0 items-center gap-2 sm:gap-2.5">
           <span className="line-clamp-2 min-w-0 text-sm font-semibold text-emerald-900 dark:text-emerald-200 sm:text-base">{title}</span>
