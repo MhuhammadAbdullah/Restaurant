@@ -229,6 +229,19 @@ export const DEFAULT_APP_PROMO_CONFIG: Required<AppPromoConfig> = {
   showOnCategoryPages: true,
 };
 
+/** Copy shown above customer product/deal choices when an admin has marked popular options. */
+export const popularComboConfigSchema = z.object({
+  heading: z.string().trim().min(1).max(100),
+  description: z.string().trim().max(160),
+  title: z.string().trim().min(1).max(80),
+}).partial();
+export type PopularComboConfig = z.infer<typeof popularComboConfigSchema>;
+export const DEFAULT_POPULAR_COMBO_CONFIG: Required<PopularComboConfig> = {
+  heading: "Try these quick selections!",
+  description: "You can edit your choices from the list",
+  title: "Most Popular Combo",
+};
+
 const paymentMethodSchema = z
   .object({
     enabled: z.boolean(),
@@ -408,6 +421,7 @@ export const updateRestaurantSettingsSchema = z.object({
   locationPopup: locationPopupConfigSchema.optional(),
   loyalty: loyaltyConfigSchema.optional(),
   appPromo: appPromoConfigSchema.optional(),
+  popularCombo: popularComboConfigSchema.optional(),
   checkout: checkoutConfigSchema.optional(),
   aboutContent: aboutContentConfigSchema.optional(),
   receiptMessages: receiptMessagesSchema.optional(),

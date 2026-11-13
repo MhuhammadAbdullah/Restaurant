@@ -45,6 +45,7 @@ const choiceOptionShape = z.object({
   name: z.string().trim().min(1).max(120),
   description: z.string().trim().max(300).optional(),
   image: z.string().url().optional(),
+  isPopularCombo: z.boolean().default(false),
   priceAdjustment: moneyPaisaSchema.default(0),
   discountPriceAdjustment: moneyPaisaSchema.nullable().optional(),
   /** Use the product's listing price: this option changes nothing about the price. */

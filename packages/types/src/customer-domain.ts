@@ -3,6 +3,7 @@ export type ChoiceOption = {
   name: string;
   description?: string | null;
   image: string | null;
+  isPopularCombo?: boolean;
   priceAdjustment: number;
   discountPriceAdjustment: number | null;
   /** Uses the product's listing price (no change). */

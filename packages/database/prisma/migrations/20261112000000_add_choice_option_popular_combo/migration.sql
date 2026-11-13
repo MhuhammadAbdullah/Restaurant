@@ -1,0 +1,2 @@
+ALTER TABLE "choice_options"
+ADD COLUMN IF NOT EXISTS "isPopularCombo" BOOLEAN NOT NULL DEFAULT false;

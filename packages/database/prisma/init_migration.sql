@@ -285,6 +285,7 @@ CREATE TABLE "choice_options" (
     "id" TEXT NOT NULL,
     "choiceGroupId" TEXT NOT NULL,
     "name" TEXT NOT NULL,
+    "isPopularCombo" BOOLEAN NOT NULL DEFAULT false,
     "priceAdjustment" INTEGER NOT NULL DEFAULT 0,
     "sortOrder" INTEGER NOT NULL DEFAULT 0,
     "status" "RecordStatus" NOT NULL DEFAULT 'ACTIVE',

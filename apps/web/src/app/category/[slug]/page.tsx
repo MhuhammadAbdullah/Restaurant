@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useMemo, useState } from "react";
+import { use, useMemo, useRef, useState } from "react";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { api } from "../../../lib/api";
 import { slugify } from "../../../lib/slug";
@@ -17,6 +17,7 @@ import { SkeletonGrid, SkeletonProductCard, SkeletonSectionBanner } from "../../
 
 export default function CategoryPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
+  const openDetailRequest = useRef(0);
   const { branch, isResolved } = useLocationStore();
   const [activeProduct, setActiveProduct] = useState<Product | null>(null);
   const [activeDeal, setActiveDeal] = useState<Deal | null>(null);
@@ -47,24 +48,27 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
   const itemsLoading = isDealsCategory ? dealsLoading : productsLoading;
 
   async function openProduct(productId: string) {
-    // The category is already loaded with each product's choices and add-ons, so the popup opens on the click.
+    const request = ++openDetailRequest.current;
     const cached = products?.find((p) => p.id === productId);
-    if (cached?.choiceGroups) {
-      setActiveProduct(cached);
-      return;
+    if (cached?.choiceGroups) setActiveProduct(cached);
+    try {
+      const detail = await api.public.get<Product>(`/catalog/products/${productId}`);
+      if (request === openDetailRequest.current) setActiveProduct(detail);
+    } catch {
+      if (!cached?.choiceGroups && request === openDetailRequest.current) setActiveProduct(null);
     }
-    const detail = await api.public.get<Product>(`/catalog/products/${productId}`);
-    setActiveProduct(detail);
   }
 
   async function openDeal(dealId: string) {
+    const request = ++openDetailRequest.current;
     const cached = deals?.find((d) => d.id === dealId);
-    if (cached?.slots) {
-      setActiveDeal(cached);
-      return;
+    if (cached?.slots) setActiveDeal(cached);
+    try {
+      const detail = await api.public.get<Deal>(`/deals/${dealId}`);
+      if (request === openDetailRequest.current) setActiveDeal(detail);
+    } catch {
+      if (!cached?.slots && request === openDetailRequest.current) setActiveDeal(null);
     }
-    const detail = await api.public.get<Deal>(`/deals/${dealId}`);
-    setActiveDeal(detail);
   }
 
   const items = isDealsCategory ? deals : products;
@@ -96,8 +100,8 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
 
       <HomeFooterPromo variant="category" />
 
-      {activeProduct && <ProductModal product={activeProduct} onClose={() => setActiveProduct(null)} />}
-      {activeDeal && <DealModal deal={activeDeal} onClose={() => setActiveDeal(null)} />}
+      {activeProduct && <ProductModal product={activeProduct} onClose={() => { openDetailRequest.current++; setActiveProduct(null); }} />}
+      {activeDeal && <DealModal deal={activeDeal} onClose={() => { openDetailRequest.current++; setActiveDeal(null); }} />}
     </main>
   );
 }
